@@ -192,3 +192,99 @@ export interface BillingAttemptFilters {
   page?: number
   per_page?: number
 }
+
+// ============================================================================
+// Dashboard Types
+// ============================================================================
+
+export interface DashboardUploadStats {
+  total: number
+  pending: number
+  processing: number
+  completed: number
+  failed: number
+  today: number
+  this_week: number
+}
+
+export interface DashboardDebtorStats {
+  total: number
+  by_status: {
+    pending: number
+    processing: number
+    recovered: number
+    failed: number
+  }
+  total_amount: number
+  recovered_amount: number
+  recovery_rate: number
+  by_country: Record<string, number>
+  valid_iban_rate: number
+}
+
+export interface DashboardVopStats {
+  total: number
+  by_result: {
+    verified: number
+    likely_verified: number
+    inconclusive: number
+    mismatch: number
+    rejected: number
+  }
+  verification_rate: number
+  average_score: number
+  today: number
+}
+
+export interface DashboardBillingStats {
+  total_attempts: number
+  by_status: {
+    pending: number
+    approved: number
+    declined: number
+    error: number
+    voided: number
+  }
+  approval_rate: number
+  total_approved_amount: number
+  today: number
+}
+
+export interface DashboardTrend {
+  date: string
+  uploads: number
+  debtors: number
+  billing_attempts: number
+  successful_payments: number
+}
+
+export interface DashboardRecentActivity {
+  recent_uploads: Array<{
+    id: number
+    original_filename: string
+    status: string
+    total_records: number
+    created_at: string
+  }>
+  recent_billing: Array<{
+    id: number
+    debtor_id: number
+    status: string
+    amount: number
+    created_at: string
+    debtor?: {
+      id: number
+      first_name: string
+      last_name: string
+    }
+  }>
+}
+
+export interface DashboardData {
+  uploads: DashboardUploadStats
+  debtors: DashboardDebtorStats
+  vop: DashboardVopStats
+  billing: DashboardBillingStats
+  recent_activity: DashboardRecentActivity
+  trends: DashboardTrend[]
+}

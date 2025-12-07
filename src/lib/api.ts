@@ -15,6 +15,7 @@ import type {
   DebtorFilters,
   VopLogFilters,
   BillingAttemptFilters,
+  DashboardData,
 } from '@/types'
 
 // ============================================================================
@@ -71,7 +72,7 @@ class ApiClient {
   /**
    * Build query string from filters object.
    */
-  private buildQuery(params?: Record<string, unknown>): string {
+  private buildQuery(params?: object): string {
     if (!params) return ''
     const filtered = Object.entries(params)
       .filter(([, value]) => value !== undefined && value !== null && value !== '')
@@ -153,6 +154,18 @@ class ApiClient {
    */
   async getUser(): Promise<User> {
     const response = await this.request<{ data: User }>('/user')
+    return response.data
+  }
+
+  // ==========================================================================
+  // Dashboard Endpoints
+  // ==========================================================================
+
+  /**
+   * Get dashboard statistics and metrics.
+   */
+  async getDashboard(): Promise<DashboardData> {
+    const response = await this.request<{ data: DashboardData }>('/admin/dashboard')
     return response.data
   }
 

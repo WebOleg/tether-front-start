@@ -174,6 +174,52 @@ class ApiClient {
   // ==========================================================================
 
   /**
+   * Upload CSV/XLSX file for processing.
+   */
+  async uploadFile(file: File): Promise<Upload> {
+    const token = this.getToken()
+    
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const headers: HeadersInit = {
+      'Accept': 'application/json',
+    }
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    const response = await fetch(`${API_BASE_URL}/admin/uploads`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+
+    if (response.status === 401) {
+      this.clearToken()
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
+      throw new Error('Unauthorized')
+    }
+
+    if (response.status === 202) {
+      // Async processing - return partial upload data
+      const result = await response.json()
+      return result.data
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.message || `Upload failed: ${response.status}`)
+    }
+
+    const result = await response.json()
+    return result.data
+  }
+
+  /**
    * Get paginated list of uploads.
    */
   async getUploads(filters?: UploadFilters): Promise<ApiResponse<Upload[]>> {

@@ -20,8 +20,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { UploadProgress } from '@/components/upload-progress'
 import { api } from '@/lib/api'
-import { Upload as UploadIcon, FileUp, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { Upload as UploadIcon, FileUp, CheckCircle, AlertCircle, Loader2, X } from 'lucide-react'
 import type { Upload } from '@/types'
 
 const statusColors: Record<string, string> = {
@@ -53,6 +54,7 @@ export default function UploadsPage() {
   const [file, setFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null)
+  const [activeUploadId, setActiveUploadId] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchUploads = async () => {
@@ -103,19 +105,18 @@ export default function UploadsPage() {
 
     setIsUploading(true)
     setUploadStatus(null)
+    setActiveUploadId(null)
 
     try {
       const upload = await api.uploadFile(file)
-      setUploadStatus({ 
-        type: 'success', 
-        message: `Successfully uploaded "${file.name}" (${upload.total_records} records)` 
-      })
+      
+      // Show progress tracker
+      setActiveUploadId(upload.id)
+      
       setFile(null)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
-      // Refresh the list
-      await fetchUploads()
     } catch (error) {
       setUploadStatus({ 
         type: 'error', 
@@ -124,6 +125,32 @@ export default function UploadsPage() {
     } finally {
       setIsUploading(false)
     }
+  }
+
+  const handleProgressComplete = (upload: Upload) => {
+    // Refresh the list
+    fetchUploads()
+    
+    // Show success message
+    setUploadStatus({ 
+      type: 'success', 
+      message: `Completed: ${upload.processed_records - upload.failed_records} successful, ${upload.failed_records} failed` 
+    })
+
+    // Keep progress visible for a moment, then hide
+    setTimeout(() => {
+      setActiveUploadId(null)
+    }, 3000)
+  }
+
+  const handleProgressError = (error: string) => {
+    setUploadStatus({ type: 'error', message: error })
+    fetchUploads()
+  }
+
+  const dismissProgress = () => {
+    setActiveUploadId(null)
+    fetchUploads()
   }
 
   return (
@@ -144,7 +171,7 @@ export default function UploadsPage() {
               Select a CSV or XLSX file to upload debtor records (max 50MB)
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-3">
                 <Input
@@ -174,29 +201,46 @@ export default function UploadsPage() {
                 </Button>
               </div>
 
-              {/* Status Message */}
-              {uploadStatus && (
-                <div className={`flex items-center gap-2 p-3 rounded-lg ${
-                  uploadStatus.type === 'success' 
-                    ? 'bg-green-50 text-green-700 border border-green-200' 
-                    : 'bg-red-50 text-red-700 border border-red-200'
-                }`}>
-                  {uploadStatus.type === 'success' ? (
-                    <CheckCircle className="h-4 w-4 flex-shrink-0" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                  )}
-                  <span className="text-sm">{uploadStatus.message}</span>
-                </div>
-              )}
-
               {/* File Info */}
-              {file && !uploadStatus && (
+              {file && !uploadStatus && !activeUploadId && (
                 <div className="text-sm text-slate-500">
                   Selected: {file.name} ({formatFileSize(file.size)})
                 </div>
               )}
             </form>
+
+            {/* Progress Tracker */}
+            {activeUploadId && (
+              <div className="relative">
+                <button
+                  onClick={dismissProgress}
+                  className="absolute -top-2 -right-2 z-10 p-1 bg-white rounded-full shadow-md hover:bg-slate-100"
+                >
+                  <X className="h-4 w-4 text-slate-500" />
+                </button>
+                <UploadProgress
+                  uploadId={activeUploadId}
+                  onComplete={handleProgressComplete}
+                  onError={handleProgressError}
+                />
+              </div>
+            )}
+
+            {/* Status Message */}
+            {uploadStatus && !activeUploadId && (
+              <div className={`flex items-center gap-2 p-3 rounded-lg ${
+                uploadStatus.type === 'success' 
+                  ? 'bg-green-50 text-green-700 border border-green-200' 
+                  : 'bg-red-50 text-red-700 border border-red-200'
+              }`}>
+                {uploadStatus.type === 'success' ? (
+                  <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                )}
+                <span className="text-sm">{uploadStatus.message}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 

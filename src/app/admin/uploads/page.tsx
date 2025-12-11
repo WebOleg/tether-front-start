@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/table'
 import { UploadProgress } from '@/components/upload-progress'
 import { api } from '@/lib/api'
-import { Upload as UploadIcon, FileUp, CheckCircle, AlertCircle, Loader2, X } from 'lucide-react'
+import { Upload as UploadIcon, FileUp, CheckCircle, AlertCircle, XCircle, Loader2, X, FileSpreadsheet } from 'lucide-react'
 import type { Upload } from '@/types'
 
 const statusColors: Record<string, string> = {
@@ -48,8 +48,13 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+interface UploadWithStats extends Upload {
+  valid_count?: number
+  invalid_count?: number
+}
+
 export default function UploadsPage() {
-  const [uploads, setUploads] = useState<Upload[]>([])
+  const [uploads, setUploads] = useState<UploadWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const [file, setFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
@@ -86,7 +91,6 @@ export default function UploadsPage() {
       return
     }
 
-    // Validate file type
     const validTypes = ['.csv', '.xlsx', 'text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
     const isValidType = validTypes.some(type => 
       file.name.toLowerCase().endsWith(type) || file.type === type
@@ -97,7 +101,6 @@ export default function UploadsPage() {
       return
     }
 
-    // Validate file size (max 50MB)
     if (file.size > 50 * 1024 * 1024) {
       setUploadStatus({ type: 'error', message: 'File too large. Maximum size is 50MB.' })
       return
@@ -108,11 +111,8 @@ export default function UploadsPage() {
     setActiveUploadId(null)
 
     try {
-      const upload = await api.uploadFile(file)
-      
-      // Show progress tracker
-      setActiveUploadId(upload.id)
-      
+      const result = await api.uploadFile(file)
+      setActiveUploadId(result.upload.id)
       setFile(null)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
@@ -128,16 +128,11 @@ export default function UploadsPage() {
   }
 
   const handleProgressComplete = (upload: Upload) => {
-    // Refresh the list
     fetchUploads()
-    
-    // Show success message
     setUploadStatus({ 
       type: 'success', 
       message: `Completed: ${upload.processed_records - upload.failed_records} successful, ${upload.failed_records} failed` 
     })
-
-    // Keep progress visible for a moment, then hide
     setTimeout(() => {
       setActiveUploadId(null)
     }, 3000)
@@ -160,7 +155,6 @@ export default function UploadsPage() {
         description="Upload and manage CSV/XLSX files for debt processing"
       />
       <div className="p-6 space-y-6">
-        {/* Upload Form */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -201,7 +195,6 @@ export default function UploadsPage() {
                 </Button>
               </div>
 
-              {/* File Info */}
               {file && !uploadStatus && !activeUploadId && (
                 <div className="text-sm text-slate-500">
                   Selected: {file.name} ({formatFileSize(file.size)})
@@ -209,7 +202,6 @@ export default function UploadsPage() {
               )}
             </form>
 
-            {/* Progress Tracker */}
             {activeUploadId && (
               <div className="relative">
                 <button
@@ -226,7 +218,6 @@ export default function UploadsPage() {
               </div>
             )}
 
-            {/* Status Message */}
             {uploadStatus && !activeUploadId && (
               <div className={`flex items-center gap-2 p-3 rounded-lg ${
                 uploadStatus.type === 'success' 
@@ -244,12 +235,11 @@ export default function UploadsPage() {
           </CardContent>
         </Card>
 
-        {/* Uploads Table */}
         <Card>
           <CardHeader>
             <CardTitle>Upload History</CardTitle>
             <CardDescription>
-              View all uploaded files and their processing status
+              View all uploaded files and their validation status
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -258,8 +248,8 @@ export default function UploadsPage() {
                 <TableRow>
                   <TableHead>File</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Records</TableHead>
-                  <TableHead className="text-right">Success Rate</TableHead>
+                  <TableHead className="text-center">Records</TableHead>
+                  <TableHead className="text-center">Validation</TableHead>
                   <TableHead>Uploaded</TableHead>
                 </TableRow>
               </TableHeader>
@@ -267,53 +257,64 @@ export default function UploadsPage() {
                 {loading ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8">
-                      <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
                     </TableCell>
                   </TableRow>
                 ) : uploads.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-8 text-slate-500">
-                      No uploads yet. Upload your first file above.
+                      No uploads yet
                     </TableCell>
                   </TableRow>
                 ) : (
-                  uploads.map((upload) => (
-                    <TableRow key={upload.id}>
-                      <TableCell>
-                        <Link
-                          href={`/admin/uploads/${upload.id}`}
-                          className="font-medium text-blue-600 hover:underline"
-                        >
-                          {upload.original_filename}
-                        </Link>
-                        <div className="text-sm text-slate-500">
-                          {formatFileSize(upload.file_size)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={statusColors[upload.status]}>
-                          {upload.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div>{upload.total_records} total</div>
-                        <div className="text-sm text-slate-500">
-                          {upload.processed_records} processed
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span className={
-                          upload.success_rate >= 90 ? 'text-green-600' : 
-                          upload.success_rate >= 70 ? 'text-yellow-600' : 'text-red-600'
-                        }>
-                          {upload.success_rate}%
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-slate-500">
-                        {formatDate(upload.created_at)}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  uploads.map((upload) => {
+                    const total = upload.total_records || 0
+                    const valid = upload.valid_count || 0
+                    const invalid = upload.invalid_count || 0
+                    const validPercent = total > 0 ? Math.round((valid / total) * 100) : 0
+                    
+                    return (
+                      <TableRow key={upload.id} className="hover:bg-slate-50">
+                        <TableCell>
+                          <Link href={`/admin/uploads/${upload.id}`} className="hover:underline">
+                            <div className="flex items-center gap-2">
+                              <FileSpreadsheet className="h-4 w-4 text-slate-400" />
+                              <div>
+                                <p className="font-medium text-blue-600">{upload.original_filename}</p>
+                                <p className="text-xs text-slate-500">{formatFileSize(upload.file_size)}</p>
+                              </div>
+                            </div>
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={statusColors[upload.status]}>
+                            {upload.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className="font-medium">{total}</span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-center gap-3">
+                            <div className="flex items-center gap-1 text-green-600">
+                              <CheckCircle className="h-4 w-4" />
+                              <span className="text-sm">{valid}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-orange-500">
+                              <XCircle className="h-4 w-4" />
+                              <span className="text-sm">{invalid}</span>
+                            </div>
+                            <span className={`text-sm font-medium ${validPercent === 100 ? 'text-green-600' : validPercent >= 80 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              {validPercent}%
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-slate-500">
+                          {formatDate(upload.created_at)}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>

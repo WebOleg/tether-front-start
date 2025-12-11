@@ -16,6 +16,10 @@ import type {
   VopLogFilters,
   BillingAttemptFilters,
   DashboardData,
+  UploadResult,
+  UploadError,
+  ValidationStats,
+  DebtorUpdateData,
 } from '@/types'
 
 // ============================================================================
@@ -31,9 +35,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/a
 class ApiClient {
   private token: string | null = null
 
-  /**
-   * Set authentication token and persist to localStorage.
-   */
   setToken(token: string): void {
     this.token = token
     if (typeof window !== 'undefined') {
@@ -41,9 +42,6 @@ class ApiClient {
     }
   }
 
-  /**
-   * Get authentication token from memory or localStorage.
-   */
   getToken(): string | null {
     if (this.token) return this.token
     if (typeof window !== 'undefined') {
@@ -52,9 +50,6 @@ class ApiClient {
     return this.token
   }
 
-  /**
-   * Clear authentication token.
-   */
   clearToken(): void {
     this.token = null
     if (typeof window !== 'undefined') {
@@ -62,16 +57,10 @@ class ApiClient {
     }
   }
 
-  /**
-   * Check if user is authenticated.
-   */
   isAuthenticated(): boolean {
     return !!this.getToken()
   }
 
-  /**
-   * Build query string from filters object.
-   */
   private buildQuery(params?: object): string {
     if (!params) return ''
     const filtered = Object.entries(params)
@@ -80,9 +69,6 @@ class ApiClient {
     return filtered.length ? `?${filtered.join('&')}` : ''
   }
 
-  /**
-   * Make HTTP request to API.
-   */
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -104,7 +90,6 @@ class ApiClient {
       headers,
     })
 
-    // Handle unauthorized - redirect to login
     if (response.status === 401) {
       this.clearToken()
       if (typeof window !== 'undefined') {
@@ -113,7 +98,6 @@ class ApiClient {
       throw new Error('Unauthorized')
     }
 
-    // Handle other errors
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
       throw new Error(error.message || `API Error: ${response.status}`)
@@ -126,9 +110,6 @@ class ApiClient {
   // Auth Endpoints
   // ==========================================================================
 
-  /**
-   * Login user and store token.
-   */
   async login(email: string, password: string): Promise<LoginResponse> {
     const response = await this.request<LoginResponse>('/login', {
       method: 'POST',
@@ -138,9 +119,6 @@ class ApiClient {
     return response
   }
 
-  /**
-   * Logout user and clear token.
-   */
   async logout(): Promise<void> {
     try {
       await this.request('/logout', { method: 'POST' })
@@ -149,9 +127,6 @@ class ApiClient {
     }
   }
 
-  /**
-   * Get current authenticated user.
-   */
   async getUser(): Promise<User> {
     const response = await this.request<{ data: User }>('/user')
     return response.data
@@ -161,9 +136,6 @@ class ApiClient {
   // Dashboard Endpoints
   // ==========================================================================
 
-  /**
-   * Get dashboard statistics and metrics.
-   */
   async getDashboard(): Promise<DashboardData> {
     const response = await this.request<{ data: DashboardData }>('/admin/dashboard')
     return response.data
@@ -173,10 +145,7 @@ class ApiClient {
   // Upload Endpoints
   // ==========================================================================
 
-  /**
-   * Upload CSV/XLSX file for processing.
-   */
-  async uploadFile(file: File): Promise<Upload> {
+  async uploadFile(file: File): Promise<UploadResult> {
     const token = this.getToken()
     
     const formData = new FormData()
@@ -205,9 +174,14 @@ class ApiClient {
     }
 
     if (response.status === 202) {
-      // Async processing - return partial upload data
       const result = await response.json()
-      return result.data
+      return {
+        upload: result.data,
+        created: 0,
+        failed: 0,
+        errors: [],
+        queued: true,
+      }
     }
 
     if (!response.ok) {
@@ -216,22 +190,42 @@ class ApiClient {
     }
 
     const result = await response.json()
-    return result.data
+    return {
+      upload: result.data,
+      created: result.meta?.created ?? result.data.processed_records ?? 0,
+      failed: result.meta?.failed ?? result.data.failed_records ?? 0,
+      errors: (result.meta?.errors ?? []) as UploadError[],
+      queued: result.meta?.queued ?? false,
+    }
   }
 
-  /**
-   * Get paginated list of uploads.
-   */
   async getUploads(filters?: UploadFilters): Promise<ApiResponse<Upload[]>> {
     const query = this.buildQuery(filters)
     return this.request<ApiResponse<Upload[]>>(`/admin/uploads${query}`)
   }
 
-  /**
-   * Get single upload by ID.
-   */
   async getUpload(id: number): Promise<Upload> {
     const response = await this.request<{ data: Upload }>(`/admin/uploads/${id}`)
+    return response.data
+  }
+
+  async getUploadDebtors(uploadId: number, filters?: DebtorFilters): Promise<ApiResponse<Debtor[]>> {
+    const query = this.buildQuery(filters)
+    return this.request<ApiResponse<Debtor[]>>(`/admin/uploads/${uploadId}/debtors${query}`)
+  }
+
+  async validateUpload(uploadId: number): Promise<{ total: number; valid: number; invalid: number }> {
+    const response = await this.request<{ data: { total: number; valid: number; invalid: number } }>(
+      `/admin/uploads/${uploadId}/validate`,
+      { method: 'POST' }
+    )
+    return response.data
+  }
+
+  async getUploadValidationStats(uploadId: number): Promise<ValidationStats> {
+    const response = await this.request<{ data: ValidationStats }>(
+      `/admin/uploads/${uploadId}/validation-stats`
+    )
     return response.data
   }
 
@@ -239,37 +233,45 @@ class ApiClient {
   // Debtor Endpoints
   // ==========================================================================
 
-  /**
-   * Get paginated list of debtors.
-   */
   async getDebtors(filters?: DebtorFilters): Promise<ApiResponse<Debtor[]>> {
     const query = this.buildQuery(filters)
     return this.request<ApiResponse<Debtor[]>>(`/admin/debtors${query}`)
   }
 
-  /**
-   * Get single debtor by ID with relations.
-   */
   async getDebtor(id: number): Promise<Debtor> {
     const response = await this.request<{ data: Debtor }>(`/admin/debtors/${id}`)
     return response.data
+  }
+
+  async updateDebtor(id: number, data: DebtorUpdateData): Promise<Debtor> {
+    const response = await this.request<{ data: Debtor }>(`/admin/debtors/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+    return response.data
+  }
+
+  async validateDebtor(id: number): Promise<{ validation_status: string; validation_errors: string[] | null }> {
+    const response = await this.request<{ data: { validation_status: string; validation_errors: string[] | null } }>(
+      `/admin/debtors/${id}/validate`,
+      { method: 'POST' }
+    )
+    return response.data
+  }
+
+  async deleteDebtor(id: number): Promise<void> {
+    await this.request(`/admin/debtors/${id}`, { method: 'DELETE' })
   }
 
   // ==========================================================================
   // VOP Log Endpoints
   // ==========================================================================
 
-  /**
-   * Get paginated list of VOP verification logs.
-   */
   async getVopLogs(filters?: VopLogFilters): Promise<ApiResponse<VopLog[]>> {
     const query = this.buildQuery(filters)
     return this.request<ApiResponse<VopLog[]>>(`/admin/vop-logs${query}`)
   }
 
-  /**
-   * Get single VOP log by ID.
-   */
   async getVopLog(id: number): Promise<VopLog> {
     const response = await this.request<{ data: VopLog }>(`/admin/vop-logs/${id}`)
     return response.data
@@ -279,17 +281,11 @@ class ApiClient {
   // Billing Attempt Endpoints
   // ==========================================================================
 
-  /**
-   * Get paginated list of billing attempts.
-   */
   async getBillingAttempts(filters?: BillingAttemptFilters): Promise<ApiResponse<BillingAttempt[]>> {
     const query = this.buildQuery(filters)
     return this.request<ApiResponse<BillingAttempt[]>>(`/admin/billing-attempts${query}`)
   }
 
-  /**
-   * Get single billing attempt by ID.
-   */
   async getBillingAttempt(id: number): Promise<BillingAttempt> {
     const response = await this.request<{ data: BillingAttempt }>(`/admin/billing-attempts/${id}`)
     return response.data

@@ -1,11 +1,6 @@
 /**
  * TypeScript types for Tether Admin Panel.
- * Matches Laravel API responses.
  */
-
-// ============================================================================
-// API Response Types
-// ============================================================================
 
 export interface ApiResponse<T> {
   data: T
@@ -29,10 +24,6 @@ export interface PaginationLinks {
   next: string | null
 }
 
-// ============================================================================
-// Upload Types
-// ============================================================================
-
 export interface Upload {
   id: number
   filename: string
@@ -44,52 +35,65 @@ export interface Upload {
   processed_records: number
   failed_records: number
   success_rate: number
+  headers: string[] | null
   processing_started_at: string | null
   processing_completed_at: string | null
   created_at: string
   updated_at: string
   debtors_count?: number
+  valid_count?: number
+  invalid_count?: number
 }
 
 export type UploadStatus = 'pending' | 'processing' | 'completed' | 'failed'
-
-// ============================================================================
-// Debtor Types
-// ============================================================================
 
 export interface Debtor {
   id: number
   upload_id: number
   iban_masked: string
+  iban_valid: boolean
   first_name: string
   last_name: string
   full_name: string
   email: string | null
   phone: string | null
   address: string | null
-  zip_code: string | null
+  street: string | null
+  street_number: string | null
+  postcode: string | null
   city: string | null
+  province: string | null
   country: string
   amount: number
   currency: string
   status: DebtorStatus
+  validation_status: ValidationStatus
+  validation_errors: string[] | null
+  validated_at: string | null
   risk_class: RiskClass | null
   external_reference: string | null
+  bank_name: string | null
+  bic: string | null
+  raw_data: Record<string, string> | null
   created_at: string
   updated_at: string
   upload?: Upload
   latest_vop?: VopLog
   latest_billing?: BillingAttempt
-  vop_logs?: VopLog[]
-  billing_attempts?: BillingAttempt[]
 }
 
 export type DebtorStatus = 'pending' | 'processing' | 'recovered' | 'failed'
+export type ValidationStatus = 'pending' | 'valid' | 'invalid'
 export type RiskClass = 'low' | 'medium' | 'high'
 
-// ============================================================================
-// VOP Log Types
-// ============================================================================
+export interface ValidationStats {
+  total: number
+  valid: number
+  invalid: number
+  pending: number
+  blacklisted: number
+  ready_for_sync: number
+}
 
 export interface VopLog {
   id: number
@@ -107,16 +111,10 @@ export interface VopLog {
   is_positive: boolean
   is_negative: boolean
   created_at: string
-  debtor?: Debtor
-  upload?: Upload
 }
 
 export type VopResult = 'verified' | 'likely_verified' | 'inconclusive' | 'mismatch' | 'rejected'
 export type ScoreLabel = 'high' | 'medium' | 'low'
-
-// ============================================================================
-// Billing Attempt Types
-// ============================================================================
 
 export interface BillingAttempt {
   id: number
@@ -136,15 +134,9 @@ export interface BillingAttempt {
   can_retry: boolean
   processed_at: string | null
   created_at: string
-  debtor?: Debtor
-  upload?: Upload
 }
 
 export type BillingStatus = 'pending' | 'approved' | 'declined' | 'error' | 'voided'
-
-// ============================================================================
-// Auth Types
-// ============================================================================
 
 export interface User {
   id: number
@@ -158,10 +150,6 @@ export interface LoginResponse {
   user: User
 }
 
-// ============================================================================
-// Filter Types
-// ============================================================================
-
 export interface UploadFilters {
   status?: UploadStatus
   page?: number
@@ -171,8 +159,10 @@ export interface UploadFilters {
 export interface DebtorFilters {
   upload_id?: number
   status?: DebtorStatus
+  validation_status?: ValidationStatus
   country?: string
   risk_class?: RiskClass
+  search?: string
   page?: number
   per_page?: number
 }
@@ -193,10 +183,6 @@ export interface BillingAttemptFilters {
   per_page?: number
 }
 
-// ============================================================================
-// Dashboard Types
-// ============================================================================
-
 export interface DashboardUploadStats {
   total: number
   pending: number
@@ -209,12 +195,7 @@ export interface DashboardUploadStats {
 
 export interface DashboardDebtorStats {
   total: number
-  by_status: {
-    pending: number
-    processing: number
-    recovered: number
-    failed: number
-  }
+  by_status: Record<string, number>
   total_amount: number
   recovered_amount: number
   recovery_rate: number
@@ -224,13 +205,7 @@ export interface DashboardDebtorStats {
 
 export interface DashboardVopStats {
   total: number
-  by_result: {
-    verified: number
-    likely_verified: number
-    inconclusive: number
-    mismatch: number
-    rejected: number
-  }
+  by_result: Record<string, number>
   verification_rate: number
   average_score: number
   today: number
@@ -238,13 +213,7 @@ export interface DashboardVopStats {
 
 export interface DashboardBillingStats {
   total_attempts: number
-  by_status: {
-    pending: number
-    approved: number
-    declined: number
-    error: number
-    voided: number
-  }
+  by_status: Record<string, number>
   approval_rate: number
   total_approved_amount: number
   today: number
@@ -272,11 +241,6 @@ export interface DashboardRecentActivity {
     status: string
     amount: number
     created_at: string
-    debtor?: {
-      id: number
-      first_name: string
-      last_name: string
-    }
   }>
 }
 
@@ -287,4 +251,23 @@ export interface DashboardData {
   billing: DashboardBillingStats
   recent_activity: DashboardRecentActivity
   trends: DashboardTrend[]
+}
+
+export interface UploadError {
+  row: number
+  message: string
+  data?: Record<string, any>
+}
+
+export interface UploadResult {
+  upload: Upload
+  created: number
+  failed: number
+  errors: UploadError[]
+  queued: boolean
+}
+
+export interface DebtorUpdateData {
+  raw_data?: Record<string, string>
+  [key: string]: any
 }

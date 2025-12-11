@@ -71,10 +71,8 @@ export function UploadProgress({ uploadId, onComplete, onError }: UploadProgress
   }, [uploadId, onComplete, onError])
 
   useEffect(() => {
-    // Initial fetch
     fetchStatus()
 
-    // Polling interval
     const interval = setInterval(async () => {
       const status = await fetchStatus()
       if (status === 'completed' || status === 'failed') {
@@ -111,7 +109,7 @@ export function UploadProgress({ uploadId, onComplete, onError }: UploadProgress
     )
   }
 
-  const config = statusConfig[upload.status]
+  const config = statusConfig[upload.status as keyof typeof statusConfig]
   const Icon = config.icon
   const progress = upload.total_records > 0 
     ? Math.round((upload.processed_records / upload.total_records) * 100)
@@ -121,7 +119,6 @@ export function UploadProgress({ uploadId, onComplete, onError }: UploadProgress
     <Card>
       <CardContent className="pt-4">
         <div className="space-y-3">
-          {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-slate-500" />
@@ -133,10 +130,8 @@ export function UploadProgress({ uploadId, onComplete, onError }: UploadProgress
             </Badge>
           </div>
 
-          {/* Progress Bar */}
           <Progress value={progress} className="h-2" />
 
-          {/* Stats */}
           <div className="flex justify-between text-xs text-slate-500">
             <span>
               {upload.processed_records} / {upload.total_records} records
@@ -144,7 +139,6 @@ export function UploadProgress({ uploadId, onComplete, onError }: UploadProgress
             <span>{progress}%</span>
           </div>
 
-          {/* Success/Failure counts */}
           {upload.status === 'completed' && (
             <div className="flex gap-4 text-xs">
               <span className="text-green-600">

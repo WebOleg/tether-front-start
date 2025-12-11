@@ -25,6 +25,7 @@
                               │                                │
                               │  - Authentication (Sanctum)    │
                               │  - Admin CRUD endpoints        │
+                              │  - Two-Stage Validation        │
                               │  - JSON responses              │
                               └────────────────────────────────┘
 ```
@@ -42,13 +43,26 @@ src/app/
 └── admin/
     ├── page.tsx          → /admin
     ├── uploads/
-    │   └── page.tsx      → /admin/uploads
+    │   ├── page.tsx      → /admin/uploads
+    │   └── [id]/
+    │       └── page.tsx  → /admin/uploads/:id (dynamic route)
     ├── debtors/
     │   └── page.tsx      → /admin/debtors
     ├── vop-logs/
     │   └── page.tsx      → /admin/vop-logs
     └── billing/
         └── page.tsx      → /admin/billing
+```
+
+### Dynamic Routes
+
+The `[id]` folder creates a dynamic route segment:
+```typescript
+// src/app/admin/uploads/[id]/page.tsx
+export default function UploadDetailPage({ params }: { params: { id: string } }) {
+  const uploadId = params.id  // e.g., "123"
+  // ...
+}
 ```
 
 ### Layouts
@@ -60,16 +74,6 @@ src/app/
 └── admin/
     └── layout.tsx        → Admin layout (applies to /admin/*)
 ```
-
-**Root Layout** (`src/app/layout.tsx`):
-- HTML structure
-- Global styles
-- Metadata
-
-**Admin Layout** (`src/app/admin/layout.tsx`):
-- Sidebar navigation
-- Header
-- Main content area
 
 ## Component Architecture
 ```
@@ -90,6 +94,117 @@ src/app/
 │  └──────────────┘  │  └───────────────────────────────────┘  │  │
 │                    └─────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+## Two-Stage Validation Flow
+
+### Overview
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    TWO-STAGE VALIDATION                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  STAGE A (Upload)           STAGE B (Validation)                │
+│  ─────────────────          ──────────────────────              │
+│  1. User uploads CSV        1. Upload completes                 │
+│  2. All rows accepted       2. Frontend auto-triggers           │
+│  3. validation_status =        POST /uploads/{id}/validate      │
+│     'pending'               3. Backend validates each row       │
+│  4. raw_data saved          4. Updates validation_status        │
+│  5. headers saved              to 'valid' or 'invalid'          │
+│                             5. Frontend polls stats             │
+│                             6. Table updates with results       │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Frontend Validation Flow
+```
+1. User uploads CSV file
+           │
+           ▼
+2. POST /api/admin/uploads (file)
+           │
+           ▼
+3. Poll GET /uploads/{id}/status until completed
+           │
+           ▼
+4. Auto-trigger POST /uploads/{id}/validate
+           │
+           ▼
+5. Poll GET /uploads/{id}/validation-stats
+           │
+           ▼
+6. Fetch GET /uploads/{id}/debtors
+           │
+           ▼
+7. Render table with validation results
+```
+
+## Upload Detail Page
+
+### Page Structure
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Upload: client1_test1_ES.xlsx                    [Back button] │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌───────────┐ │
+│  │  Total  │ │  Valid  │ │ Invalid │ │Blacklist│ │Ready Sync │ │
+│  │   150   │ │   120   │ │    25   │ │    5    │ │    115    │ │
+│  │  gray   │ │  green  │ │   red   │ │ purple  │ │   blue    │ │
+│  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └───────────┘ │
+│                                                                  │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Row# │ Status  │ IBAN          │ Name    │ Amount │ City  │  │
+│  ├──────┼─────────┼───────────────┼─────────┼────────┼───────┤  │
+│  │  1   │ ✓ Valid │ ES12****5678  │ Juan    │ 150.00 │ Madrid│  │
+│  │  2   │ ✗ Error │ INVALID       │ Pedro   │ -50.00 │       │  │
+│  │  3   │ ⚫ Black│ ES99****1234  │ Maria   │ 200.00 │ Bilbao│  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Validation Stats Cards
+
+| Card | Color | Data Source |
+|------|-------|-------------|
+| Total | Gray | `stats.total` |
+| Valid | Green | `stats.valid` |
+| Invalid | Red | `stats.invalid` |
+| Blacklisted | Purple | `stats.blacklisted` |
+| Pending | Yellow | `stats.pending` |
+| Ready for Sync | Blue | `stats.ready_for_sync` |
+
+### Dynamic Columns
+
+Columns are generated from `upload.headers` array:
+```typescript
+// upload.headers = ['iban', 'nombre', 'importe', 'ciudad']
+
+const columns = [
+  { key: 'row_number', label: 'Row #', sticky: true },
+  { key: 'status', label: 'Status', sticky: true },
+  ...headers.map(h => ({ key: h, label: h }))
+]
+
+// Values from debtor.raw_data
+const cellValue = debtor.raw_data[column.key]
+```
+
+### Error Row Highlighting
+```typescript
+// Row styling based on validation_status
+const getRowClass = (debtor: Debtor) => {
+  if (debtor.validation_status === 'invalid') {
+    return 'bg-red-50 hover:bg-red-100'
+  }
+  if (debtor.validation_errors?.includes('blacklisted')) {
+    return 'bg-purple-50 hover:bg-purple-100'
+  }
+  return 'hover:bg-gray-50'
+}
 ```
 
 ## Data Flow
@@ -150,9 +265,12 @@ src/app/
 
 Each page manages its own state:
 ```typescript
+// Upload Detail Page state
+const [upload, setUpload] = useState<Upload | null>(null)
 const [debtors, setDebtors] = useState<Debtor[]>([])
+const [stats, setStats] = useState<ValidationStats | null>(null)
 const [loading, setLoading] = useState(true)
-const [statusFilter, setStatusFilter] = useState('all')
+const [validating, setValidating] = useState(false)
 ```
 
 ### Token Storage
@@ -160,23 +278,6 @@ const [statusFilter, setStatusFilter] = useState('all')
 Authentication token stored in:
 - Memory (ApiClient.token)
 - localStorage (persistence across refreshes)
-```typescript
-class ApiClient {
-  private token: string | null = null
-
-  setToken(token: string) {
-    this.token = token
-    localStorage.setItem('auth_token', token)
-  }
-
-  getToken() {
-    if (!this.token) {
-      this.token = localStorage.getItem('auth_token')
-    }
-    return this.token
-  }
-}
-```
 
 ## TypeScript Types
 
@@ -184,87 +285,91 @@ class ApiClient {
 
 All types in `src/types/index.ts`:
 ```typescript
-// API Response wrapper
-interface ApiResponse<T> {
-  data: T
-  meta?: PaginationMeta
-}
-
-// Domain models match Laravel API
 interface Upload {
   id: number
   filename: string
   status: UploadStatus
-  // ...
+  headers: string[]           // NEW: CSV column names
+  total_records: number
 }
 
 interface Debtor {
   id: number
   iban_masked: string
   full_name: string
-  // ...
+  validation_status: 'pending' | 'valid' | 'invalid'  // NEW
+  validation_errors: string[] | null                   // NEW
+  raw_data: Record<string, string>                     // NEW
+}
+
+interface ValidationStats {    // NEW
+  total: number
+  valid: number
+  invalid: number
+  pending: number
+  blacklisted: number
+  ready_for_sync: number
 }
 ```
 
-### Type Safety Flow
+## API Client Methods
+
+### Authentication
+```typescript
+await api.login(email, password)   // POST /login
+await api.logout()                 // POST /logout
+await api.getUser()                // GET /user
 ```
-Laravel Model → API Resource → JSON → TypeScript Interface → Component
-     │              │           │              │                │
-  Debtor.php → DebtorResource → { } →     Debtor         → DebtorsPage
+
+### Resources
+```typescript
+await api.getDashboard()           // GET /admin/dashboard
+await api.getUploads(filters)      // GET /admin/uploads
+await api.getUpload(id)            // GET /admin/uploads/{id}/status
+await api.createUpload(file)       // POST /admin/uploads
+await api.getDebtors(filters)      // GET /admin/debtors
+await api.getVopLogs(filters)      // GET /admin/vop-logs
+await api.getBillingAttempts(f)    // GET /admin/billing-attempts
+```
+
+### Validation Endpoints (NEW)
+```typescript
+await api.validateUpload(id)       // POST /admin/uploads/{id}/validate
+await api.getValidationStats(id)   // GET /admin/uploads/{id}/validation-stats
+await api.getUploadDebtors(id, {   // GET /admin/uploads/{id}/debtors
+  validation_status: 'invalid'
+})
 ```
 
 ## UI Components
 
 ### shadcn/ui Components
 
-Pre-built, customizable components:
-
 | Component | File | Usage |
 |-----------|------|-------|
 | Button | `ui/button.tsx` | Actions, forms |
-| Card | `ui/card.tsx` | Dashboard stats |
+| Card | `ui/card.tsx` | Dashboard stats, validation stats |
 | Table | `ui/table.tsx` | Data tables |
 | Badge | `ui/badge.tsx` | Status indicators |
 | Input | `ui/input.tsx` | Form inputs |
 | Select | `ui/select.tsx` | Filters |
+| Tooltip | `ui/tooltip.tsx` | Error messages on hover |
+| Dialog | `ui/dialog.tsx` | Edit modals |
 
-### Component Composition
-```tsx
-// Page uses layout components
-<>
-  <Header title="Debtors" description="..." />
-  <div className="p-6">
-    {/* Filters */}
-    <Select value={filter} onChange={setFilter}>
-      <SelectItem value="pending">Pending</SelectItem>
-    </Select>
-    
-    {/* Data table */}
-    <Table>
-      <TableHeader>...</TableHeader>
-      <TableBody>
-        {debtors.map(d => <TableRow>...</TableRow>)}
-      </TableBody>
-    </Table>
-  </div>
-</>
+### Status Badges
+```typescript
+const getStatusBadge = (status: string) => {
+  const variants = {
+    pending: 'bg-yellow-100 text-yellow-800',
+    valid: 'bg-green-100 text-green-800',
+    invalid: 'bg-red-100 text-red-800',
+    blacklisted: 'bg-purple-100 text-purple-800',
+  }
+  return <Badge className={variants[status]}>{status}</Badge>
+}
 ```
 
 ## Styling
-
-### Tailwind CSS
-
-Utility-first CSS framework:
-```tsx
-<div className="flex h-screen bg-slate-100">
-  <aside className="w-64 bg-slate-900 text-white">
-    {/* Sidebar */}
-  </aside>
-  <main className="flex-1 overflow-auto">
-    {/* Content */}
-  </main>
-</div>
-```
 
 ### Color Palette
 
@@ -273,48 +378,32 @@ Utility-first CSS framework:
 | `slate-900` | Sidebar background |
 | `slate-100` | Page background |
 | `white` | Cards, tables |
-| `blue-600` | Links, primary actions |
-| `green-600` | Success status |
+| `blue-600` | Links, primary actions, Ready for Sync |
+| `green-600` | Success status, Valid |
 | `yellow-600` | Warning/pending status |
-| `red-600` | Error/failed status |
+| `red-600` | Error/failed status, Invalid |
+| `purple-600` | Blacklisted indicator |
 
 ## Error Handling
 
 ### API Errors
 ```typescript
-private async request<T>(endpoint: string): Promise<T> {
-  const response = await fetch(...)
-  
-  // 401 → Redirect to login
-  if (response.status === 401) {
-    this.clearToken()
-    window.location.href = '/login'
-    throw new Error('Unauthorized')
-  }
-  
-  // Other errors
-  if (!response.ok) {
-    throw new Error(`API Error: ${response.status}`)
-  }
-  
-  return response.json()
+if (response.status === 401) {
+  this.clearToken()
+  window.location.href = '/login'
+  throw new Error('Unauthorized')
 }
 ```
 
 ### Component Error Handling
 ```typescript
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      const response = await api.getDebtors()
-      setDebtors(response.data)
-    } catch (error) {
-      console.error('Failed to fetch:', error)
-      // Could show toast notification
-    } finally {
-      setLoading(false)
-    }
-  }
-  fetchData()
-}, [])
+try {
+  const response = await api.getDebtors()
+  setDebtors(response.data)
+} catch (error) {
+  console.error('Failed to fetch:', error)
+  toast.error('Failed to load debtors')
+} finally {
+  setLoading(false)
+}
 ```

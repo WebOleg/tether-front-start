@@ -22,8 +22,8 @@ import {
 } from '@/components/ui/table'
 import { UploadProgress } from '@/components/upload-progress'
 import { api } from '@/lib/api'
-import { Upload as UploadIcon, FileUp, CheckCircle, AlertCircle, XCircle, Loader2, X, FileSpreadsheet } from 'lucide-react'
-import type { Upload } from '@/types'
+import { Upload as LucideUpload, FileUp, CheckCircle, AlertCircle, XCircle, Loader2, X, FileSpreadsheet, Ban } from 'lucide-react'
+import type { Upload, SkippedCounts } from '@/types'
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -48,6 +48,15 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function formatSkippedMessage(skipped: SkippedCounts): string {
+  const parts: string[] = []
+  if (skipped.blacklisted > 0) parts.push(`${skipped.blacklisted} blacklisted`)
+  if (skipped.chargebacked > 0) parts.push(`${skipped.chargebacked} chargebacked`)
+  if (skipped.already_recovered > 0) parts.push(`${skipped.already_recovered} recovered`)
+  if (skipped.recently_attempted > 0) parts.push(`${skipped.recently_attempted} recent`)
+  return parts.join(', ')
+}
+
 interface UploadWithStats extends Upload {
   valid_count?: number
   invalid_count?: number
@@ -58,8 +67,9 @@ export default function UploadsPage() {
   const [loading, setLoading] = useState(true)
   const [file, setFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
-  const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null)
+  const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error' | 'warning', message: string } | null>(null)
   const [activeUploadId, setActiveUploadId] = useState<number | null>(null)
+  const [lastSkipped, setLastSkipped] = useState<SkippedCounts | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchUploads = async () => {
@@ -81,6 +91,7 @@ export default function UploadsPage() {
     const selectedFile = e.target.files?.[0] ?? null
     setFile(selectedFile)
     setUploadStatus(null)
+    setLastSkipped(null)
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -109,10 +120,16 @@ export default function UploadsPage() {
     setIsUploading(true)
     setUploadStatus(null)
     setActiveUploadId(null)
+    setLastSkipped(null)
 
     try {
       const result = await api.uploadFile(file)
       setActiveUploadId(result.upload.id)
+      
+      if (result.skipped && result.skipped.total > 0) {
+        setLastSkipped(result.skipped)
+      }
+      
       setFile(null)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
@@ -129,10 +146,17 @@ export default function UploadsPage() {
 
   const handleProgressComplete = (upload: Upload) => {
     fetchUploads()
-    setUploadStatus({ 
-      type: 'success', 
-      message: `Completed: ${upload.processed_records - upload.failed_records} successful, ${upload.failed_records} failed` 
-    })
+    
+    const successful = upload.processed_records - upload.failed_records
+    let message = `Completed: ${successful} created, ${upload.failed_records} failed`
+    
+    if (lastSkipped && lastSkipped.total > 0) {
+      message += `, ${lastSkipped.total} skipped (${formatSkippedMessage(lastSkipped)})`
+      setUploadStatus({ type: 'warning', message })
+    } else {
+      setUploadStatus({ type: 'success', message })
+    }
+    
     setTimeout(() => {
       setActiveUploadId(null)
     }, 3000)
@@ -145,6 +169,7 @@ export default function UploadsPage() {
 
   const dismissProgress = () => {
     setActiveUploadId(null)
+    setLastSkipped(null)
     fetchUploads()
   }
 
@@ -188,7 +213,7 @@ export default function UploadsPage() {
                     </>
                   ) : (
                     <>
-                      <UploadIcon className="h-4 w-4" />
+                      <LucideUpload className="h-4 w-4" />
                       Upload File
                     </>
                   )}
@@ -222,10 +247,14 @@ export default function UploadsPage() {
               <div className={`flex items-center gap-2 p-3 rounded-lg ${
                 uploadStatus.type === 'success' 
                   ? 'bg-green-50 text-green-700 border border-green-200' 
+                  : uploadStatus.type === 'warning'
+                  ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
                   : 'bg-red-50 text-red-700 border border-red-200'
               }`}>
                 {uploadStatus.type === 'success' ? (
                   <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                ) : uploadStatus.type === 'warning' ? (
+                  <Ban className="h-4 w-4 flex-shrink-0" />
                 ) : (
                   <AlertCircle className="h-4 w-4 flex-shrink-0" />
                 )}
@@ -271,6 +300,7 @@ export default function UploadsPage() {
                     const total = upload.total_records || 0
                     const valid = upload.valid_count || 0
                     const invalid = upload.invalid_count || 0
+                    const skippedTotal = upload.skipped?.total || 0
                     const validPercent = total > 0 ? Math.round((valid / total) * 100) : 0
                     
                     return (
@@ -293,6 +323,9 @@ export default function UploadsPage() {
                         </TableCell>
                         <TableCell className="text-center">
                           <span className="font-medium">{total}</span>
+                          {skippedTotal > 0 && (
+                            <span className="text-xs text-slate-400 ml-1">(-{skippedTotal})</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-center gap-3">
@@ -304,6 +337,12 @@ export default function UploadsPage() {
                               <XCircle className="h-4 w-4" />
                               <span className="text-sm">{invalid}</span>
                             </div>
+                            {skippedTotal > 0 && (
+                              <div className="flex items-center gap-1 text-slate-400">
+                                <Ban className="h-4 w-4" />
+                                <span className="text-sm">{skippedTotal}</span>
+                              </div>
+                            )}
                             <span className={`text-sm font-medium ${validPercent === 100 ? 'text-green-600' : validPercent >= 80 ? 'text-yellow-600' : 'text-red-600'}`}>
                               {validPercent}%
                             </span>

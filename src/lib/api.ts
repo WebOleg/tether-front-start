@@ -20,17 +20,10 @@ import type {
   UploadError,
   ValidationStats,
   DebtorUpdateData,
+  SkippedCounts,
 } from '@/types'
 
-// ============================================================================
-// Configuration
-// ============================================================================
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
-
-// ============================================================================
-// API Client Class
-// ============================================================================
 
 class ApiClient {
   private token: string | null = null
@@ -194,6 +187,7 @@ class ApiClient {
       upload: result.data,
       created: result.meta?.created ?? result.data.processed_records ?? 0,
       failed: result.meta?.failed ?? result.data.failed_records ?? 0,
+      skipped: result.meta?.skipped as SkippedCounts | undefined,
       errors: (result.meta?.errors ?? []) as UploadError[],
       queued: result.meta?.queued ?? false,
     }
@@ -291,10 +285,6 @@ class ApiClient {
     return response.data
   }
 }
-
-// ============================================================================
-// Export Singleton Instance
-// ============================================================================
 
 export const api = new ApiClient()
 export default api

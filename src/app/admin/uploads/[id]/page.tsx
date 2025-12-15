@@ -42,7 +42,6 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Ban,
   AlertCircle,
   AlertTriangle,
 } from 'lucide-react'
@@ -88,14 +87,6 @@ const validationStatusConfig: Record<string, { color: string; textColor: string;
     icon: <Clock className="h-5 w-5" />,
     label: 'Pending'
   },
-  blacklisted: { 
-    color: 'text-purple-500',
-    textColor: 'text-purple-600',
-    rowBg: 'bg-purple-50',
-    hoverBg: 'bg-purple-100',
-    icon: <Ban className="h-5 w-5" />,
-    label: 'Blacklisted'
-  },
 }
 
 function formatDate(dateString: string): string {
@@ -109,9 +100,6 @@ function formatDate(dateString: string): string {
 }
 
 function getValidationDisplayStatus(debtor: Debtor): string {
-  if (debtor.validation_errors?.some(e => e.toLowerCase().includes('blacklist'))) {
-    return 'blacklisted'
-  }
   if (debtor.validation_errors?.some(e => e.toLowerCase().includes('encoding'))) {
     return 'error'
   }
@@ -296,7 +284,7 @@ export default function UploadDetailPage() {
         </div>
 
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <Card>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
@@ -313,15 +301,6 @@ export default function UploadDetailPage() {
                   <span className="text-sm text-slate-500">Invalid</span>
                 </div>
                 <p className="text-2xl font-semibold mt-1">{stats.invalid}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 bg-purple-500 rounded-full" />
-                  <span className="text-sm text-slate-500">Blacklisted</span>
-                </div>
-                <p className="text-2xl font-semibold mt-1">{stats.blacklisted || 0}</p>
               </CardContent>
             </Card>
             <Card>
@@ -368,8 +347,8 @@ export default function UploadDetailPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-28">Actions</TableHead>
-                    {headers.map(h => (
-                      <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
+                    {headers.map((h, idx) => (
+                      <TableHead key={`header-${idx}-${h}`} className="whitespace-nowrap">{h}</TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>
@@ -419,8 +398,8 @@ export default function UploadDetailPage() {
                                 </Button>
                               </div>
                             </TableCell>
-                            {headers.map(h => (
-                              <TableCell key={h} className="whitespace-nowrap max-w-[200px] truncate">
+                            {headers.map((h, idx) => (
+                              <TableCell key={`cell-${debtor.id}-${idx}-${h}`} className="whitespace-nowrap max-w-[200px] truncate">
                                 {rawData[h] || '-'}
                               </TableCell>
                             ))}
@@ -479,11 +458,11 @@ export default function UploadDetailPage() {
           )}
           
           <div className="grid grid-cols-2 gap-4 py-4">
-            {editHeaders.map(field => (
-              <div key={field} className="space-y-2">
-                <Label htmlFor={field}>{field}</Label>
+            {editHeaders.map((field, idx) => (
+              <div key={`edit-${idx}-${field}`} className="space-y-2">
+                <Label htmlFor={`field-${idx}`}>{field}</Label>
                 <Input
-                  id={field}
+                  id={`field-${idx}`}
                   value={editForm[field] ?? ''}
                   onChange={(e) => setEditForm(prev => ({ ...prev, [field]: e.target.value }))}
                 />

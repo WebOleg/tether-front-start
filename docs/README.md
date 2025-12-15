@@ -12,7 +12,7 @@ Next.js admin dashboard for the Tether debt recovery platform.
 - [Project Structure](#project-structure)
 - [Pages](#pages)
 - [API Integration](#api-integration)
-- [Two-Stage Validation](#two-stage-validation)
+- [Two-Stage Processing](#two-stage-processing)
 - [Contributing](#contributing)
 
 ## Overview
@@ -175,15 +175,19 @@ await api.login(email, password)
 await api.logout()
 const user = await api.getUser()
 
+// Upload with skipped info
+const result = await api.uploadFile(file)
+// result.created, result.failed, result.skipped
+
 // Resources
 const uploads = await api.getUploads({ status: 'completed' })
 const debtors = await api.getDebtors({ country: 'DE' })
 const vopLogs = await api.getVopLogs({ result: 'verified' })
 const billing = await api.getBillingAttempts({ status: 'approved' })
 
-// Validation endpoints (NEW)
+// Validation endpoints
 await api.validateUpload(id)
-const stats = await api.getValidationStats(id)
+const stats = await api.getUploadValidationStats(id)
 const debtors = await api.getUploadDebtors(id, { validation_status: 'invalid' })
 ```
 
@@ -195,40 +199,75 @@ Token-based authentication using Laravel Sanctum:
 2. All API requests include `Authorization: Bearer {token}`
 3. 401 responses redirect to `/login`
 
-## Two-Stage Validation
+## Two-Stage Processing
 
-### Flow Overview
+### Stage 1: Upload (Deduplication)
+
+When CSV is uploaded, each IBAN is checked against deduplication rules. Records that match are **skipped** and not created in database.
+
+**Skip Rules:**
+
+| Reason | Block Type | Description |
+|--------|------------|-------------|
+| `blacklisted` | Permanent | IBAN exists in blacklist table |
+| `chargebacked` | Permanent | IBAN has previous chargeback |
+| `already_recovered` | Permanent | Debt already recovered for this IBAN |
+| `recently_attempted` | 7-day cooldown | Billing attempt within last 7 days |
+
+**UI Feedback:**
+- Yellow banner: "30 created, 1 skipped (1 blacklisted)"
+- Records column shows: `50 (-3)` indicating 3 skipped
+
+### Stage 2: Validation
+
+After upload, records are validated for data quality. This happens automatically when viewing upload details.
+
+**Validation Rules:**
+- IBAN checksum valid
+- Amount > 0
+- Name present
+- Address, City, Postcode present
+- No encoding issues (UTF-8)
+
+### Flow Diagram
 ```
-Stage A (Upload)          Stage B (Validation)
-─────────────────         ──────────────────────
-1. User uploads CSV       1. Upload completes
-2. All rows accepted      2. Auto-trigger validate
-3. status = 'pending'     3. Run validation rules
-4. raw_data saved         4. Update statuses
-5. headers saved          5. Show results in UI
+CSV File (100 rows)
+       ↓
+   [Stage 1: Upload]
+       ↓
+   Deduplication check
+       ↓
+   5 skipped (blacklisted, recovered, etc.)
+       ↓
+   95 records created in DB
+       ↓
+   [Stage 2: Validation]
+       ↓
+   85 Valid, 10 Invalid
+       ↓
+   85 Ready for Sync
 ```
 
 ### Upload Detail Page Features
 
 **Validation Stats Cards:**
+
 | Card | Color | Description |
 |------|-------|-------------|
-| Total | Gray | Total debtors in upload |
 | Valid | Green | validation_status = valid |
-| Invalid | Red | validation_status = invalid |
-| Blacklisted | Purple | IBAN found in blacklist |
-| Pending | Yellow | validation_status = pending |
-| Ready for Sync | Blue | valid + status=pending |
+| Invalid | Orange | validation_status = invalid |
+| Pending | Gray | validation_status = pending |
+| Ready for Sync | Blue | valid + debtor status = pending |
 
 **Dynamic Columns:**
 - Columns generated from `upload.headers` array
 - Values from `debtor.raw_data[column]`
-- Row # and Status are sticky columns
+- Actions column with status icon, edit, delete
 
 **Error Row Highlighting:**
-- Invalid rows: red background
-- Blacklisted rows: purple background
-- Hover shows validation_errors tooltip
+- Invalid rows: orange background
+- Encoding errors: red background
+- Hover shows validation_errors below row
 
 ## Contributing
 
@@ -236,7 +275,7 @@ See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for development guidelines.
 
 ### Commit Convention
 ```
-feat(uploads): add validation stats cards
-fix(api): handle 401 redirect properly
-docs: update README with validation flow
+feat(uploads): add skipped records display
+fix(api): handle skipped counts in response
+docs: update README with deduplication flow
 ```

@@ -53,6 +53,18 @@ interface UploadWithStats extends Upload {
   invalid_count?: number
 }
 
+const isValidFileType = (file: File): boolean => {
+  const validExtensions = ['.csv', '.xlsx']
+  const validMimeTypes = ['text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+  
+  const hasValidExtension = validExtensions.some(ext => 
+    file.name.toLowerCase().endsWith(ext)
+  )
+  const hasValidMimeType = validMimeTypes.includes(file.type)
+  
+  return hasValidExtension || hasValidMimeType
+}
+
 export default function UploadsPage() {
   const [uploads, setUploads] = useState<UploadWithStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -60,7 +72,9 @@ export default function UploadsPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null)
   const [activeUploadId, setActiveUploadId] = useState<number | null>(null)
+  const [isDragActive, setIsDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const dropZoneRef = useRef<HTMLDivElement>(null)
 
   const fetchUploads = async () => {
     try {
@@ -79,8 +93,57 @@ export default function UploadsPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] ?? null
-    setFile(selectedFile)
-    setUploadStatus(null)
+    if (selectedFile && isValidFileType(selectedFile) && selectedFile.size <= 50 * 1024 * 1024) {
+      setFile(selectedFile)
+      setUploadStatus(null)
+    } else if (selectedFile) {
+      if (!isValidFileType(selectedFile)) {
+        setUploadStatus({ type: 'error', message: 'Invalid file type. Please upload a CSV or XLSX file.' })
+      } else if (selectedFile.size > 50 * 1024 * 1024) {
+        setUploadStatus({ type: 'error', message: 'File too large. Maximum size is 50MB.' })
+      }
+    }
+  }
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragActive(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragActive(false)
+  }
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragActive(false)
+
+    const droppedFiles = e.dataTransfer.files
+    if (droppedFiles.length > 0) {
+      const droppedFile = droppedFiles[0]
+      
+      if (!isValidFileType(droppedFile)) {
+        setUploadStatus({ type: 'error', message: 'Invalid file type. Please upload a CSV or XLSX file.' })
+        return
+      }
+
+      if (droppedFile.size > 50 * 1024 * 1024) {
+        setUploadStatus({ type: 'error', message: 'File too large. Maximum size is 50MB.' })
+        return
+      }
+
+      setFile(droppedFile)
+      setUploadStatus(null)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -91,12 +154,7 @@ export default function UploadsPage() {
       return
     }
 
-    const validTypes = ['.csv', '.xlsx', 'text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
-    const isValidType = validTypes.some(type => 
-      file.name.toLowerCase().endsWith(type) || file.type === type
-    )
-    
-    if (!isValidType) {
+    if (!isValidFileType(file)) {
       setUploadStatus({ type: 'error', message: 'Invalid file type. Please upload a CSV or XLSX file.' })
       return
     }
@@ -167,37 +225,60 @@ export default function UploadsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div
+                ref={dropZoneRef}
+                onClick={() => fileInputRef.current?.click()}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                className={`flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
+                  isDragActive
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100'
+                }`}
+              >
+                <FileUp className={`h-8 w-8 ${isDragActive ? 'text-blue-500' : 'text-slate-400'}`} />
+                <div className="text-center">
+                  <p className={`font-medium ${isDragActive ? 'text-blue-700' : 'text-slate-700'}`}>
+                    {isDragActive ? 'Drop your file here' : 'Drag and drop your CSV or XLSX file here'}
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">or click to select</p>
+                </div>
+
                 <Input
                   ref={fileInputRef}
                   type="file"
                   accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                   onChange={handleFileChange}
-                  className="flex-1"
+                  className="hidden"
                   disabled={isUploading}
                 />
-                <Button 
-                  type="submit" 
-                  disabled={!file || isUploading}
-                  className="gap-2 sm:min-w-[140px]"
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <UploadIcon className="h-4 w-4" />
-                      Upload File
-                    </>
-                  )}
-                </Button>
               </div>
 
               {file && !uploadStatus && !activeUploadId && (
-                <div className="text-sm text-slate-500">
-                  Selected: {file.name} ({formatFileSize(file.size)})
+                <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="text-sm text-green-700">
+                    <p className="font-medium">{file.name}</p>
+                    <p className="text-xs">{formatFileSize(file.size)}</p>
+                  </div>
+                  <Button 
+                    type="submit" 
+                    disabled={isUploading}
+                    className="gap-2"
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <UploadIcon className="h-4 w-4" />
+                        Upload
+                      </>
+                    )}
+                  </Button>
                 </div>
               )}
             </form>

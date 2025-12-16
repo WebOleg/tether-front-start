@@ -295,3 +295,23 @@ export interface DebtorUpdateData {
   raw_data?: Record<string, string>
   [key: string]: any
 }
+
+export interface CountryChargebackStats {
+  country: string
+  total: number
+  approved: number
+  declined: number
+  errors: number
+  chargebacks: number
+  cb_rate_total: number
+  cb_rate_approved: number
+  alert: boolean
+}
+
+export interface ChargebackStats {
+  period: string
+  start_date: string
+  threshold: number
+  countries: CountryChargebackStats[]
+  totals: Omit<CountryChargebackStats, 'country'>
+}

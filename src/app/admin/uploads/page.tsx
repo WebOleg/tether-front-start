@@ -127,6 +127,12 @@ export default function UploadsPage() {
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     e.stopPropagation()
+    
+    const relatedTarget = e.relatedTarget as Node | null
+    if (relatedTarget && dropZoneRef.current?.contains(relatedTarget)) {
+      return
+    }
+    
     setIsDragActive(false)
   }
 

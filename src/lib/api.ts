@@ -284,6 +284,18 @@ class ApiClient {
     const response = await this.request<{ data: BillingAttempt }>(`/admin/billing-attempts/${id}`)
     return response.data
   }
+
+  // ==========================================================================
+  // Chargeback Endpoints
+  // ==========================================================================
+
+  async filterChargebacks(uploadId: number): Promise<{ removed: number }> {
+    const response = await this.request<{ data: { removed: number } }>(
+      `/admin/uploads/${uploadId}/filter-chargebacks`,
+      { method: 'POST' }
+    )
+    return response.data
+  }
 }
 
 export const api = new ApiClient()

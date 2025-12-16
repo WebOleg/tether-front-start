@@ -28,6 +28,7 @@ export interface SkippedCounts {
   total: number
   blacklisted: number
   chargebacked: number
+  chargebacked: number
   already_recovered: number
   recently_attempted: number
 }
@@ -112,6 +113,7 @@ export interface ValidationStats {
   invalid: number
   pending: number
   blacklisted: number
+  chargebacked: number
   ready_for_sync: number
   skipped?: SkippedCounts | null
 }

@@ -24,6 +24,25 @@ export interface PaginationLinks {
   next: string | null
 }
 
+export interface SkippedCounts {
+  total: number
+  blacklisted: number
+  chargebacked: number
+  chargebacked: number
+  already_recovered: number
+  recently_attempted: number
+}
+
+export interface SkippedRow {
+  row: number
+  iban_masked: string
+  reason: SkipReason
+  days_ago?: number
+  last_status?: string
+}
+
+export type SkipReason = 'blacklisted' | 'chargebacked' | 'already_recovered' | 'recently_attempted'
+
 export interface Upload {
   id: number
   filename: string
@@ -43,6 +62,8 @@ export interface Upload {
   debtors_count?: number
   valid_count?: number
   invalid_count?: number
+  skipped?: SkippedCounts | null
+  skipped_rows?: SkippedRow[] | null
 }
 
 export type UploadStatus = 'pending' | 'processing' | 'completed' | 'failed'
@@ -92,7 +113,9 @@ export interface ValidationStats {
   invalid: number
   pending: number
   blacklisted: number
+  chargebacked: number
   ready_for_sync: number
+  skipped?: SkippedCounts | null
 }
 
 export interface VopLog {
@@ -136,7 +159,7 @@ export interface BillingAttempt {
   created_at: string
 }
 
-export type BillingStatus = 'pending' | 'approved' | 'declined' | 'error' | 'voided'
+export type BillingStatus = 'pending' | 'approved' | 'declined' | 'error' | 'voided' | 'chargebacked'
 
 export interface User {
   id: number
@@ -263,6 +286,7 @@ export interface UploadResult {
   upload: Upload
   created: number
   failed: number
+  skipped?: SkippedCounts
   errors: UploadError[]
   queued: boolean
 }

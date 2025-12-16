@@ -42,9 +42,10 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  Ban,
   AlertCircle,
   AlertTriangle,
+  Ban,
+  Filter,
 } from 'lucide-react'
 import type { Upload, Debtor, ValidationStats } from '@/types'
 
@@ -88,13 +89,13 @@ const validationStatusConfig: Record<string, { color: string; textColor: string;
     icon: <Clock className="h-5 w-5" />,
     label: 'Pending'
   },
-  blacklisted: { 
-    color: 'text-purple-500',
-    textColor: 'text-purple-600',
-    rowBg: 'bg-purple-50',
-    hoverBg: 'bg-purple-100',
+  chargebacked: { 
+    color: 'text-red-600',
+    textColor: 'text-red-700',
+    rowBg: 'bg-red-100',
+    hoverBg: 'bg-red-200',
     icon: <Ban className="h-5 w-5" />,
-    label: 'Blacklisted'
+    label: 'Chargebacked'
   },
 }
 
@@ -109,8 +110,9 @@ function formatDate(dateString: string): string {
 }
 
 function getValidationDisplayStatus(debtor: Debtor): string {
-  if (debtor.validation_errors?.some(e => e.toLowerCase().includes('blacklist'))) {
-    return 'blacklisted'
+  // Check if debtor has chargebacked billing attempt
+  if (debtor.latest_billing?.status === 'chargebacked') {
+    return 'chargebacked'
   }
   if (debtor.validation_errors?.some(e => e.toLowerCase().includes('encoding'))) {
     return 'error'
@@ -128,6 +130,7 @@ export default function UploadDetailPage() {
   const [loading, setLoading] = useState(true)
   const [validating, setValidating] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [filtering, setFiltering] = useState(false)
   const [search, setSearch] = useState('')
   const [hoveredId, setHoveredId] = useState<number | null>(null)
   
@@ -182,6 +185,32 @@ export default function UploadDetailPage() {
     toast.info('Sync functionality coming soon...')
     await new Promise(resolve => setTimeout(resolve, 1000))
     setSyncing(false)
+  }
+
+  const handleFilterChargebacks = async () => {
+    if (!stats?.chargebacked) return
+    
+    if (!confirm(`Remove ${stats.chargebacked} chargebacked records from this upload?`)) {
+      return
+    }
+    
+    setFiltering(true)
+    try {
+      const result = await api.filterChargebacks(uploadId)
+      toast.success(`Removed ${result.removed} chargebacked records`)
+      
+      // Refresh data
+      const [debtorsResponse, statsData] = await Promise.all([
+        api.getUploadDebtors(uploadId, { per_page: 100, search: search || undefined }),
+        api.getUploadValidationStats(uploadId),
+      ])
+      setDebtors(debtorsResponse.data)
+      setStats(statsData)
+    } catch (error) {
+      toast.error('Failed to filter chargebacks')
+    } finally {
+      setFiltering(false)
+    }
   }
 
   const handleEditClick = (debtor: Debtor) => {
@@ -276,27 +305,49 @@ export default function UploadDetailPage() {
               {stats?.total || 0} records
             </span>
           </div>
-          <Button 
-            onClick={handleSync} 
-            disabled={syncing || (stats?.ready_for_sync || 0) === 0}
-            className="gap-2"
-          >
-            {syncing ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Syncing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4" />
-                Sync to Gateway ({stats?.ready_for_sync || 0})
-              </>
+          <div className="flex items-center gap-2">
+            {(stats?.chargebacked ?? 0) > 0 && (
+              <Button 
+                variant="destructive"
+                onClick={handleFilterChargebacks} 
+                disabled={filtering}
+                className="gap-2"
+              >
+                {filtering ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Filtering...
+                  </>
+                ) : (
+                  <>
+                    <Filter className="h-4 w-4" />
+                    Filter Chargebacks ({stats?.chargebacked})
+                  </>
+                )}
+              </Button>
             )}
-          </Button>
+            <Button 
+              onClick={handleSync} 
+              disabled={syncing || (stats?.ready_for_sync || 0) === 0}
+              className="gap-2"
+            >
+              {syncing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  Sync to Gateway ({stats?.ready_for_sync || 0})
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             <Card>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
@@ -321,7 +372,16 @@ export default function UploadDetailPage() {
                   <div className="w-3 h-3 bg-purple-500 rounded-full" />
                   <span className="text-sm text-slate-500">Blacklisted</span>
                 </div>
-                <p className="text-2xl font-semibold mt-1">{stats.blacklisted || 0}</p>
+                <p className="text-2xl font-semibold mt-1">{stats.blacklisted}</p>
+              </CardContent>
+            </Card>
+            <Card className={stats.chargebacked > 0 ? 'border-red-300 bg-red-50' : ''}>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-red-600 rounded-full" />
+                  <span className="text-sm text-slate-500">Chargebacked</span>
+                </div>
+                <p className="text-2xl font-semibold mt-1">{stats.chargebacked}</p>
               </CardContent>
             </Card>
             <Card>
@@ -368,8 +428,8 @@ export default function UploadDetailPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-28">Actions</TableHead>
-                    {headers.map(h => (
-                      <TableHead key={h} className="whitespace-nowrap">{h}</TableHead>
+                    {headers.map((h, idx) => (
+                      <TableHead key={`header-${idx}-${h}`} className="whitespace-nowrap">{h}</TableHead>
                     ))}
                   </TableRow>
                 </TableHeader>
@@ -386,13 +446,14 @@ export default function UploadDetailPage() {
                       const statusConfig = validationStatusConfig[displayStatus]
                       const rawData = debtor.raw_data || {}
                       const hasErrors = debtor.validation_errors && debtor.validation_errors.length > 0
+                      const isChargebacked = displayStatus === 'chargebacked'
                       const isHovered = hoveredId === debtor.id
                       const bgClass = isHovered ? statusConfig.hoverBg : statusConfig.rowBg
                       
                       return (
                         <Fragment key={debtor.id}>
                           <TableRow 
-                            className={`${bgClass} transition-colors ${hasErrors ? 'border-b-0' : ''}`}
+                            className={`${bgClass} transition-colors ${hasErrors || isChargebacked ? 'border-b-0' : ''}`}
                             onMouseEnter={() => setHoveredId(debtor.id)}
                             onMouseLeave={() => setHoveredId(null)}
                           >
@@ -419,13 +480,13 @@ export default function UploadDetailPage() {
                                 </Button>
                               </div>
                             </TableCell>
-                            {headers.map(h => (
-                              <TableCell key={h} className="whitespace-nowrap max-w-[200px] truncate">
+                            {headers.map((h, idx) => (
+                              <TableCell key={`cell-${debtor.id}-${idx}-${h}`} className="whitespace-nowrap max-w-[200px] truncate">
                                 {rawData[h] || '-'}
                               </TableCell>
                             ))}
                           </TableRow>
-                          {hasErrors && (
+                          {(hasErrors || isChargebacked) && (
                             <TableRow 
                               className={`${bgClass} transition-colors`}
                               onMouseEnter={() => setHoveredId(debtor.id)}
@@ -433,8 +494,17 @@ export default function UploadDetailPage() {
                             >
                               <TableCell colSpan={headers.length + 1} className="pt-0 pb-3">
                                 <div className={`flex items-start gap-2 text-sm ${statusConfig.textColor}`}>
-                                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                                  <span>{debtor.validation_errors?.join(', ')}</span>
+                                  {isChargebacked ? (
+                                    <>
+                                      <Ban className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                      <span>This IBAN received a chargeback - cannot be processed again</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                      <span>{debtor.validation_errors?.join(', ')}</span>
+                                    </>
+                                  )}
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -479,11 +549,11 @@ export default function UploadDetailPage() {
           )}
           
           <div className="grid grid-cols-2 gap-4 py-4">
-            {editHeaders.map(field => (
-              <div key={field} className="space-y-2">
-                <Label htmlFor={field}>{field}</Label>
+            {editHeaders.map((field, idx) => (
+              <div key={`edit-${idx}-${field}`} className="space-y-2">
+                <Label htmlFor={`field-${idx}`}>{field}</Label>
                 <Input
-                  id={field}
+                  id={`field-${idx}`}
                   value={editForm[field] ?? ''}
                   onChange={(e) => setEditForm(prev => ({ ...prev, [field]: e.target.value }))}
                 />

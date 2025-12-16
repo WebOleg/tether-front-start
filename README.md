@@ -19,6 +19,7 @@ Admin panel for managing debt recovery operations:
 
 - **Dashboard**: Overview statistics (uploads, debtors, VOP, billing)
 - **Uploads**: CSV file management and processing status
+- **Upload Details**: View debtors, validation stats, filter chargebacks
 - **Debtors**: Debtor records with filtering and search
 - **VOP Logs**: IBAN verification results and scores
 - **Billing**: Payment attempts and retry status
@@ -111,7 +112,9 @@ src/
 │       ├── layout.tsx        # Admin layout with sidebar
 │       ├── page.tsx          # Dashboard
 │       ├── uploads/
-│       │   └── page.tsx      # Uploads list
+│       │   ├── page.tsx      # Uploads list
+│       │   └── [id]/
+│       │       └── page.tsx  # Upload detail (debtors, stats)
 │       ├── debtors/
 │       │   └── page.tsx      # Debtors list
 │       ├── vop-logs/
@@ -160,6 +163,10 @@ const uploads = await api.getUploads({ status: 'completed' })
 const debtors = await api.getDebtors({ country: 'DE' })
 const vopLogs = await api.getVopLogs({ result: 'verified' })
 const billing = await api.getBillingAttempts({ status: 'approved' })
+
+// Upload operations
+const stats = await api.getUploadValidationStats(uploadId)
+await api.filterChargebacks(uploadId)
 ```
 
 ### Authentication
@@ -179,8 +186,13 @@ Token-based authentication using Laravel Sanctum:
 | GET | `/user` | Current user |
 | GET | `/admin/uploads` | List uploads |
 | GET | `/admin/uploads/{id}` | Upload details |
+| GET | `/admin/uploads/{id}/debtors` | Upload debtors |
+| GET | `/admin/uploads/{id}/validation-stats` | Validation statistics |
+| POST | `/admin/uploads/{id}/filter-chargebacks` | Remove chargebacked records |
 | GET | `/admin/debtors` | List debtors |
 | GET | `/admin/debtors/{id}` | Debtor details |
+| PUT | `/admin/debtors/{id}` | Update debtor |
+| DELETE | `/admin/debtors/{id}` | Delete debtor |
 | GET | `/admin/vop-logs` | List VOP logs |
 | GET | `/admin/vop-logs/{id}` | VOP log details |
 | GET | `/admin/billing-attempts` | List billing attempts |
@@ -193,9 +205,26 @@ Token-based authentication using Laravel Sanctum:
 | Login | `/login` | Authentication form |
 | Dashboard | `/admin` | Statistics overview |
 | Uploads | `/admin/uploads` | File list with status |
+| Upload Detail | `/admin/uploads/{id}` | Debtors table, validation stats, filter chargebacks |
 | Debtors | `/admin/debtors` | Debtor table with filters |
 | VOP Logs | `/admin/vop-logs` | Verification results |
 | Billing | `/admin/billing` | Payment attempts |
+
+## Features
+
+### Upload Detail Page
+
+Shows all debtors from uploaded CSV with:
+
+- **Validation Stats Cards**: Valid, Invalid, Blacklisted, Chargebacked, Pending, Ready for Sync
+- **Debtors Table**: Dynamic columns from original CSV
+- **Row Highlighting**: 
+  - Green checkmark = valid
+  - Orange warning = invalid (with error message)
+  - Red ban icon = chargebacked
+- **Actions**: Edit, Delete individual records
+- **Filter Chargebacks**: Button to remove all chargebacked records (visible only when chargebacked > 0)
+- **Sync to Gateway**: Send valid records for payment processing
 
 ## Contributing
 

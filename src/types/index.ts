@@ -28,7 +28,6 @@ export interface SkippedCounts {
   total: number
   blacklisted: number
   chargebacked: number
-  chargebacked: number
   already_recovered: number
   recently_attempted: number
 }

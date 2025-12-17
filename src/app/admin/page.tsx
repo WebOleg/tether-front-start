@@ -9,6 +9,21 @@ import { useEffect, useState } from 'react'
 import { Header } from '@/components/layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { api } from '@/lib/api'
 import { 
   Upload, 
@@ -18,9 +33,10 @@ import {
   TrendingUp,
   CheckCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle,
 } from 'lucide-react'
-import type { DashboardData } from '@/types'
+import type { DashboardData, ChargebackStats } from '@/types'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('de-DE', {
@@ -51,6 +67,8 @@ const statusColors: Record<string, string> = {
 
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
+  const [cbStats, setCbStats] = useState<ChargebackStats | null>(null)
+  const [cbPeriod, setCbPeriod] = useState('7d')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -69,6 +87,19 @@ export default function AdminDashboard() {
 
     fetchDashboard()
   }, [])
+
+  useEffect(() => {
+    const fetchCbStats = async () => {
+      try {
+        const stats = await api.getChargebackStats(cbPeriod)
+        setCbStats(stats)
+      } catch (err) {
+        console.error('Failed to fetch CB stats:', err)
+      }
+    }
+
+    fetchCbStats()
+  }, [cbPeriod])
 
   if (loading) {
     return (
@@ -169,6 +200,8 @@ export default function AdminDashboard() {
     },
   ]
 
+  const hasAlert = cbStats?.totals?.alert || cbStats?.countries?.some(c => c.alert)
+
   return (
     <>
       <Header title="Dashboard" description="Overview of your debt recovery operations" />
@@ -209,6 +242,99 @@ export default function AdminDashboard() {
             </Card>
           ))}
         </div>
+
+        {/* Chargeback Rates by Country */}
+        <Card className={hasAlert ? 'border-red-300' : ''}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg">Chargeback Rates by Country</CardTitle>
+                {hasAlert && (
+                  <Badge variant="destructive" className="gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Alert
+                  </Badge>
+                )}
+              </div>
+              <Select value={cbPeriod} onValueChange={setCbPeriod}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="24h">Last 24h</SelectItem>
+                  <SelectItem value="7d">Last 7 days</SelectItem>
+                  <SelectItem value="30d">Last 30 days</SelectItem>
+                  <SelectItem value="90d">Last 90 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {cbStats ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Country</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Approved</TableHead>
+                    <TableHead className="text-right">Declined</TableHead>
+                    <TableHead className="text-right">Chargebacks</TableHead>
+                    <TableHead className="text-right">CB Rate</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cbStats.countries.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-slate-500">
+                        No billing data for this period
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    <>
+                      {cbStats.countries.map((row) => (
+                        <TableRow key={row.country} className={row.alert ? 'bg-red-50' : ''}>
+                          <TableCell className="font-medium">{row.country}</TableCell>
+                          <TableCell className="text-right">{row.total}</TableCell>
+                          <TableCell className="text-right">{row.approved}</TableCell>
+                          <TableCell className="text-right">{row.declined}</TableCell>
+                          <TableCell className="text-right">{row.chargebacks}</TableCell>
+                          <TableCell className="text-right font-medium">
+                            {row.cb_rate_total}%
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {row.alert ? (
+                              <Badge variant="destructive">Alert</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="bg-green-100 text-green-800">OK</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="font-semibold bg-slate-50">
+                        <TableCell>TOTAL</TableCell>
+                        <TableCell className="text-right">{cbStats.totals.total}</TableCell>
+                        <TableCell className="text-right">{cbStats.totals.approved}</TableCell>
+                        <TableCell className="text-right">{cbStats.totals.declined}</TableCell>
+                        <TableCell className="text-right">{cbStats.totals.chargebacks}</TableCell>
+                        <TableCell className="text-right">{cbStats.totals.cb_rate_total}%</TableCell>
+                        <TableCell className="text-center">
+                          {cbStats.totals.alert ? (
+                            <Badge variant="destructive">Alert</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-green-100 text-green-800">OK</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    </>
+                  )}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-4 text-slate-500">Loading...</div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Status Breakdown */}
         <div className="grid gap-6 md:grid-cols-2">

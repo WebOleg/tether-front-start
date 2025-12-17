@@ -103,19 +103,27 @@ export default function UploadsPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] ?? null
-    setFile(selectedFile)
     setUploadStatus(null)
     setLastSkipped(null)
-    if (selectedFile && isValidFileType(selectedFile) && selectedFile.size <= 50 * 1024 * 1024) {
-      setFile(selectedFile)
-      setUploadStatus(null)
-    } else if (selectedFile) {
-      if (!isValidFileType(selectedFile)) {
-        setUploadStatus({ type: 'error', message: 'Invalid file type. Please upload a CSV or XLSX file.' })
-      } else if (selectedFile.size > 50 * 1024 * 1024) {
-        setUploadStatus({ type: 'error', message: 'File too large. Maximum size is 50MB.' })
-      }
+
+    if (!selectedFile) {
+      setFile(null)
+      return
     }
+
+    if (!isValidFileType(selectedFile)) {
+      setFile(null)
+      setUploadStatus({ type: 'error', message: 'Invalid file type. Please upload a CSV or XLSX file.' })
+      return
+    }
+
+    if (selectedFile.size > 50 * 1024 * 1024) {
+      setFile(null)
+      setUploadStatus({ type: 'error', message: 'File too large. Maximum size is 50MB.' })
+      return
+    }
+
+    setFile(selectedFile)
   }
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
@@ -162,6 +170,7 @@ export default function UploadsPage() {
 
       setFile(droppedFile)
       setUploadStatus(null)
+      setLastSkipped(null)
     }
   }
 

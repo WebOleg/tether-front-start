@@ -333,3 +333,23 @@ export interface ChargebackCodeStats {
   codes: ChargebackCodeDetail[]
   totals: ChargebackCodeTotal
 }
+
+export interface ChargebackBankDetail {
+  bank_name: string;
+  total_amount: number;
+  chargebacks: number;
+  cb_rate: number;
+} 
+
+export interface ChargebackBankTotal {
+  total: number;
+  total_amount: number;
+  chargebacks: number;
+  total_cb_rate: number;
+}
+export interface ChargebackBankStats {
+  period: string;
+  start_date: string;
+  banks: ChargebackBankDetail[];
+  totals: ChargebackBankTotal;
+}

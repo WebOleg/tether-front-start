@@ -28,7 +28,6 @@ export interface SkippedCounts {
   total: number
   blacklisted: number
   chargebacked: number
-  chargebacked: number
   already_recovered: number
   recently_attempted: number
 }
@@ -314,4 +313,23 @@ export interface ChargebackStats {
   threshold: number
   countries: CountryChargebackStats[]
   totals: Omit<CountryChargebackStats, 'country'>
+}
+
+export interface ChargebackCodeDetail {
+  chargeback_code: string
+  chargeback_reason: string
+  total_amount: number
+  occurrences: number
+}
+
+export interface ChargebackCodeTotal {
+  total_amount: number
+  occurrences: number
+}
+
+export interface ChargebackCodeStats {
+  period: string
+  start_date: string
+  codes: ChargebackCodeDetail[]
+  totals: ChargebackCodeTotal
 }

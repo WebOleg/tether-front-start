@@ -22,6 +22,7 @@ import type {
   DebtorUpdateData,
   SkippedCounts,
   ChargebackStats,
+  ChargebackCodeStats,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -301,6 +302,13 @@ class ApiClient {
     const response = await this.request<{ data: { removed: number } }>(
       `/admin/uploads/${uploadId}/filter-chargebacks`,
       { method: 'POST' }
+    )
+    return response.data
+  }
+
+  async getChargebackCodeStats(period: string = '7d'): Promise<ChargebackCodeStats> {
+    const response = await this.request<{ data: ChargebackCodeStats }>(
+      `/admin/stats/chargeback-codes?period=${period}`
     )
     return response.data
   }

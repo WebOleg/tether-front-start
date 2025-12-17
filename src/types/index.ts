@@ -315,3 +315,22 @@ export interface ChargebackStats {
   countries: CountryChargebackStats[]
   totals: Omit<CountryChargebackStats, 'country'>
 }
+
+export interface ChargebackCodeDetail {
+  chargeback_code: string
+  chargeback_reason: string
+  total_amount: number
+  occurrences: number
+}
+
+export interface ChargebackCodeTotal {
+  total_amount: number
+  occurrences: number
+}
+
+export interface ChargebackCodeStats {
+  period: string
+  start_date: string
+  codes: ChargebackCodeDetail[]
+  totals: ChargebackCodeTotal
+}

@@ -36,7 +36,7 @@ import {
   AlertCircle,
   AlertTriangle,
 } from 'lucide-react'
-import type { DashboardData, ChargebackStats } from '@/types'
+import type { DashboardData, ChargebackStats, ChargebackCodeStats } from '@/types'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('de-DE', {
@@ -68,7 +68,9 @@ const statusColors: Record<string, string> = {
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [cbStats, setCbStats] = useState<ChargebackStats | null>(null)
+  const [cbCodeStats, setCbCodeStats] = useState<ChargebackCodeStats | null>(null)
   const [cbPeriod, setCbPeriod] = useState('7d')
+  const [cbCodePeriod, setCbCodePeriod] = useState('7d')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -100,6 +102,19 @@ export default function AdminDashboard() {
 
     fetchCbStats()
   }, [cbPeriod])
+
+  useEffect(() => {
+    const fetchCbCodeStats = async () => {
+      try {
+        const codeStats = await api.getChargebackCodeStats(cbCodePeriod)
+        setCbCodeStats(codeStats)
+       } catch (err) {
+        console.error('Failed to fetch CB code stats:', err)
+      }
+    }
+
+    fetchCbCodeStats()
+  }, [cbCodePeriod])
 
   if (loading) {
     return (
@@ -447,6 +462,73 @@ export default function AdminDashboard() {
                     </div>
                   ))}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Chargeback Code Stats */}
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-lg">Chargeback Code Statistics</CardTitle>
+                </div>
+                <Select value={cbCodePeriod} onValueChange={setCbCodePeriod}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="24h">Last 24h</SelectItem>
+                    <SelectItem value="7d">Last 7 days</SelectItem>
+                    <SelectItem value="30d">Last 30 days</SelectItem>
+                    <SelectItem value="90d">Last 90 days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {cbCodeStats ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-left">Error Code</TableHead>
+                      <TableHead className="text-left">Description</TableHead>
+                      <TableHead className="text-left">Count</TableHead>
+                      <TableHead className="text-left">Total Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cbCodeStats.totals.occurrences === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-slate-500">
+                          No Chargeback data for this period
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      <>
+                        {cbCodeStats.codes.map((row) => (
+                          <TableRow key={row.chargeback_code} >
+                            <TableCell className="font-medium">{row.chargeback_code}</TableCell>
+                            <TableCell className="text-left">{row.chargeback_reason}</TableCell>
+                            <TableCell className="text-left">{row.occurrences}</TableCell>
+                            <TableCell className="text-left">{formatCurrency(row.total_amount)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </>
+                    )}
+                    {cbCodeStats.totals.occurrences === 0 ? null : (
+                      <TableRow className="font-semibold bg-slate-50">
+                        <TableCell colSpan={2} className="text-left">TOTAL</TableCell>
+                        <TableCell className="text-left">{cbCodeStats.totals.occurrences}</TableCell>
+                        <TableCell className="text-left">{formatCurrency(cbCodeStats.totals.total_amount)}</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-4 text-slate-500">Loading...</div>
               )}
             </CardContent>
           </Card>

@@ -333,3 +333,44 @@ export interface ChargebackCodeStats {
   codes: ChargebackCodeDetail[]
   totals: ChargebackCodeTotal
 }
+
+// ==========================================================================
+// VOP Verification Types
+// ==========================================================================
+
+export interface VopStats {
+  total_eligible: number
+  verified: number
+  pending: number
+  by_result: Record<string, number>
+}
+
+export interface VopVerifyResponse {
+  message: string
+  data: {
+    upload_id: number
+    force_refresh: boolean
+  }
+}
+
+export interface VopSingleVerifyRequest {
+  iban: string
+  name: string
+  use_mock?: boolean
+}
+
+export interface VopSingleVerifyResponse {
+  data: {
+    success: boolean
+    valid: boolean
+    name_match: string
+    bic: string | null
+    vop_score: number
+    vop_result: VopResult
+    error: string | null
+  }
+  meta: {
+    mock_mode: boolean
+    credits_used: number
+  }
+}

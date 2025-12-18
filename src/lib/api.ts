@@ -22,6 +22,7 @@ import type {
   SkippedCounts,
   ChargebackStats,
   ChargebackCodeStats,
+  ChargebackBankStats,
   VopStats,
   VopVerifyResponse,
   VopSingleVerifyRequest,
@@ -256,6 +257,13 @@ class ApiClient {
   async getChargebackCodeStats(period: string = '7d'): Promise<ChargebackCodeStats> {
     const response = await this.request<{ data: ChargebackCodeStats }>(
       `/admin/stats/chargeback-codes?period=${period}`
+    )
+    return response.data
+  }
+
+  async getChargebackBankStats(period: string = '7d'): Promise<ChargebackBankStats> {
+    const response = await this.request<{ data: ChargebackBankStats }>(
+      `/admin/stats/chargeback-banks?period=${period}`
     )
     return response.data
   }

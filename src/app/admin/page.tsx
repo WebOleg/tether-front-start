@@ -37,6 +37,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import type { DashboardData, ChargebackStats, ChargebackCodeStats, ChargebackBankStats } from '@/types'
+import { Progress } from '@/components/ui/progress'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('de-DE', {
@@ -368,7 +369,6 @@ export default function AdminDashboard() {
             )}
           </CardContent>
         </Card>
-
         {/* Chargeback Stats */}
         <div className="grid gap-6 md:grid-cols-2">
           {/* Chargeback Code Statistics */}
@@ -463,9 +463,8 @@ export default function AdminDashboard() {
                     <TableRow>
                       <TableHead className="text-left">Bank Name</TableHead>
                       <TableHead className="text-right">Chargebacks</TableHead>
-                      <TableHead className="text-right">Total Amount</TableHead>
-                      <TableHead className="text-right">CB Rate</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead className="text-center">CB Amounts</TableHead>
+                      <TableHead className="">CB Rate</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -478,34 +477,34 @@ export default function AdminDashboard() {
                     ) : (
                       <>
                         {cbBankStats.banks.map((row) => (
-                          <TableRow key={row.bank_name} className={row.alert ? 'bg-red-50' : ''} >
+                          <TableRow key={row.bank_name}>
                             <TableCell className="font-medium">{row.bank_name}</TableCell>
                             <TableCell className="text-right">{row.chargebacks}</TableCell>
                             <TableCell className="text-right">{formatCurrency(row.total_amount)}</TableCell>
-                            <TableCell className="text-right font-medium">{row.cb_rate} %</TableCell>
-                            <TableCell>
-                              {row.alert ? (
-                                <Badge variant="destructive">Alert</Badge>
-                              ) : (
-                                <Badge variant="secondary" className="bg-green-100 text-green-800">OK</Badge>
-                              )}
+                            <TableCell className="w-40">
+                              <div className="flex items-center gap-2">
+                                <div className="w-20">
+                                  <Progress value={row.cb_rate} variant="red" height="lg" />
+                                </div>
+                                <span className="font-medium w-16 text-right">{row.cb_rate}%</span>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
                       </>
                     )}
                     {cbBankStats.totals.total > 0 && (
-                      <TableRow className={`font-semibold ${cbBankStats.totals.alert ? 'bg-red-50' : 'bg-slate-50'}`}>
+                      <TableRow className="font-semibold">
                         <TableCell className="text-left">TOTAL</TableCell>
                         <TableCell className="text-right">{cbBankStats.totals.chargebacks}</TableCell>
                         <TableCell className="text-right">{formatCurrency(cbBankStats.totals.total_amount)}</TableCell>
-                        <TableCell className="text-right">{cbBankStats.totals.total_cb_rate} %</TableCell>
-                        <TableCell>
-                          {cbBankStats.totals.alert ? (
-                            <Badge variant="destructive">Alert</Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-green-100 text-green-800">OK</Badge>
-                          )}
+                        <TableCell className="w-40">
+                          <div className="flex items-center gap-2">
+                            <div className="w-20">
+                              <Progress value={cbBankStats.totals.total_cb_rate} variant='red' height='lg' />
+                            </div>
+                            <span className="font-medium w-16 text-right">{cbBankStats.totals.total_cb_rate}%</span>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )}

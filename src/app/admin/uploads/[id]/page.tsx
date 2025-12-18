@@ -1,6 +1,5 @@
 /**
- * Upload detail page.
- * Shows debtors with all columns from original file like MeLinux.
+ * Upload detail page with VOP verification.
  */
 
 'use client'
@@ -46,8 +45,9 @@ import {
   AlertTriangle,
   Ban,
   Filter,
+  ShieldCheck,
 } from 'lucide-react'
-import type { Upload, Debtor, ValidationStats } from '@/types'
+import type { Upload, Debtor, ValidationStats, VopStats } from '@/types'
 
 const uploadStatusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -110,7 +110,6 @@ function formatDate(dateString: string): string {
 }
 
 function getValidationDisplayStatus(debtor: Debtor): string {
-  // Check if debtor has chargebacked billing attempt
   if (debtor.latest_billing?.status === 'chargebacked') {
     return 'chargebacked'
   }
@@ -127,16 +126,27 @@ export default function UploadDetailPage() {
   const [upload, setUpload] = useState<Upload | null>(null)
   const [debtors, setDebtors] = useState<Debtor[]>([])
   const [stats, setStats] = useState<ValidationStats | null>(null)
+  const [vopStats, setVopStats] = useState<VopStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [validating, setValidating] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [filtering, setFiltering] = useState(false)
+  const [verifyingVop, setVerifyingVop] = useState(false)
   const [search, setSearch] = useState('')
   const [hoveredId, setHoveredId] = useState<number | null>(null)
   
   const [editingDebtor, setEditingDebtor] = useState<Debtor | null>(null)
   const [editForm, setEditForm] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+
+  const fetchVopStats = async () => {
+    try {
+      const data = await api.getVopStats(uploadId)
+      setVopStats(data)
+    } catch (error) {
+      console.error('Failed to fetch VOP stats:', error)
+    }
+  }
 
   useEffect(() => {
     const initPage = async () => {
@@ -155,6 +165,8 @@ export default function UploadDetailPage() {
         ])
         setDebtors(debtorsResponse.data)
         setStats(statsData)
+        
+        await fetchVopStats()
       } catch (error) {
         console.error('Failed to initialize:', error)
         toast.error('Failed to load upload')
@@ -187,6 +199,30 @@ export default function UploadDetailPage() {
     setSyncing(false)
   }
 
+  const handleVerifyVop = async () => {
+    setVerifyingVop(true)
+    try {
+      await api.verifyVop(uploadId)
+      toast.success('VOP verification started. This may take a few minutes.')
+      
+      // Poll for updates
+      const pollInterval = setInterval(async () => {
+        await fetchVopStats()
+      }, 5000)
+      
+      // Stop polling after 2 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval)
+        fetchVopStats()
+      }, 120000)
+      
+    } catch (error) {
+      toast.error('Failed to start VOP verification')
+    } finally {
+      setVerifyingVop(false)
+    }
+  }
+
   const handleFilterChargebacks = async () => {
     if (!stats?.chargebacked) return
     
@@ -199,7 +235,6 @@ export default function UploadDetailPage() {
       const result = await api.filterChargebacks(uploadId)
       toast.success(`Removed ${result.removed} chargebacked records`)
       
-      // Refresh data
       const [debtorsResponse, statsData] = await Promise.all([
         api.getUploadDebtors(uploadId, { per_page: 100, search: search || undefined }),
         api.getUploadValidationStats(uploadId),
@@ -282,6 +317,8 @@ export default function UploadDetailPage() {
   const headers = upload.headers || []
   const editHeaders = editingDebtor?.raw_data ? Object.keys(editingDebtor.raw_data) : headers
   const editingErrors = editingDebtor?.validation_errors || []
+  const vopPending = vopStats ? vopStats.pending : 0
+  const vopVerified = vopStats ? vopStats.verified : 0
 
   return (
     <>
@@ -326,6 +363,26 @@ export default function UploadDetailPage() {
                 )}
               </Button>
             )}
+            {vopPending > 0 && (
+              <Button 
+                variant="outline"
+                onClick={handleVerifyVop} 
+                disabled={verifyingVop}
+                className="gap-2"
+              >
+                {verifyingVop ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-4 w-4" />
+                    Verify VOP ({vopPending})
+                  </>
+                )}
+              </Button>
+            )}
             <Button 
               onClick={handleSync} 
               disabled={syncing || (stats?.ready_for_sync || 0) === 0}
@@ -347,7 +404,7 @@ export default function UploadDetailPage() {
         </div>
 
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
             <Card>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
@@ -382,6 +439,15 @@ export default function UploadDetailPage() {
                   <span className="text-sm text-slate-500">Chargebacked</span>
                 </div>
                 <p className="text-2xl font-semibold mt-1">{stats.chargebacked}</p>
+              </CardContent>
+            </Card>
+            <Card className={vopVerified > 0 ? 'border-green-300 bg-green-50' : ''}>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-3 w-3 text-green-600" />
+                  <span className="text-sm text-slate-500">VOP Verified</span>
+                </div>
+                <p className="text-2xl font-semibold mt-1">{vopVerified}</p>
               </CardContent>
             </Card>
             <Card>

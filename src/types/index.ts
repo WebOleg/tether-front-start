@@ -339,7 +339,6 @@ export interface ChargebackBankDetail {
   total_amount: number;
   chargebacks: number;
   cb_rate: number;
-  alert: boolean;
 } 
 
 export interface ChargebackBankTotal {
@@ -347,11 +346,51 @@ export interface ChargebackBankTotal {
   total_amount: number;
   chargebacks: number;
   total_cb_rate: number;
-  alert: boolean;
 }
 export interface ChargebackBankStats {
   period: string;
   start_date: string;
   banks: ChargebackBankDetail[];
   totals: ChargebackBankTotal;
+}
+
+// ==========================================================================
+// VOP Verification Types
+// ==========================================================================
+
+export interface VopStats {
+  total_eligible: number
+  verified: number
+  pending: number
+  by_result: Record<string, number>
+}
+
+export interface VopVerifyResponse {
+  message: string
+  data: {
+    upload_id: number
+    force_refresh: boolean
+  }
+}
+
+export interface VopSingleVerifyRequest {
+  iban: string
+  name: string
+  use_mock?: boolean
+}
+
+export interface VopSingleVerifyResponse {
+  data: {
+    success: boolean
+    valid: boolean
+    name_match: string
+    bic: string | null
+    vop_score: number
+    vop_result: VopResult
+    error: string | null
+  }
+  meta: {
+    mock_mode: boolean
+    credits_used: number
+  }
 }

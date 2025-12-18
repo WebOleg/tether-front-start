@@ -1,6 +1,5 @@
 /**
  * API client for Tether Laravel backend.
- * Handles authentication, requests, and error handling.
  */
 
 import type {
@@ -24,6 +23,10 @@ import type {
   ChargebackStats,
   ChargebackCodeStats,
   ChargebackBankStats,
+  VopStats,
+  VopVerifyResponse,
+  VopSingleVerifyRequest,
+  VopSingleVerifyResponse,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -65,27 +68,17 @@ class ApiClient {
     return filtered.length ? `?${filtered.join('&')}` : ''
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const token = this.getToken()
-
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
       ...options.headers,
     }
-
     if (token) {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
     }
-
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    })
-
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers })
     if (response.status === 401) {
       this.clearToken()
       if (typeof window !== 'undefined') {
@@ -93,18 +86,12 @@ class ApiClient {
       }
       throw new Error('Unauthorized')
     }
-
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
       throw new Error(error.message || `API Error: ${response.status}`)
     }
-
     return response.json()
   }
-
-  // ==========================================================================
-  // Auth Endpoints
-  // ==========================================================================
 
   async login(email: string, password: string): Promise<LoginResponse> {
     const response = await this.request<LoginResponse>('/login', {
@@ -128,39 +115,24 @@ class ApiClient {
     return response.data
   }
 
-  // ==========================================================================
-  // Dashboard Endpoints
-  // ==========================================================================
-
   async getDashboard(): Promise<DashboardData> {
     const response = await this.request<{ data: DashboardData }>('/admin/dashboard')
     return response.data
   }
 
-  // ==========================================================================
-  // Upload Endpoints
-  // ==========================================================================
-
   async uploadFile(file: File): Promise<UploadResult> {
     const token = this.getToken()
-    
     const formData = new FormData()
     formData.append('file', file)
-
-    const headers: HeadersInit = {
-      'Accept': 'application/json',
-    }
-
+    const headers: HeadersInit = { 'Accept': 'application/json' }
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
-
     const response = await fetch(`${API_BASE_URL}/admin/uploads`, {
       method: 'POST',
       headers,
       body: formData,
     })
-
     if (response.status === 401) {
       this.clearToken()
       if (typeof window !== 'undefined') {
@@ -168,23 +140,14 @@ class ApiClient {
       }
       throw new Error('Unauthorized')
     }
-
     if (response.status === 202) {
       const result = await response.json()
-      return {
-        upload: result.data,
-        created: 0,
-        failed: 0,
-        errors: [],
-        queued: true,
-      }
+      return { upload: result.data, created: 0, failed: 0, errors: [], queued: true }
     }
-
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
       throw new Error(error.message || `Upload failed: ${response.status}`)
     }
-
     const result = await response.json()
     return {
       upload: result.data,
@@ -226,10 +189,6 @@ class ApiClient {
     return response.data
   }
 
-  // ==========================================================================
-  // Debtor Endpoints
-  // ==========================================================================
-
   async getDebtors(filters?: DebtorFilters): Promise<ApiResponse<Debtor[]>> {
     const query = this.buildQuery(filters)
     return this.request<ApiResponse<Debtor[]>>(`/admin/debtors${query}`)
@@ -260,10 +219,6 @@ class ApiClient {
     await this.request(`/admin/debtors/${id}`, { method: 'DELETE' })
   }
 
-  // ==========================================================================
-  // VOP Log Endpoints
-  // ==========================================================================
-
   async getVopLogs(filters?: VopLogFilters): Promise<ApiResponse<VopLog[]>> {
     const query = this.buildQuery(filters)
     return this.request<ApiResponse<VopLog[]>>(`/admin/vop-logs${query}`)
@@ -274,10 +229,6 @@ class ApiClient {
     return response.data
   }
 
-  // ==========================================================================
-  // Billing Attempt Endpoints
-  // ==========================================================================
-
   async getBillingAttempts(filters?: BillingAttemptFilters): Promise<ApiResponse<BillingAttempt[]>> {
     const query = this.buildQuery(filters)
     return this.request<ApiResponse<BillingAttempt[]>>(`/admin/billing-attempts${query}`)
@@ -287,10 +238,6 @@ class ApiClient {
     const response = await this.request<{ data: BillingAttempt }>(`/admin/billing-attempts/${id}`)
     return response.data
   }
-
-  // ==========================================================================
-  // Chargeback Endpoints
-  // ==========================================================================
 
   async getChargebackStats(period: string = '7d'): Promise<ChargebackStats> {
     const response = await this.request<{ data: ChargebackStats }>(
@@ -319,6 +266,31 @@ class ApiClient {
       `/admin/stats/chargeback-banks?period=${period}`
     )
     return response.data
+  }
+
+  async getVopStats(uploadId: number): Promise<VopStats> {
+    const response = await this.request<{ data: VopStats }>(
+      `/admin/uploads/${uploadId}/vop-stats`
+    )
+    return response.data
+  }
+
+  async verifyVop(uploadId: number, force: boolean = false): Promise<VopVerifyResponse> {
+    return this.request<VopVerifyResponse>(
+      `/admin/uploads/${uploadId}/verify-vop`,
+      { method: 'POST', body: JSON.stringify({ force }) }
+    )
+  }
+
+  async getUploadVopLogs(uploadId: number): Promise<ApiResponse<VopLog[]>> {
+    return this.request<ApiResponse<VopLog[]>>(`/admin/uploads/${uploadId}/vop-logs`)
+  }
+
+  async verifySingleIban(data: VopSingleVerifyRequest): Promise<VopSingleVerifyResponse> {
+    return this.request<VopSingleVerifyResponse>('/admin/vop/verify-single', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   }
 }
 

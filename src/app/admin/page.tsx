@@ -94,6 +94,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const fetchCbStats = async () => {
+      setCbStats(null)
       try {
         const stats = await api.getChargebackStats(cbPeriod)
         setCbStats(stats)
@@ -107,10 +108,11 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const fetchCbCodeStats = async () => {
+      setCbCodeStats(null)
       try {
         const codeStats = await api.getChargebackCodeStats(cbCodePeriod)
         setCbCodeStats(codeStats)
-       } catch (err) {
+      } catch (err) {
         console.error('Failed to fetch CB code stats:', err)
       }
     }
@@ -120,10 +122,11 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const fetchCbBankStats = async () => {
+      setCbBankStats(null)
       try {
         const bankStats = await api.getChargebackBankStats(cbBankPeriod)
         setCbBankStats(bankStats)
-       } catch (err) {
+      } catch (err) {
         console.error('Failed to fetch CB bank stats:', err)
       }
     }

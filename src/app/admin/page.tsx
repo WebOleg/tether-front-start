@@ -465,6 +465,7 @@ export default function AdminDashboard() {
                       <TableHead className="text-right">Chargebacks</TableHead>
                       <TableHead className="text-right">Total Amount</TableHead>
                       <TableHead className="text-right">CB Rate</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -477,21 +478,35 @@ export default function AdminDashboard() {
                     ) : (
                       <>
                         {cbBankStats.banks.map((row) => (
-                          <TableRow key={row.bank_name} >
+                          <TableRow key={row.bank_name} className={row.alert ? 'bg-red-50' : ''} >
                             <TableCell className="font-medium">{row.bank_name}</TableCell>
                             <TableCell className="text-right">{row.chargebacks}</TableCell>
                             <TableCell className="text-right">{formatCurrency(row.total_amount)}</TableCell>
-                            <TableCell className="text-right">{row.cb_rate} %</TableCell>
+                            <TableCell className="text-right font-medium">{row.cb_rate} %</TableCell>
+                            <TableCell>
+                              {row.alert ? (
+                                <Badge variant="destructive">Alert</Badge>
+                              ) : (
+                                <Badge variant="secondary" className="bg-green-100 text-green-800">OK</Badge>
+                              )}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </>
                     )}
                     {cbBankStats.totals.total > 0 && (
-                      <TableRow className="font-semibold bg-slate-50">
+                      <TableRow className={`font-semibold ${cbBankStats.totals.alert ? 'bg-red-50' : 'bg-slate-50'}`}>
                         <TableCell className="text-left">TOTAL</TableCell>
                         <TableCell className="text-right">{cbBankStats.totals.chargebacks}</TableCell>
                         <TableCell className="text-right">{formatCurrency(cbBankStats.totals.total_amount)}</TableCell>
                         <TableCell className="text-right">{cbBankStats.totals.total_cb_rate} %</TableCell>
+                        <TableCell>
+                          {cbBankStats.totals.alert ? (
+                            <Badge variant="destructive">Alert</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="bg-green-100 text-green-800">OK</Badge>
+                          )}
+                        </TableCell>
                       </TableRow>
                     )}
                   </TableBody>

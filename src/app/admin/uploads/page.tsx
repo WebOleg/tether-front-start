@@ -63,8 +63,13 @@ interface UploadWithStats extends Upload {
 }
 
 const isValidFileType = (file: File): boolean => {
-  const validExtensions = ['.csv', '.xlsx']
-  const validMimeTypes = ['text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+  const validExtensions = ['.csv', '.txt', '.xlsx', '.xls']
+  const validMimeTypes = [
+    'text/csv',
+    'text/plain',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel'
+  ]
   
   const hasValidExtension = validExtensions.some(ext => 
     file.name.toLowerCase().endsWith(ext)
@@ -113,7 +118,7 @@ export default function UploadsPage() {
 
     if (!isValidFileType(selectedFile)) {
       setFile(null)
-      setUploadStatus({ type: 'error', message: 'Invalid file type. Please upload a CSV or XLSX file.' })
+      setUploadStatus({ type: 'error', message: 'Invalid file type. Please upload a CSV, TXT or XLSX file.' })
       return
     }
 
@@ -159,7 +164,7 @@ export default function UploadsPage() {
       const droppedFile = droppedFiles[0]
       
       if (!isValidFileType(droppedFile)) {
-        setUploadStatus({ type: 'error', message: 'Invalid file type. Please upload a CSV or XLSX file.' })
+        setUploadStatus({ type: 'error', message: 'Invalid file type. Please upload a CSV, TXT or XLSX file.' })
         return
       }
 
@@ -183,7 +188,7 @@ export default function UploadsPage() {
     }
 
     if (!isValidFileType(file)) {
-      setUploadStatus({ type: 'error', message: 'Invalid file type. Please upload a CSV or XLSX file.' })
+      setUploadStatus({ type: 'error', message: 'Invalid file type. Please upload a CSV, TXT or XLSX file.' })
       return
     }
 
@@ -252,7 +257,7 @@ export default function UploadsPage() {
     <>
       <Header
         title="Uploads"
-        description="Upload and manage CSV/XLSX files for debt processing"
+        description="Upload and manage CSV/TXT/XLSX files for debt processing"
       />
       <div className="p-6 space-y-6">
         <Card>
@@ -262,7 +267,7 @@ export default function UploadsPage() {
               <CardTitle>Upload File</CardTitle>
             </div>
             <CardDescription>
-              Select a CSV or XLSX file to upload debtor records (max 50MB)
+              Select a CSV, TXT or XLSX file to upload debtor records (max 50MB)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -283,7 +288,7 @@ export default function UploadsPage() {
                 <FileUp className={`h-8 w-8 ${isDragActive ? 'text-blue-500' : 'text-slate-400'}`} />
                 <div className="text-center">
                   <p className={`font-medium ${isDragActive ? 'text-blue-700' : 'text-slate-700'}`}>
-                    {isDragActive ? 'Drop your file here' : 'Drag and drop your CSV or XLSX file here'}
+                    {isDragActive ? 'Drop your file here' : 'Drag and drop your CSV, TXT or XLSX file here'}
                   </p>
                   <p className="text-sm text-slate-500 mt-1">or click to select</p>
                 </div>
@@ -291,7 +296,7 @@ export default function UploadsPage() {
                 <Input
                   ref={fileInputRef}
                   type="file"
-                  accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  accept=".csv,.txt,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                   onChange={handleFileChange}
                   className="hidden"
                   disabled={isUploading}

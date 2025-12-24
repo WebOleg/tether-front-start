@@ -27,6 +27,7 @@ import type {
   VopVerifyResponse,
   VopSingleVerifyRequest,
   VopSingleVerifyResponse,
+  UploadDelete,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -187,6 +188,14 @@ class ApiClient {
       `/admin/uploads/${uploadId}/validation-stats`
     )
     return response.data
+  }
+
+  async deleteUpload(id: number): Promise<UploadDelete> {
+    const response = await this.request<UploadDelete>(
+      `/admin/uploads/${id}`,
+      { method: 'DELETE' }
+    )
+    return response
   }
 
   async getDebtors(filters?: DebtorFilters): Promise<ApiResponse<Debtor[]>> {

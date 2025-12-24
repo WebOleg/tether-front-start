@@ -104,6 +104,8 @@ export default function DebtorsPage() {
                 <TableHead>IBAN</TableHead>
                 <TableHead>Country</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Bank Name</TableHead>
+                <TableHead>Bank Country</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Risk</TableHead>
               </TableRow>
@@ -142,6 +144,8 @@ export default function DebtorsPage() {
                     <TableCell className="text-right font-medium">
                       {formatCurrency(debtor.amount, debtor.currency)}
                     </TableCell>
+                    <TableCell>{debtor.bank_name_reference}</TableCell>
+                    <TableCell>{debtor.bank_country_iso_reference}</TableCell>
                     <TableCell>
                       <Badge className={statusColors[debtor.status]}>
                         {debtor.status}

@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { UploadProgress } from '@/components/upload-progress'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import { Upload as LucideUpload, FileUp, CheckCircle, AlertCircle, XCircle, Loader2, X, FileSpreadsheet, Ban, Eye, Trash2 } from 'lucide-react'
 import type { Upload, SkippedCounts } from '@/types'
 import {
@@ -71,6 +71,12 @@ interface UploadWithStats extends Upload {
   invalid_count?: number
 }
 
+interface UploadStatusState {
+  type: 'success' | 'error' | 'warning'
+  message: string
+  errors?: string[]
+}
+
 const isValidFileType = (file: File): boolean => {
   const validExtensions = ['.csv', '.txt', '.xlsx', '.xls']
   const validMimeTypes = [
@@ -93,7 +99,7 @@ export default function UploadsPage() {
   const [loading, setLoading] = useState(true)
   const [file, setFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
-  const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error' | 'warning', message: string } | null>(null)
+  const [uploadStatus, setUploadStatus] = useState<UploadStatusState | null>(null)
   const [activeUploadId, setActiveUploadId] = useState<number | null>(null)
   const [lastSkipped, setLastSkipped] = useState<SkippedCounts | null>(null)
   const [isDragActive, setIsDragActive] = useState(false)
@@ -226,10 +232,18 @@ export default function UploadsPage() {
         fileInputRef.current.value = ''
       }
     } catch (error) {
-      setUploadStatus({ 
-        type: 'error', 
-        message: error instanceof Error ? error.message : 'Upload failed' 
-      })
+      if (error instanceof ApiError) {
+        setUploadStatus({ 
+          type: 'error', 
+          message: error.message,
+          errors: error.errors.length > 0 ? error.errors : undefined
+        })
+      } else {
+        setUploadStatus({ 
+          type: 'error', 
+          message: error instanceof Error ? error.message : 'Upload failed' 
+        })
+      }
     } finally {
       setIsUploading(false)
     }
@@ -380,21 +394,30 @@ export default function UploadsPage() {
             )}
 
             {uploadStatus && !activeUploadId && (
-              <div className={`flex items-center gap-2 p-3 rounded-lg ${
+              <div className={`p-3 rounded-lg border ${
                 uploadStatus.type === 'success' 
-                  ? 'bg-green-50 text-green-700 border border-green-200' 
+                  ? 'bg-green-50 text-green-700 border-green-200' 
                   : uploadStatus.type === 'warning'
-                  ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                  : 'bg-red-50 text-red-700 border border-red-200'
+                  ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                  : 'bg-red-50 text-red-700 border-red-200'
               }`}>
-                {uploadStatus.type === 'success' ? (
-                  <CheckCircle className="h-4 w-4 flex-shrink-0" />
-                ) : uploadStatus.type === 'warning' ? (
-                  <Ban className="h-4 w-4 flex-shrink-0" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <div className="flex items-center gap-2">
+                  {uploadStatus.type === 'success' ? (
+                    <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                  ) : uploadStatus.type === 'warning' ? (
+                    <Ban className="h-4 w-4 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  )}
+                  <span className="text-sm font-medium">{uploadStatus.message}</span>
+                </div>
+                {uploadStatus.errors && uploadStatus.errors.length > 0 && (
+                  <ul className="mt-2 ml-6 text-sm list-disc space-y-1">
+                    {uploadStatus.errors.map((error, index) => (
+                      <li key={index}>{error}</li>
+                    ))}
+                  </ul>
                 )}
-                <span className="text-sm">{uploadStatus.message}</span>
               </div>
             )}
           </CardContent>

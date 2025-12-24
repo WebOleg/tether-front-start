@@ -32,6 +32,21 @@ import type {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
 
+/**
+ * Custom API Error with structured errors array
+ */
+export class ApiError extends Error {
+  errors: string[]
+  status: number
+  
+  constructor(message: string, errors: string[] = [], status: number = 422) {
+    super(message)
+    this.errors = errors
+    this.status = status
+    this.name = 'ApiError'
+  }
+}
+
 class ApiClient {
   private token: string | null = null
 
@@ -89,7 +104,11 @@ class ApiClient {
     }
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
-      throw new Error(error.message || `API Error: ${response.status}`)
+      throw new ApiError(
+        error.message || `API Error: ${response.status}`,
+        error.errors || [],
+        response.status
+      )
     }
     return response.json()
   }
@@ -147,7 +166,11 @@ class ApiClient {
     }
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
-      throw new Error(error.message || `Upload failed: ${response.status}`)
+      throw new ApiError(
+        error.message || `Upload failed: ${response.status}`,
+        error.errors || [],
+        response.status
+      )
     }
     const result = await response.json()
     return {

@@ -22,8 +22,17 @@ import {
 } from '@/components/ui/table'
 import { UploadProgress } from '@/components/upload-progress'
 import { api } from '@/lib/api'
-import { Upload as LucideUpload, FileUp, CheckCircle, AlertCircle, XCircle, Loader2, X, FileSpreadsheet, Ban } from 'lucide-react'
+import { Upload as LucideUpload, FileUp, CheckCircle, AlertCircle, XCircle, Loader2, X, FileSpreadsheet, Ban, Eye, Trash2 } from 'lucide-react'
 import type { Upload, SkippedCounts } from '@/types'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { toast } from 'sonner'
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -88,6 +97,8 @@ export default function UploadsPage() {
   const [activeUploadId, setActiveUploadId] = useState<number | null>(null)
   const [lastSkipped, setLastSkipped] = useState<SkippedCounts | null>(null)
   const [isDragActive, setIsDragActive] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [uploadToDelete, setUploadToDelete] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
 
@@ -253,6 +264,29 @@ export default function UploadsPage() {
     fetchUploads()
   }
 
+  const handleDeleteClick = (uploadId: number) => {
+    setUploadToDelete(uploadId)
+    setDeleteModalOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!uploadToDelete) return
+    
+    try {
+      setDeleteModalOpen(false)
+      const result = await api.deleteUpload(uploadToDelete)
+      if(result.success === true){
+        toast.success(result.message || 'Upload deleted successfully')
+        setUploads(uploads.filter(upload => upload.id !== uploadToDelete))
+        setUploadToDelete(null)
+      }else{
+        toast.error(result.message || 'Upload is not deleted.')
+      }
+    } catch (error) {
+      toast.error("Upload is not deleted.")
+    }
+  }
+
   return (
     <>
       <Header
@@ -382,18 +416,19 @@ export default function UploadsPage() {
                   <TableHead className="text-center">Records</TableHead>
                   <TableHead className="text-center">Validation</TableHead>
                   <TableHead>Uploaded</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8">
+                    <TableCell colSpan={6} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
                     </TableCell>
                   </TableRow>
                 ) : uploads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+                    <TableCell colSpan={6} className="text-center py-8 text-slate-500">
                       No uploads yet
                     </TableCell>
                   </TableRow>
@@ -453,6 +488,27 @@ export default function UploadsPage() {
                         <TableCell className="text-slate-500">
                           {formatDate(upload.created_at)}
                         </TableCell>
+                        <TableCell>
+                          <Link href={`/admin/uploads/${upload.id}`} >
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-blue-600 hover:text-blue-700"
+                            >
+                                <Eye className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                          {upload.is_deletable && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700"
+                              onClick={() => handleDeleteClick(upload.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
                       </TableRow>
                     )
                   })
@@ -461,6 +517,31 @@ export default function UploadsPage() {
             </Table>
           </CardContent>
         </Card>
+
+        <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Upload</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this upload? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDelete}
+              >
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   )

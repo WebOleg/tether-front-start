@@ -61,11 +61,17 @@ export interface Upload {
   debtors_count?: number
   valid_count?: number
   invalid_count?: number
+  is_deletable?: boolean
   skipped?: SkippedCounts | null
   skipped_rows?: SkippedRow[] | null
 }
 
 export type UploadStatus = 'pending' | 'processing' | 'completed' | 'failed'
+
+export interface UploadDelete {
+  success: boolean
+  message: string
+}
 
 export interface Debtor {
   id: number

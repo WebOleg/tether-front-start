@@ -24,6 +24,31 @@ export interface PaginationLinks {
   next: string | null
 }
 
+export interface PaginationLink {
+  url: string | null
+  label: string
+  page: number | null
+  active: boolean
+}
+
+export interface PaginationProps {
+  meta: PaginationMeta | null
+  links: PaginationLinks | null
+  paginationLinks: PaginationLink[]
+  onPageChange: (page: number) => void
+  onPreviousClick?: () => void
+  onNextClick?: () => void
+}
+
+export interface PaginationMetaProps {
+  meta: PaginationMeta | null
+  label?: string
+  containerClassName?: string
+  leftSectionClassName?: string
+  rightSectionClassName?: string
+  textClassName?: string
+}
+
 export interface SkippedCounts {
   total: number
   blacklisted: number

@@ -25,7 +25,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
-import type { Debtor, DebtorStatus } from '@/types'
+import type { Debtor, DebtorStatus, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
+import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 
 const statusColors: Record<DebtorStatus, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -51,17 +52,30 @@ export default function DebtorsPage() {
   const [debtors, setDebtors] = useState<Debtor[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [meta, setMeta] = useState<PaginationMetaType | null>(null)
+  const [links, setLinks] = useState<PaginationLinks | null>(null)
+  const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
 
   useEffect(() => {
     const fetchDebtors = async () => {
       setLoading(true)
       try {
-        const filters: { status?: DebtorStatus; per_page: number } = { per_page: 50 }
+        const filters: { status?: DebtorStatus; page: number; per_page: number } = { 
+          page: currentPage,
+          per_page: 50 
+        }
         if (statusFilter !== 'all') {
           filters.status = statusFilter as DebtorStatus
         }
         const response = await api.getDebtors(filters)
         setDebtors(response.data)
+        setMeta(response.meta || null)
+        setLinks(response.links || null)
+        
+        if ('links' in response.meta!) {
+          setPaginationLinks((response.meta as PaginationMetaType & {links? : PaginationLink[]}).links || [])
+        }
       } catch (error) {
         console.error('Failed to fetch debtors:', error)
       } finally {
@@ -70,7 +84,28 @@ export default function DebtorsPage() {
     }
 
     fetchDebtors()
-  }, [statusFilter])
+  }, [statusFilter, currentPage])
+
+  const handlePreviousPage = () => {
+    if (links?.prev) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (links?.next) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const handlePageClick = (page: number) => {
+    setCurrentPage(page)
+  }
+
+  const handleStatusFilterChange = (newStatus: string) => {
+    setStatusFilter(newStatus)
+    setCurrentPage(1)
+  }
 
   return (
     <>
@@ -81,7 +116,7 @@ export default function DebtorsPage() {
       <div className="p-6">
         {/* Filters */}
         <div className="mb-4 flex gap-4">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
@@ -94,9 +129,15 @@ export default function DebtorsPage() {
             </SelectContent>
           </Select>
         </div>
-
-        {/* Table */}
+        
+        <PaginationMeta
+          meta={meta}
+          label="debtors"
+          containerClassName='px-2'
+        />
+        
         <div className="rounded-lg border bg-white">
+          {/* Table */}
           <Table>
             <TableHeader>
               <TableRow>
@@ -113,13 +154,13 @@ export default function DebtorsPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : debtors.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={8} className="text-center py-8">
                     No debtors found
                   </TableCell>
                 </TableRow>
@@ -164,6 +205,16 @@ export default function DebtorsPage() {
             </TableBody>
           </Table>
         </div>
+        
+        <Pagination
+          meta={meta}
+          links={links}
+          paginationLinks={paginationLinks}
+          onPageChange={handlePageClick}
+          onPreviousClick={handlePreviousPage}
+          onNextClick={handleNextPage}
+        />
+        
       </div>
     </>
   )

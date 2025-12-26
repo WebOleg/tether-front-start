@@ -47,7 +47,8 @@ import {
   Filter,
   ShieldCheck,
 } from 'lucide-react'
-import type { Upload, Debtor, ValidationStats, VopStats } from '@/types'
+import type { Upload, Debtor, ValidationStats, VopStats, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
+import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 
 const uploadStatusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -134,10 +135,14 @@ export default function UploadDetailPage() {
   const [verifyingVop, setVerifyingVop] = useState(false)
   const [search, setSearch] = useState('')
   const [hoveredId, setHoveredId] = useState<number | null>(null)
-  
   const [editingDebtor, setEditingDebtor] = useState<Debtor | null>(null)
   const [editForm, setEditForm] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [meta, setMeta] = useState<PaginationMetaType | null>(null)
+  const [links, setLinks] = useState<PaginationLinks | null>(null)
+  const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
+  const [tableLoading, setTableLoading] = useState(false)
 
   const fetchVopStats = async () => {
     try {
@@ -165,7 +170,13 @@ export default function UploadDetailPage() {
         ])
         setDebtors(debtorsResponse.data)
         setStats(statsData)
+        setMeta(debtorsResponse.meta || null)
+        setLinks(debtorsResponse.links || null)
         
+        // Extract pagination links from meta.links if available
+        if (debtorsResponse.meta && 'links' in debtorsResponse.meta) {
+          setPaginationLinks((debtorsResponse.meta as PaginationMetaType & {links?: PaginationLink[]}).links || [])
+        }
         await fetchVopStats()
       } catch (error) {
         console.error('Failed to initialize:', error)
@@ -182,16 +193,40 @@ export default function UploadDetailPage() {
   }, [uploadId])
 
   useEffect(() => {
-    if (!loading && upload) {
-      const timer = setTimeout(() => {
-        api.getUploadDebtors(uploadId, { per_page: 100, search: search || undefined })
-          .then(res => setDebtors(res.data))
-          .catch(console.error)
-      }, 300)
-      return () => clearTimeout(timer)
+    if (!uploadId || loading) return
+    
+    // Skip on initial mount (currentPage=1, no search)
+    const isInitialState = currentPage === 1 && search === ''
+    if (isInitialState) return
+    
+    const fetchData = async () => {
+      setTableLoading(true)
+      try {
+        const debtorsResponse = await api.getUploadDebtors(uploadId, { 
+          page: currentPage,
+          per_page: 100, 
+          search: search || undefined 
+        })
+        setDebtors(debtorsResponse.data)
+        setMeta(debtorsResponse.meta || null)
+        setLinks(debtorsResponse.links || null)
+        
+        if (debtorsResponse.meta && 'links' in debtorsResponse.meta) {
+          setPaginationLinks((debtorsResponse.meta as PaginationMetaType & {links?: PaginationLink[]}).links || [])
+        }
+      } catch (error) {
+        console.error('Failed to fetch debtors:', error)
+      } finally {
+        setTableLoading(false)
+      }
     }
-  }, [search, uploadId, loading, upload])
-
+    
+    const timer = setTimeout(() => {
+      fetchData()
+    }, search ? 300 : 0)
+    
+    return () => clearTimeout(timer)
+  }, [uploadId, currentPage, search, loading])
   const handleSync = async () => {
     setSyncing(true)
     toast.info('Sync functionality coming soon...')
@@ -320,14 +355,30 @@ export default function UploadDetailPage() {
   const vopPending = vopStats ? vopStats.pending : 0
   const vopVerified = vopStats ? vopStats.verified : 0
 
+  const handlePreviousPage = () => {
+    if (links?.prev) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (links?.next) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const handlePageClick = (page: number) => {
+    setCurrentPage(page)
+  }
+
   return (
     <>
       <Header
         title={upload.original_filename}
         description={`Uploaded ${formatDate(upload.created_at)}`}
       />
-      <div className="p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between gap-4">
+      <div className="">
+        <div className="px-6 pt-4 flex flex-col sm:flex-row justify-between gap-4">
           <div className="flex items-center gap-4 flex-wrap">
             <Link href="/admin/uploads">
               <Button variant="outline" size="sm" className="gap-2">
@@ -404,7 +455,7 @@ export default function UploadDetailPage() {
         </div>
 
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
+          <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
             <Card>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
@@ -471,119 +522,141 @@ export default function UploadDetailPage() {
           </div>
         )}
 
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row justify-between gap-4">
-              <CardTitle>Debtors</CardTitle>
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input
-                    placeholder="Search..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-9 w-64"
-                  />
+        <PaginationMeta meta={meta} label="debtors" />
+
+        <div className="px-6">
+          <Card>
+            <CardHeader className="px-2">
+              <div className="flex flex-col sm:flex-row justify-between p-0">
+                <CardTitle>Debtors</CardTitle>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Search..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="pl-9 w-64"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-28">Actions</TableHead>
-                    {headers.map((h, idx) => (
-                      <TableHead key={`header-${idx}-${h}`} className="whitespace-nowrap">{h}</TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {debtors.length === 0 ? (
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={headers.length + 1} className="text-center py-8 text-slate-500">
-                        No debtors found
-                      </TableCell>
+                      <TableHead className="w-28">Actions</TableHead>
+                      {headers.map((h, idx) => (
+                        <TableHead key={`header-${idx}-${h}`} className="whitespace-nowrap">{h}</TableHead>
+                      ))}
                     </TableRow>
-                  ) : (
-                    debtors.map((debtor) => {
-                      const displayStatus = getValidationDisplayStatus(debtor)
-                      const statusConfig = validationStatusConfig[displayStatus]
-                      const rawData = debtor.raw_data || {}
-                      const hasErrors = debtor.validation_errors && debtor.validation_errors.length > 0
-                      const isChargebacked = displayStatus === 'chargebacked'
-                      const isHovered = hoveredId === debtor.id
-                      const bgClass = isHovered ? statusConfig.hoverBg : statusConfig.rowBg
-                      
-                      return (
-                        <Fragment key={debtor.id}>
-                          <TableRow 
-                            className={`${bgClass} transition-colors ${hasErrors || isChargebacked ? 'border-b-0' : ''}`}
-                            onMouseEnter={() => setHoveredId(debtor.id)}
-                            onMouseLeave={() => setHoveredId(null)}
-                          >
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                <span className={statusConfig.color} title={statusConfig.label}>
-                                  {statusConfig.icon}
-                                </span>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => handleEditClick(debtor)}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-red-600 hover:text-red-700"
-                                  onClick={() => handleDelete(debtor)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                            {headers.map((h, idx) => (
-                              <TableCell key={`cell-${debtor.id}-${idx}-${h}`} className="whitespace-nowrap max-w-[200px] truncate">
-                                {rawData[h] || '-'}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                          {(hasErrors || isChargebacked) && (
+                  </TableHeader>
+                  <TableBody>
+                    {tableLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={headers.length + 1} className="text-center py-8">
+                          <Loader2 className="h-5 w-5 animate-spin mx-auto text-slate-400" />
+                          <p className="mt-2 text-sm text-slate-500">Loading...</p>
+                        </TableCell>
+                      </TableRow>
+                    ) : debtors.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={headers.length + 1} className="text-center py-8 text-slate-500">
+                          No debtors found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      debtors.map((debtor) => {
+                        const displayStatus = getValidationDisplayStatus(debtor)
+                        const statusConfig = validationStatusConfig[displayStatus]
+                        const rawData = debtor.raw_data || {}
+                        const hasErrors = debtor.validation_errors && debtor.validation_errors.length > 0
+                        const isChargebacked = displayStatus === 'chargebacked'
+                        const isHovered = hoveredId === debtor.id
+                        const bgClass = isHovered ? statusConfig.hoverBg : statusConfig.rowBg
+                        
+                        return (
+                          <Fragment key={debtor.id}>
                             <TableRow 
-                              className={`${bgClass} transition-colors`}
+                              className={`${bgClass} transition-colors ${hasErrors || isChargebacked ? 'border-b-0' : ''}`}
                               onMouseEnter={() => setHoveredId(debtor.id)}
                               onMouseLeave={() => setHoveredId(null)}
                             >
-                              <TableCell colSpan={headers.length + 1} className="pt-0 pb-3">
-                                <div className={`flex items-start gap-2 text-sm ${statusConfig.textColor}`}>
-                                  {isChargebacked ? (
-                                    <>
-                                      <Ban className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                                      <span>This IBAN received a chargeback - cannot be processed again</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                                      <span>{debtor.validation_errors?.join(', ')}</span>
-                                    </>
-                                  )}
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <span className={statusConfig.color} title={statusConfig.label}>
+                                    {statusConfig.icon}
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => handleEditClick(debtor)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-red-600 hover:text-red-700"
+                                    onClick={() => handleDelete(debtor)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               </TableCell>
+                              {headers.map((h, idx) => (
+                                <TableCell key={`cell-${debtor.id}-${idx}-${h}`} className="whitespace-nowrap max-w-[200px] truncate">
+                                  {rawData[h] || '-'}
+                                </TableCell>
+                              ))}
                             </TableRow>
-                          )}
-                        </Fragment>
-                      )
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                            {(hasErrors || isChargebacked) && (
+                              <TableRow 
+                                className={`${bgClass} transition-colors`}
+                                onMouseEnter={() => setHoveredId(debtor.id)}
+                                onMouseLeave={() => setHoveredId(null)}
+                              >
+                                <TableCell colSpan={headers.length + 1} className="pt-0 pb-3">
+                                  <div className={`flex items-start gap-2 text-sm ${statusConfig.textColor}`}>
+                                    {isChargebacked ? (
+                                      <>
+                                        <Ban className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                        <span>This IBAN received a chargeback - cannot be processed again</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                                        <span>{debtor.validation_errors?.join(', ')}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </Fragment>
+                        )
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="mb-8">
+        <Pagination
+          meta={meta}
+          links={links}
+          paginationLinks={paginationLinks}
+          onPageChange={handlePageClick}
+          onPreviousClick={handlePreviousPage}
+          onNextClick={handleNextPage}
+        />
       </div>
 
       <Dialog open={!!editingDebtor} onOpenChange={() => setEditingDebtor(null)}>

@@ -100,6 +100,8 @@ export interface Debtor {
   external_reference: string | null
   bank_name: string | null
   bic: string | null
+  bank_name_reference: string | null
+  bank_country_iso_reference: string | null
   raw_data: Record<string, string> | null
   created_at: string
   updated_at: string

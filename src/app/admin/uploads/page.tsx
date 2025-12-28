@@ -22,8 +22,19 @@ import {
 } from '@/components/ui/table'
 import { UploadProgress } from '@/components/upload-progress'
 import { api, ApiError } from '@/lib/api'
-import { Upload as LucideUpload, FileUp, CheckCircle, AlertCircle, XCircle, Loader2, X, FileSpreadsheet, Ban, Eye, Trash2 } from 'lucide-react'
-import type { Upload, SkippedCounts } from '@/types'
+import { 
+  Upload as LucideUpload, 
+  FileUp, CheckCircle, 
+  AlertCircle, 
+  XCircle, 
+  Loader2, 
+  X, 
+  FileSpreadsheet, 
+  Ban, 
+  Eye, 
+  Trash2
+ } from 'lucide-react'
+import type { Upload, SkippedCounts, PaginationLinks, PaginationLink, PaginationMeta as PaginationMetaType } from '@/types'
 import {
   Dialog,
   DialogContent,
@@ -33,6 +44,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -107,11 +119,27 @@ export default function UploadsPage() {
   const [uploadToDelete, setUploadToDelete] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [meta, setMeta] = useState<PaginationMetaType | null>(null)
+  const [links, setLinks] = useState<PaginationLinks | null>(null)
+  const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
 
   const fetchUploads = async () => {
+    setLoading(true)
     try {
-      const response = await api.getUploads({ per_page: 50 })
+      const filters: { page?: number; per_page: number } = { 
+        page: currentPage,
+        per_page: 50 
+      }
+      const response = await api.getUploads(filters)
+
       setUploads(response.data)
+      setMeta(response.meta || null)
+      setLinks(response.links || null)
+
+      if (response.meta && 'links' in response.meta) {
+        setPaginationLinks((response.meta as PaginationMetaType & {links? : PaginationLink[]}).links || [])
+      }    
     } catch (error) {
       console.error('Failed to fetch uploads:', error)
     } finally {
@@ -121,7 +149,23 @@ export default function UploadsPage() {
 
   useEffect(() => {
     fetchUploads()
-  }, [])
+  }, [currentPage])
+
+  const handlePreviousPage = () => {
+    if (links?.prev) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (links?.next) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const handlePageClick = (page: number) => {
+    setCurrentPage(page)
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] ?? null
@@ -307,8 +351,8 @@ export default function UploadsPage() {
         title="Uploads"
         description="Upload and manage CSV/TXT/XLSX files for debt processing"
       />
-      <div className="p-6 space-y-6">
-        <Card>
+      <div className="p-6">
+        <Card className="mb-4">
           <CardHeader>
             <div className="flex items-center gap-2">
               <FileUp className="h-5 w-5 text-slate-500" />
@@ -423,18 +467,24 @@ export default function UploadsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <PaginationMeta 
+          meta={meta}
+          label="debtors"
+          containerClassName="px-6 py-2" 
+        />
+
+        <Card className="py-6">
           <CardHeader>
             <CardTitle>Upload History</CardTitle>
             <CardDescription>
               View all uploaded files and their validation status
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="px-6">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>File</TableHead>
+                  <TableHead className="px-0">File</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-center">Records</TableHead>
                   <TableHead className="text-center">Validation</TableHead>
@@ -465,7 +515,7 @@ export default function UploadsPage() {
                     
                     return (
                       <TableRow key={upload.id} className="hover:bg-slate-50">
-                        <TableCell>
+                        <TableCell className="px-0">
                           <Link href={`/admin/uploads/${upload.id}`} className="hover:underline">
                             <div className="flex items-center gap-2">
                               <FileSpreadsheet className="h-4 w-4 text-slate-400" />
@@ -540,6 +590,15 @@ export default function UploadsPage() {
             </Table>
           </CardContent>
         </Card>
+
+        <Pagination
+          meta={meta}
+          links={links}
+          paginationLinks={paginationLinks}
+          onPageChange={handlePageClick}
+          onPreviousClick={handlePreviousPage}
+          onNextClick={handleNextPage}
+        />
 
         <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
           <DialogContent>

@@ -24,8 +24,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
-import type { VopLog, VopResult } from '@/types'
-import { CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import type { PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType, VopLog, VopResult } from '@/types'
+import { CheckCircle, XCircle } from 'lucide-react'
+import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 
 const resultColors: Record<VopResult, string> = {
   verified: 'bg-green-100 text-green-800',
@@ -60,17 +61,31 @@ export default function VopLogsPage() {
   const [vopLogs, setVopLogs] = useState<VopLog[]>([])
   const [loading, setLoading] = useState(true)
   const [resultFilter, setResultFilter] = useState<string>('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [meta, setMeta] = useState<PaginationMetaType | null>(null)
+  const [links, setLinks] = useState<PaginationLinks | null>(null)
+  const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
 
   useEffect(() => {
     const fetchVopLogs = async () => {
       setLoading(true)
       try {
-        const filters: { result?: VopResult; per_page: number } = { per_page: 50 }
+        const filters: { result?: VopResult; page: number; per_page: number } = {         
+          page: currentPage,
+          per_page: 50 
+        }
         if (resultFilter !== 'all') {
           filters.result = resultFilter as VopResult
         }
         const response = await api.getVopLogs(filters)
         setVopLogs(response.data)
+        setMeta(response.meta || null)
+        setLinks(response.links || null)
+
+        // Extract pagination links from meta if available
+        if (response.meta && 'links' in response.meta) {
+          setPaginationLinks((response.meta as PaginationMetaType & {links?: PaginationLink[]}).links || [])
+        }      
       } catch (error) {
         console.error('Failed to fetch VOP logs:', error)
       } finally {
@@ -79,7 +94,23 @@ export default function VopLogsPage() {
     }
 
     fetchVopLogs()
-  }, [resultFilter])
+  }, [resultFilter, currentPage])
+
+  const handlePreviousPage = () => {
+    if (links?.prev) {
+      setCurrentPage((prev) => Math.max(prev - 1, 1))
+    }
+  }
+
+  const handleNextPage = () => {
+    if (links?.next) {
+      setCurrentPage((prev) => prev + 1)
+    }
+  }
+
+  const handlePageClick = (page: number) => {
+    setCurrentPage(page)
+  }
 
   return (
     <>
@@ -90,7 +121,10 @@ export default function VopLogsPage() {
       <div className="p-6">
         {/* Filters */}
         <div className="mb-4 flex gap-4">
-          <Select value={resultFilter} onValueChange={setResultFilter}>
+          <Select value={resultFilter} onValueChange={(value) => {
+            setResultFilter(value)
+            setCurrentPage(1)
+          }}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Filter by result" />
             </SelectTrigger>
@@ -105,6 +139,11 @@ export default function VopLogsPage() {
           </Select>
         </div>
 
+        <PaginationMeta
+          meta={meta}
+          label="vop logs"
+          containerClassName='px-2'
+        />
         {/* Table */}
         <div className="rounded-lg border bg-white">
           <Table>
@@ -171,6 +210,16 @@ export default function VopLogsPage() {
             </TableBody>
           </Table>
         </div>
+
+        <Pagination
+          meta={meta}
+          links={links}
+          paginationLinks={paginationLinks}
+          onPageChange={handlePageClick}
+          onPreviousClick={handlePreviousPage}
+          onNextClick={handleNextPage}
+        />
+
       </div>
     </>
   )

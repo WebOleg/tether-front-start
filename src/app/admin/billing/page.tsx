@@ -24,7 +24,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
-import type { BillingAttempt, BillingStatus } from '@/types'
+import type { BillingAttempt, BillingStatus, PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType } from '@/types'
+import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 
 const statusColors: Record<BillingStatus, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -56,17 +57,31 @@ export default function BillingPage() {
   const [attempts, setAttempts] = useState<BillingAttempt[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [meta, setMeta] = useState<PaginationMetaType | null>(null)
+  const [links, setLinks] = useState<PaginationLinks | null>(null)
+  const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
 
   useEffect(() => {
     const fetchAttempts = async () => {
       setLoading(true)
       try {
-        const filters: { status?: BillingStatus; per_page: number } = { per_page: 50 }
+        const filters: { status?: BillingStatus; page: number; per_page: number } = { 
+          page: currentPage,
+          per_page: 50 
+        }
         if (statusFilter !== 'all') {
           filters.status = statusFilter as BillingStatus
         }
         const response = await api.getBillingAttempts(filters)
         setAttempts(response.data)
+        setMeta(response.meta || null)
+        setLinks(response.links || null)
+        
+        // Extract pagination links from meta if available
+        if (response.meta && 'links' in response.meta) {
+          setPaginationLinks((response.meta as PaginationMetaType & { links?: PaginationLink[] }).links || [])
+        }
       } catch (error) {
         console.error('Failed to fetch billing attempts:', error)
       } finally {
@@ -75,7 +90,23 @@ export default function BillingPage() {
     }
 
     fetchAttempts()
-  }, [statusFilter])
+  }, [statusFilter, currentPage])
+
+  const handlePreviousPage = () => {
+    if (links?.prev) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (links?.next) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const handlePageClick = (page: number) => {
+    setCurrentPage(page)
+  }
 
   return (
     <>
@@ -101,6 +132,11 @@ export default function BillingPage() {
           </Select>
         </div>
 
+        <PaginationMeta
+          meta={meta}
+          label="billing attempts"
+          containerClassName='px-2'
+        />
         {/* Table */}
         <div className="rounded-lg border bg-white">
           <Table>
@@ -169,6 +205,16 @@ export default function BillingPage() {
             </TableBody>
           </Table>
         </div>
+
+        <Pagination
+          meta={meta}
+          links={links}
+          paginationLinks={paginationLinks}
+          onPageChange={handlePageClick}
+          onPreviousClick={handlePreviousPage}
+          onNextClick={handleNextPage}
+        />
+
       </div>
     </>
   )

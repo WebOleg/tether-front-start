@@ -428,3 +428,39 @@ export interface VopSingleVerifyResponse {
     credits_used: number
   }
 }
+// ==========================================================================
+// Billing Sync Types
+// ==========================================================================
+
+export interface BillingSyncResponse {
+  message: string
+  data: {
+    upload_id: number
+    eligible: number
+    queued: boolean
+    duplicate?: boolean
+  }
+}
+
+export interface BillingStats {
+  upload_id: number
+  is_processing: boolean
+  total_attempts: number
+  approved: number
+  approved_amount: number
+  pending: number
+  pending_amount: number
+  declined: number
+  declined_amount: number
+  error: number
+  error_amount: number
+}
+
+export interface BillingRetryResponse {
+  message: string
+  data: BillingAttempt | {
+    id: number
+    status: string
+    can_retry: boolean
+  }
+}

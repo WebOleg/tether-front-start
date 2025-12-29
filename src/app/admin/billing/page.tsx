@@ -33,6 +33,7 @@ const statusColors: Record<BillingStatus, string> = {
   declined: 'bg-red-100 text-red-800',
   error: 'bg-orange-100 text-orange-800',
   voided: 'bg-slate-100 text-slate-800',
+  chargebacked: 'bg-purple-100 text-purple-800',
 }
 
 function formatCurrency(amount: number, currency: string): string {

@@ -614,9 +614,9 @@ export default function AdminDashboard() {
                     <div key={billing.id} className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium">
-                          {billing.debtor 
-                            ? `${billing.debtor.first_name} ${billing.debtor.last_name}`
-                            : `Debtor #${billing.debtor_id}`
+                          {(billing as any).debtor 
+                            ? `${(billing as any).debtor.first_name} ${(billing as any).debtor.last_name}`
+                            : `Debtor #${(billing as any).debtor_id}`
                           }
                         </p>
                         <p className="text-xs text-slate-500">{formatDate(billing.created_at)}</p>

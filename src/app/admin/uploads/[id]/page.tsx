@@ -1,10 +1,10 @@
 /**
- * Upload detail page with VOP verification.
+ * Upload detail page with VOP verification and billing.
  */
 
 'use client'
 
-import { useEffect, useState, Fragment } from 'react'
+import { useEffect, useState, Fragment, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -46,8 +46,10 @@ import {
   Ban,
   Filter,
   ShieldCheck,
+  CreditCard,
+  Send,
 } from 'lucide-react'
-import type { Upload, Debtor, ValidationStats, VopStats, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
+import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 
 const uploadStatusColors: Record<string, string> = {
@@ -110,6 +112,13 @@ function formatDate(dateString: string): string {
   })
 }
 
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-EU', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(amount)
+}
+
 function getValidationDisplayStatus(debtor: Debtor): string {
   if (debtor.latest_billing?.status === 'chargebacked') {
     return 'chargebacked'
@@ -128,6 +137,7 @@ export default function UploadDetailPage() {
   const [debtors, setDebtors] = useState<Debtor[]>([])
   const [stats, setStats] = useState<ValidationStats | null>(null)
   const [vopStats, setVopStats] = useState<VopStats | null>(null)
+  const [billingStats, setBillingStats] = useState<BillingStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [validating, setValidating] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -153,6 +163,17 @@ export default function UploadDetailPage() {
     }
   }
 
+  const fetchBillingStats = useCallback(async () => {
+    try {
+      const data = await api.getBillingStats(uploadId)
+      setBillingStats(data)
+      return data
+    } catch (error) {
+      console.error('Failed to fetch billing stats:', error)
+      return null
+    }
+  }, [uploadId])
+
   useEffect(() => {
     const initPage = async () => {
       setLoading(true)
@@ -173,11 +194,11 @@ export default function UploadDetailPage() {
         setMeta(debtorsResponse.meta || null)
         setLinks(debtorsResponse.links || null)
         
-        // Extract pagination links from meta.links if available
         if (debtorsResponse.meta && 'links' in debtorsResponse.meta) {
           setPaginationLinks((debtorsResponse.meta as PaginationMetaType & {links?: PaginationLink[]}).links || [])
         }
         await fetchVopStats()
+        await fetchBillingStats()
       } catch (error) {
         console.error('Failed to initialize:', error)
         toast.error('Failed to load upload')
@@ -190,12 +211,25 @@ export default function UploadDetailPage() {
     if (uploadId) {
       initPage()
     }
-  }, [uploadId])
+  }, [uploadId, fetchBillingStats])
+
+  useEffect(() => {
+    if (!billingStats?.is_processing) return
+    
+    const interval = setInterval(async () => {
+      const data = await fetchBillingStats()
+      if (data && !data.is_processing) {
+        clearInterval(interval)
+        toast.success('Billing processing completed!')
+      }
+    }, 5000)
+    
+    return () => clearInterval(interval)
+  }, [billingStats?.is_processing, fetchBillingStats])
 
   useEffect(() => {
     if (!uploadId || loading) return
     
-    // Skip on initial mount (currentPage=1, no search)
     const isInitialState = currentPage === 1 && search === ''
     if (isInitialState) return
     
@@ -227,11 +261,29 @@ export default function UploadDetailPage() {
     
     return () => clearTimeout(timer)
   }, [uploadId, currentPage, search, loading])
+
   const handleSync = async () => {
+    if (!confirm(`Send ${stats?.ready_for_sync || 0} debtors to payment gateway?`)) {
+      return
+    }
+    
     setSyncing(true)
-    toast.info('Sync functionality coming soon...')
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setSyncing(false)
+    try {
+      const result = await api.syncToGateway(uploadId)
+      
+      if (result.data.duplicate) {
+        toast.warning('Billing already in progress for this upload')
+      } else if (result.data.queued) {
+        toast.success(result.message)
+        await fetchBillingStats()
+      } else {
+        toast.info(result.message)
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to start billing')
+    } finally {
+      setSyncing(false)
+    }
   }
 
   const handleVerifyVop = async () => {
@@ -240,12 +292,10 @@ export default function UploadDetailPage() {
       await api.verifyVop(uploadId)
       toast.success('VOP verification started. This may take a few minutes.')
       
-      // Poll for updates
       const pollInterval = setInterval(async () => {
         await fetchVopStats()
       }, 5000)
       
-      // Stop polling after 2 minutes
       setTimeout(() => {
         clearInterval(pollInterval)
         fetchVopStats()
@@ -354,6 +404,7 @@ export default function UploadDetailPage() {
   const editingErrors = editingDebtor?.validation_errors || []
   const vopPending = vopStats ? vopStats.pending : 0
   const vopVerified = vopStats ? vopStats.verified : 0
+  const hasBillingActivity = billingStats && billingStats.total_attempts > 0
 
   const handlePreviousPage = () => {
     if (links?.prev) {
@@ -392,6 +443,12 @@ export default function UploadDetailPage() {
             <span className="text-sm text-slate-500">
               {stats?.total || 0} records
             </span>
+            {billingStats?.is_processing && (
+              <Badge className="bg-blue-100 text-blue-800 gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Billing in progress
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {(stats?.chargebacked ?? 0) > 0 && (
@@ -436,17 +493,17 @@ export default function UploadDetailPage() {
             )}
             <Button 
               onClick={handleSync} 
-              disabled={syncing || (stats?.ready_for_sync || 0) === 0}
+              disabled={syncing || billingStats?.is_processing || (stats?.ready_for_sync || 0) === 0}
               className="gap-2"
             >
-              {syncing ? (
+              {syncing || billingStats?.is_processing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Syncing...
+                  {billingStats?.is_processing ? 'Processing...' : 'Syncing...'}
                 </>
               ) : (
                 <>
-                  <RefreshCw className="h-4 w-4" />
+                  <Send className="h-4 w-4" />
                   Sync to Gateway ({stats?.ready_for_sync || 0})
                 </>
               )}
@@ -517,6 +574,84 @@ export default function UploadDetailPage() {
                   <span className="text-sm text-slate-500">Ready for Sync</span>
                 </div>
                 <p className="text-2xl font-semibold mt-1">{stats.ready_for_sync}</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {hasBillingActivity && billingStats && (
+          <div className="px-6 pb-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Billing Status
+                  {billingStats.is_processing && (
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-700">Approved</span>
+                    </div>
+                    <p className="text-xl font-semibold text-green-800 mt-1">
+                      {billingStats.approved}
+                    </p>
+                    <p className="text-xs text-green-600">
+                      {formatCurrency(billingStats.approved_amount)}
+                    </p>
+                  </div>
+                  <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-yellow-600" />
+                      <span className="text-sm text-yellow-700">Pending</span>
+                    </div>
+                    <p className="text-xl font-semibold text-yellow-800 mt-1">
+                      {billingStats.pending}
+                    </p>
+                    <p className="text-xs text-yellow-600">
+                      {formatCurrency(billingStats.pending_amount)}
+                    </p>
+                  </div>
+                  <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                    <div className="flex items-center gap-2">
+                      <XCircle className="h-4 w-4 text-red-600" />
+                      <span className="text-sm text-red-700">Declined</span>
+                    </div>
+                    <p className="text-xl font-semibold text-red-800 mt-1">
+                      {billingStats.declined}
+                    </p>
+                    <p className="text-xs text-red-600">
+                      {formatCurrency(billingStats.declined_amount)}
+                    </p>
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-slate-600" />
+                      <span className="text-sm text-slate-700">Errors</span>
+                    </div>
+                    <p className="text-xl font-semibold text-slate-800 mt-1">
+                      {billingStats.error}
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      {formatCurrency(billingStats.error_amount)}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t flex justify-between items-center">
+                  <span className="text-sm text-slate-500">
+                    Total attempts: {billingStats.total_attempts}
+                  </span>
+                  <Link href={`/admin/billing?upload_id=${uploadId}`}>
+                    <Button variant="outline" size="sm">
+                      View Details
+                    </Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           </div>

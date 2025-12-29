@@ -28,6 +28,9 @@ import type {
   VopSingleVerifyRequest,
   VopSingleVerifyResponse,
   UploadDelete,
+  BillingSyncResponse,
+  BillingStats,
+  BillingRetryResponse,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -323,6 +326,31 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     })
+  }
+
+  // ==========================================================================
+  // Billing Sync Methods
+  // ==========================================================================
+
+  async syncToGateway(uploadId: number): Promise<BillingSyncResponse> {
+    return this.request<BillingSyncResponse>(
+      `/admin/uploads/${uploadId}/sync`,
+      { method: 'POST' }
+    )
+  }
+
+  async getBillingStats(uploadId: number): Promise<BillingStats> {
+    const response = await this.request<{ data: BillingStats }>(
+      `/admin/uploads/${uploadId}/billing-stats`
+    )
+    return response.data
+  }
+
+  async retryBillingAttempt(attemptId: number): Promise<BillingRetryResponse> {
+    return this.request<BillingRetryResponse>(
+      `/admin/billing-attempts/${attemptId}/retry`,
+      { method: 'POST' }
+    )
   }
 }
 

@@ -487,7 +487,9 @@ export default function UploadsPage() {
                   <TableHead className="px-0">File</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-center">Records</TableHead>
-                  <TableHead className="text-center">Validation</TableHead>
+                  <TableHead className="text-center">Valid</TableHead>
+                  <TableHead className="text-center">Invalid</TableHead>
+                  <TableHead className="text-center">%</TableHead>
                   <TableHead>Uploaded</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -495,13 +497,13 @@ export default function UploadsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={8} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
                     </TableCell>
                   </TableRow>
                 ) : uploads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                    <TableCell colSpan={8} className="text-center py-8 text-slate-500">
                       No uploads yet
                     </TableCell>
                   </TableRow>
@@ -537,26 +539,22 @@ export default function UploadsPage() {
                             <span className="text-xs text-slate-400 ml-1">(-{skippedTotal})</span>
                           )}
                         </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-center gap-3">
-                            <div className="flex items-center gap-1 text-green-600">
-                              <CheckCircle className="h-4 w-4" />
-                              <span className="text-sm">{valid}</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-orange-500">
-                              <XCircle className="h-4 w-4" />
-                              <span className="text-sm">{invalid}</span>
-                            </div>
-                            {skippedTotal > 0 && (
-                              <div className="flex items-center gap-1 text-slate-400">
-                                <Ban className="h-4 w-4" />
-                                <span className="text-sm">{skippedTotal}</span>
-                              </div>
-                            )}
-                            <span className={`text-sm font-medium ${validPercent === 100 ? 'text-green-600' : validPercent >= 80 ? 'text-yellow-600' : 'text-red-600'}`}>
-                              {validPercent}%
-                            </span>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1 text-green-600">
+                            <CheckCircle className="h-4 w-4" />
+                            <span className="text-sm font-medium">{valid}</span>
                           </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1 text-orange-500">
+                            <XCircle className="h-4 w-4" />
+                            <span className="text-sm font-medium">{invalid}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className={`text-sm font-medium ${validPercent === 100 ? 'text-green-600' : validPercent >= 80 ? 'text-yellow-600' : 'text-red-600'}`}>
+                            {validPercent}%
+                          </span>
                         </TableCell>
                         <TableCell className="text-slate-500">
                           {formatDate(upload.created_at)}

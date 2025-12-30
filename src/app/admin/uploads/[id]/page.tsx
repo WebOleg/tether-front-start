@@ -262,30 +262,6 @@ export default function UploadDetailPage() {
     return () => clearTimeout(timer)
   }, [uploadId, currentPage, search, loading])
 
-  const handleSync = async () => {
-    if (!confirm(`Send ${stats?.ready_for_sync || 0} debtors to payment gateway?`)) {
-      return
-    }
-    
-    setSyncing(true)
-    try {
-      const result = await api.syncToGateway(uploadId)
-      
-      if (result.data.duplicate) {
-        toast.warning('Billing already in progress for this upload')
-      } else if (result.data.queued) {
-        toast.success(result.message)
-        await fetchBillingStats()
-      } else {
-        toast.info(result.message)
-      }
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to start billing')
-    } finally {
-      setSyncing(false)
-    }
-  }
-
   const handleVerifyVop = async () => {
     setVerifyingVop(true)
     try {
@@ -305,6 +281,53 @@ export default function UploadDetailPage() {
       toast.error('Failed to start VOP verification')
     } finally {
       setVerifyingVop(false)
+    }
+  }
+
+  const handleSync = async () => {
+    // VOP Gate: Check on frontend first
+    if (vopPending > 0) {
+      toast.error(`VOP verification must be completed first. ${vopPending} debtors pending.`, {
+        action: {
+          label: 'Verify VOP',
+          onClick: () => handleVerifyVop()
+        }
+      })
+      return
+    }
+
+    if (!confirm(`Send ${stats?.ready_for_sync || 0} debtors to payment gateway?`)) {
+      return
+    }
+    
+    setSyncing(true)
+    try {
+      const result = await api.syncToGateway(uploadId)
+      
+      if (result.data.duplicate) {
+        toast.warning('Billing already in progress for this upload')
+      } else if (result.data.queued) {
+        toast.success(result.message)
+        await fetchBillingStats()
+      } else {
+        toast.info(result.message)
+      }
+    } catch (error: any) {
+      // Handle VOP gate error from backend (422)
+      if (error.response?.data?.data?.vop_required) {
+        const vopData = error.response.data.data
+        toast.error(`VOP verification required. ${vopData.vop_pending} debtors pending.`, {
+          action: {
+            label: 'Verify VOP',
+            onClick: () => handleVerifyVop()
+          }
+        })
+        await fetchVopStats()
+      } else {
+        toast.error(error.message || 'Failed to start billing')
+      }
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -404,7 +427,11 @@ export default function UploadDetailPage() {
   const editingErrors = editingDebtor?.validation_errors || []
   const vopPending = vopStats ? vopStats.pending : 0
   const vopVerified = vopStats ? vopStats.verified : 0
+  const vopTotalEligible = vopStats ? vopStats.total_eligible : 0
   const hasBillingActivity = billingStats && billingStats.total_attempts > 0
+  
+  // VOP Gate: Disable sync button if VOP not completed
+  const canSync = vopTotalEligible === 0 || vopPending === 0
 
   const handlePreviousPage = () => {
     if (links?.prev) {
@@ -493,8 +520,9 @@ export default function UploadDetailPage() {
             )}
             <Button 
               onClick={handleSync} 
-              disabled={syncing || billingStats?.is_processing || (stats?.ready_for_sync || 0) === 0}
+              disabled={syncing || billingStats?.is_processing || (stats?.ready_for_sync || 0) === 0 || !canSync}
               className="gap-2"
+              title={!canSync ? `VOP verification required (${vopPending} pending)` : undefined}
             >
               {syncing || billingStats?.is_processing ? (
                 <>
@@ -510,6 +538,34 @@ export default function UploadDetailPage() {
             </Button>
           </div>
         </div>
+
+        {/* VOP Gate Warning Banner */}
+        {vopPending > 0 && (stats?.ready_for_sync || 0) > 0 && (
+          <div className="mx-6 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
+            <ShieldCheck className="h-5 w-5 text-amber-600 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-800">
+                VOP verification required before billing
+              </p>
+              <p className="text-xs text-amber-600">
+                {vopPending} of {vopTotalEligible} debtors pending verification. Complete VOP verification to enable billing.
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleVerifyVop}
+              disabled={verifyingVop}
+              className="border-amber-300 text-amber-700 hover:bg-amber-100"
+            >
+              {verifyingVop ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Verify Now'
+              )}
+            </Button>
+          </div>
+        )}
 
         {stats && (
           <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">

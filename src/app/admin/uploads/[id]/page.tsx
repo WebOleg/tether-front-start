@@ -174,6 +174,17 @@ export default function UploadDetailPage() {
     }
   }, [uploadId])
 
+  const fetchValidationStats = useCallback(async () => {
+    try {
+      const statsData = await api.getUploadValidationStats(uploadId)
+      setStats(statsData)
+      return statsData
+    } catch (error) {
+      console.error('Failed to fetch validation stats:', error)
+      return null
+    }
+  }, [uploadId])
+
   useEffect(() => {
     const initPage = async () => {
       setLoading(true)
@@ -181,9 +192,11 @@ export default function UploadDetailPage() {
         const uploadData = await api.getUpload(uploadId)
         setUpload(uploadData)
         
+        // Start async validation (returns 202 immediately)
         setValidating(true)
-        await api.validateUpload(uploadId)
-        setValidating(false)
+        api.validateUpload(uploadId).catch(err => {
+          console.error('Validation dispatch error:', err)
+        })
         
         const [debtorsResponse, statsData] = await Promise.all([
           api.getUploadDebtors(uploadId, { per_page: 100 }),
@@ -212,6 +225,31 @@ export default function UploadDetailPage() {
       initPage()
     }
   }, [uploadId, fetchBillingStats])
+
+  // Poll validation stats while validating
+  useEffect(() => {
+    if (!validating || !uploadId) return
+    
+    const interval = setInterval(async () => {
+      const newStats = await fetchValidationStats()
+      if (newStats && newStats.pending === 0) {
+        setValidating(false)
+        // Refresh debtors list
+        const debtorsResponse = await api.getUploadDebtors(uploadId, { per_page: 100 })
+        setDebtors(debtorsResponse.data)
+      }
+    }, 2000)
+    
+    // Stop polling after 60 seconds
+    const timeout = setTimeout(() => {
+      setValidating(false)
+    }, 60000)
+    
+    return () => {
+      clearInterval(interval)
+      clearTimeout(timeout)
+    }
+  }, [validating, uploadId, fetchValidationStats])
 
   useEffect(() => {
     if (!billingStats?.is_processing) return
@@ -470,6 +508,12 @@ export default function UploadDetailPage() {
             <span className="text-sm text-slate-500">
               {stats?.total || 0} records
             </span>
+            {validating && (
+              <Badge className="bg-blue-100 text-blue-800 gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Validating...
+              </Badge>
+            )}
             {billingStats?.is_processing && (
               <Badge className="bg-blue-100 text-blue-800 gap-1">
                 <Loader2 className="h-3 w-3 animate-spin" />

@@ -201,12 +201,39 @@ class ApiClient {
     return this.request<ApiResponse<Debtor[]>>(`/admin/uploads/${uploadId}/debtors${query}`)
   }
 
-  async validateUpload(uploadId: number): Promise<{ total: number; valid: number; invalid: number }> {
-    const response = await this.request<{ data: { total: number; valid: number; invalid: number } }>(
-      `/admin/uploads/${uploadId}/validate`,
-      { method: 'POST' }
-    )
-    return response.data
+  /**
+   * Start async validation for upload.
+   * Returns immediately with 202 status. Use getUploadValidationStats() to poll for results.
+   */
+  async validateUpload(uploadId: number): Promise<{ message: string; status: string }> {
+    const token = this.getToken()
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/uploads/${uploadId}/validate`, {
+      method: 'POST',
+      headers,
+    })
+    if (response.status === 401) {
+      this.clearToken()
+      throw new Error('Unauthorized')
+    }
+    if (response.status === 202) {
+      return response.json()
+    }
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new ApiError(
+        error.message || `Validation failed: ${response.status}`,
+        error.errors || [],
+        response.status
+      )
+    }
+    return response.json()
   }
 
   async getUploadValidationStats(uploadId: number): Promise<ValidationStats> {

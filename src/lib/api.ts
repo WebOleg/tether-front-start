@@ -1,7 +1,6 @@
 /**
  * API client for Tether Laravel backend.
  */
-
 import type {
   ApiResponse,
   Upload,
@@ -34,6 +33,29 @@ import type {
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+
+/**
+ * Reconciliation stats response
+ */
+export interface ReconciliationStats {
+  eligible: number
+  pending: number
+  last_reconciled_at: string | null
+}
+
+/**
+ * Bulk reconciliation response
+ */
+export interface BulkReconciliationResponse {
+  message: string
+  data: {
+    eligible: number
+    to_process: number
+    queued: boolean
+    duplicate?: boolean
+    max_age_hours?: number
+  }
+}
 
 /**
  * Custom API Error with structured errors array
@@ -94,10 +116,13 @@ class ApiClient {
       'Accept': 'application/json',
       ...options.headers,
     }
+
     if (token) {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
     }
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers })
+
     if (response.status === 401) {
       this.clearToken()
       if (typeof window !== 'undefined') {
@@ -105,6 +130,7 @@ class ApiClient {
       }
       throw new Error('Unauthorized')
     }
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
       throw new ApiError(
@@ -113,6 +139,7 @@ class ApiClient {
         response.status
       )
     }
+
     return response.json()
   }
 
@@ -147,15 +174,18 @@ class ApiClient {
     const token = this.getToken()
     const formData = new FormData()
     formData.append('file', file)
+
     const headers: HeadersInit = { 'Accept': 'application/json' }
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
+
     const response = await fetch(`${API_BASE_URL}/admin/uploads`, {
       method: 'POST',
       headers,
       body: formData,
     })
+
     if (response.status === 401) {
       this.clearToken()
       if (typeof window !== 'undefined') {
@@ -163,10 +193,12 @@ class ApiClient {
       }
       throw new Error('Unauthorized')
     }
+
     if (response.status === 202) {
       const result = await response.json()
       return { upload: result.data, created: 0, failed: 0, errors: [], queued: true }
     }
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
       throw new ApiError(
@@ -175,6 +207,7 @@ class ApiClient {
         response.status
       )
     }
+
     const result = await response.json()
     return {
       upload: result.data,
@@ -214,17 +247,21 @@ class ApiClient {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
+
     const response = await fetch(`${API_BASE_URL}/admin/uploads/${uploadId}/validate`, {
       method: 'POST',
       headers,
     })
+
     if (response.status === 401) {
       this.clearToken()
       throw new Error('Unauthorized')
     }
+
     if (response.status === 202) {
       return response.json()
     }
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
       throw new ApiError(
@@ -233,6 +270,7 @@ class ApiClient {
         response.status
       )
     }
+
     return response.json()
   }
 
@@ -376,6 +414,75 @@ class ApiClient {
   async retryBillingAttempt(attemptId: number): Promise<BillingRetryResponse> {
     return this.request<BillingRetryResponse>(
       `/admin/billing-attempts/${attemptId}/retry`,
+      { method: 'POST' }
+    )
+  }
+
+  // ==========================================================================
+  // Reconciliation Methods
+  // ==========================================================================
+
+  /**
+   * Get reconciliation statistics
+   */
+  async getReconciliationStats(): Promise<ReconciliationStats> {
+    const response = await this.request<{ data: ReconciliationStats }>(
+      '/admin/reconciliation/stats'
+    )
+    return response.data
+  }
+
+  /**
+   * Trigger bulk reconciliation for pending billing attempts
+   * @param params.max_age_hours - Only reconcile attempts older than this (default: 1440 = 60 days)
+   * @param params.limit - Max number of attempts to process (default: 5000)
+   */
+  async triggerBulkReconciliation(params?: { 
+    max_age_hours?: number
+    limit?: number 
+  }): Promise<BulkReconciliationResponse> {
+    return this.request<BulkReconciliationResponse>(
+      '/admin/reconciliation/bulk',
+      { 
+        method: 'POST', 
+        body: JSON.stringify(params || {}) 
+      }
+    )
+  }
+
+  /**
+   * Reconcile single billing attempt
+   */
+  async reconcileBillingAttempt(attemptId: number): Promise<{
+    message: string
+    data: {
+      id: number
+      success: boolean
+      changed: boolean
+      previous_status?: string
+      new_status: string
+    }
+  }> {
+    return this.request(
+      `/admin/billing-attempts/${attemptId}/reconcile`,
+      { method: 'POST' }
+    )
+  }
+
+  /**
+   * Reconcile all pending billing attempts for an upload
+   */
+  async reconcileUpload(uploadId: number): Promise<{
+    message: string
+    data: {
+      upload_id: number
+      eligible: number
+      queued: boolean
+      duplicate?: boolean
+    }
+  }> {
+    return this.request(
+      `/admin/uploads/${uploadId}/reconcile`,
       { method: 'POST' }
     )
   }

@@ -2,13 +2,13 @@
  * Admin dashboard page.
  * Shows overview statistics for uploads, debtors, VOP and billing.
  */
-
 'use client'
 
 import { useEffect, useState } from 'react'
 import { Header } from '@/components/layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -35,6 +35,7 @@ import {
   Clock,
   AlertCircle,
   AlertTriangle,
+  RefreshCw,
 } from 'lucide-react'
 import type { DashboardData, ChargebackStats, ChargebackCodeStats, ChargebackBankStats } from '@/types'
 import { Progress } from '@/components/ui/progress'
@@ -76,6 +77,10 @@ export default function AdminDashboard() {
   const [cbBankPeriod, setCbBankPeriod] = useState('7d')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Reconciliation state
+  const [reconciling, setReconciling] = useState(false)
+  const [reconcileResult, setReconcileResult] = useState<{ message: string; success: boolean } | null>(null)
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -103,7 +108,6 @@ export default function AdminDashboard() {
         console.error('Failed to fetch CB stats:', err)
       }
     }
-
     fetchCbStats()
   }, [cbPeriod])
 
@@ -117,7 +121,6 @@ export default function AdminDashboard() {
         console.error('Failed to fetch CB code stats:', err)
       }
     }
-
     fetchCbCodeStats()
   }, [cbCodePeriod])
 
@@ -131,9 +134,46 @@ export default function AdminDashboard() {
         console.error('Failed to fetch CB bank stats:', err)
       }
     }
-
     fetchCbBankStats()
   }, [cbBankPeriod])
+
+  // Reconciliation handler - fetches last 2 months from EMP
+  const handleReconcile = async () => {
+    setReconciling(true)
+    setReconcileResult(null)
+    try {
+      // max_age_hours: 1440 = 60 days (2 months), limit: 5000
+      const result = await api.triggerBulkReconciliation({ 
+        max_age_hours: 1440, 
+        limit: 5000 
+      })
+      
+      if (result.data.queued) {
+        setReconcileResult({
+          message: `Queued ${result.data.to_process} transactions for reconciliation`,
+          success: true
+        })
+      } else if (result.data.duplicate) {
+        setReconcileResult({
+          message: 'Reconciliation already in progress',
+          success: false
+        })
+      } else {
+        setReconcileResult({
+          message: result.message || 'No eligible transactions to reconcile',
+          success: true
+        })
+      }
+    } catch (err) {
+      console.error('Reconciliation failed:', err)
+      setReconcileResult({
+        message: err instanceof Error ? err.message : 'Reconciliation failed',
+        success: false
+      })
+    } finally {
+      setReconciling(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -260,8 +300,8 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* Financial Overview */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {/* Financial Overview + Reconciliation */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
           {financialCards.map((card) => (
             <Card key={card.title}>
               <CardContent className="p-6">
@@ -275,6 +315,35 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           ))}
+          
+          {/* Reconciliation Card */}
+          <Card className="border-indigo-200">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="rounded-lg p-2 bg-indigo-100">
+                  <RefreshCw className={`h-5 w-5 text-indigo-600 ${reconciling ? 'animate-spin' : ''}`} />
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Gateway Sync</p>
+                  <p className="text-xs text-slate-400">Last 2 months</p>
+                </div>
+              </div>
+              <Button 
+                onClick={handleReconcile} 
+                disabled={reconciling}
+                variant="outline"
+                size="sm"
+                className="w-full border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+              >
+                {reconciling ? 'Syncing...' : 'Reconcile'}
+              </Button>
+              {reconcileResult && (
+                <p className={`text-xs mt-2 ${reconcileResult.success ? 'text-green-600' : 'text-amber-600'}`}>
+                  {reconcileResult.message}
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Chargeback Rates by Country */}
@@ -369,6 +438,7 @@ export default function AdminDashboard() {
             )}
           </CardContent>
         </Card>
+
         {/* Chargeback Stats */}
         <div className="grid gap-6 md:grid-cols-2">
           {/* Chargeback Code Statistics */}
@@ -516,9 +586,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         </div>
-
           
-
         {/* Status Breakdown */}
         <div className="grid gap-6 md:grid-cols-2">
           {/* Debtors by Status */}

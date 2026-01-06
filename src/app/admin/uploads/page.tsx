@@ -139,7 +139,7 @@ export default function UploadsPage() {
 
       if (response.meta && 'links' in response.meta) {
         setPaginationLinks((response.meta as PaginationMetaType & {links? : PaginationLink[]}).links || [])
-      }    
+      }
     } catch (error) {
       console.error('Failed to fetch uploads:', error)
     } finally {
@@ -171,6 +171,7 @@ export default function UploadsPage() {
     const selectedFile = e.target.files?.[0] ?? null
     setUploadStatus(null)
     setLastSkipped(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
 
     if (!selectedFile) {
       setFile(null)
@@ -331,14 +332,15 @@ export default function UploadsPage() {
     if (!uploadToDelete) return
     
     try {
-      setDeleteModalOpen(false)
       const result = await api.deleteUpload(uploadToDelete)
       if(result.success === true){
         toast.success(result.message || 'Upload deleted successfully')
         setUploads(uploads.filter(upload => upload.id !== uploadToDelete))
         setUploadToDelete(null)
+        setDeleteModalOpen(false)
       }else{
         toast.error(result.message || 'Upload is not deleted.')
+        setUploadToDelete(null)
       }
     } catch (error) {
       toast.error("Upload is not deleted.")
@@ -469,7 +471,7 @@ export default function UploadsPage() {
 
         <PaginationMeta 
           meta={meta}
-          label="debtors"
+          label="uploads"
           containerClassName="px-6 py-2" 
         />
 
@@ -589,14 +591,16 @@ export default function UploadsPage() {
           </CardContent>
         </Card>
 
-        <Pagination
-          meta={meta}
-          links={links}
-          paginationLinks={paginationLinks}
-          onPageChange={handlePageClick}
-          onPreviousClick={handlePreviousPage}
-          onNextClick={handleNextPage}
-        />
+        <div className="border-t">
+          <Pagination
+            meta={meta}
+            links={links}
+            paginationLinks={paginationLinks}
+            onPageChange={handlePageClick}
+            onPreviousClick={handlePreviousPage}
+            onNextClick={handleNextPage}
+          />
+        </div>
 
         <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
           <DialogContent>

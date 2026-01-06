@@ -185,6 +185,27 @@ export default function UploadDetailPage() {
     }
   }, [uploadId])
 
+  const fetchDebtors = useCallback(async (pageNum?: number, searchQuery?: string) => {
+    try {
+      const debtorsResponse = await api.getUploadDebtors(uploadId, { 
+        page: pageNum || currentPage,
+        per_page: 100, 
+        search: searchQuery !== undefined ? searchQuery : search || undefined
+      })
+      setDebtors(debtorsResponse.data)
+      setMeta(debtorsResponse.meta || null)
+      setLinks(debtorsResponse.links || null)
+      
+      if (debtorsResponse.meta && 'links' in debtorsResponse.meta) {
+        setPaginationLinks((debtorsResponse.meta as PaginationMetaType & {links?: PaginationLink[]}).links || [])
+      }
+      return debtorsResponse
+    } catch (error) {
+      console.error('Failed to fetch debtors:', error)
+      return null
+    }
+  }, [uploadId, currentPage])
+
   useEffect(() => {
     const initPage = async () => {
       setLoading(true)
@@ -198,18 +219,10 @@ export default function UploadDetailPage() {
           console.error('Validation dispatch error:', err)
         })
         
-        const [debtorsResponse, statsData] = await Promise.all([
-          api.getUploadDebtors(uploadId, { per_page: 100 }),
-          api.getUploadValidationStats(uploadId),
-        ])
-        setDebtors(debtorsResponse.data)
+        const statsData = await api.getUploadValidationStats(uploadId)
         setStats(statsData)
-        setMeta(debtorsResponse.meta || null)
-        setLinks(debtorsResponse.links || null)
-        
-        if (debtorsResponse.meta && 'links' in debtorsResponse.meta) {
-          setPaginationLinks((debtorsResponse.meta as PaginationMetaType & {links?: PaginationLink[]}).links || [])
-        }
+
+       await fetchDebtors()
         await fetchVopStats()
         await fetchBillingStats()
       } catch (error) {
@@ -235,8 +248,7 @@ export default function UploadDetailPage() {
       if (newStats && newStats.pending === 0) {
         setValidating(false)
         // Refresh debtors list
-        const debtorsResponse = await api.getUploadDebtors(uploadId, { per_page: 100 })
-        setDebtors(debtorsResponse.data)
+        await fetchDebtors()
       }
     }, 2000)
     
@@ -308,17 +320,18 @@ export default function UploadDetailPage() {
       
       const pollInterval = setInterval(async () => {
         await fetchVopStats()
+        await fetchValidationStats()
       }, 5000)
       
       setTimeout(() => {
         clearInterval(pollInterval)
         fetchVopStats()
+        fetchValidationStats()
+        setVerifyingVop(false)
       }, 120000)
       
     } catch (error) {
       toast.error('Failed to start VOP verification')
-    } finally {
-      setVerifyingVop(false)
     }
   }
 

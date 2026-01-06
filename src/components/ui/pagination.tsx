@@ -52,7 +52,7 @@ export function Pagination({
       onPageChange(meta.current_page + 1)
     }
   }
-  if (!meta) {
+  if (!meta || meta.last_page <= 1) {
     return null
   }
 

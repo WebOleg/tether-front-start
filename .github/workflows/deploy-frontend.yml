@@ -1,0 +1,26 @@
+name: Deploy Frontend
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Frontend Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.FRONTEND_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/tether-front
+            git pull origin main
+            npm ci
+            npm run build
+            pm2 restart tether-front || docker compose restart frontend
+
+      - name: Health check
+        run: |
+          sleep 10
+          curl -f http://${{ secrets.FRONTEND_HOST }}:3000 || exit 1

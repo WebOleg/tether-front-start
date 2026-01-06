@@ -1,9 +1,7 @@
 /**
  * Sidebar navigation component for admin panel.
  */
-
 'use client'
-
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -13,12 +11,14 @@ import {
   Users,
   ShieldCheck,
   CreditCard,
+  BarChart3,
   LogOut,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Uploads', href: '/admin/uploads', icon: Upload },
   { name: 'Debtors', href: '/admin/debtors', icon: Users },
   { name: 'VOP Logs', href: '/admin/vop-logs', icon: ShieldCheck },

@@ -14,11 +14,11 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /opt/tether-front
+            cd /opt/tether-next
             git pull origin main
             npm ci
             npm run build
-            pm2 restart tether-front || docker compose restart frontend
+            systemctl restart tether-next
 
       - name: Health check
         run: |

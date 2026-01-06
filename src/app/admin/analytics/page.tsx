@@ -140,12 +140,8 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Header />
+      <Header title="Analytics" description="Chargeback rates and transaction analysis" />
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
-          <p className="text-slate-500">Chargeback rates and transaction analysis</p>
-        </div>
 
         {/* Top Row - Key Metrics */}
         <div className="grid gap-6 md:grid-cols-3 mb-8">

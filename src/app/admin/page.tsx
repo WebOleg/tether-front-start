@@ -142,10 +142,10 @@ export default function AdminDashboard() {
     setReconciling(true)
     setReconcileResult(null)
     try {
-      // max_age_hours: 1440 = 60 days (2 months), limit: 5000
-      const result = await api.triggerBulkReconciliation({ 
-        max_age_hours: 1440, 
-        limit: 5000 
+      // max_age_hours: 720 = 30 days (1 month), server limit: 720
+      const result = await api.triggerBulkReconciliation({
+        max_age_hours: 720,
+        limit: 5000,
       })
       
       if (result.data.queued) {

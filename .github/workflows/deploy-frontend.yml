@@ -19,8 +19,6 @@ jobs:
             npm ci
             npm run build
             systemctl restart tether-next
-
-      - name: Health check
-        run: |
-          sleep 10
-          curl -f http://${{ secrets.FRONTEND_HOST }}:3000 || exit 1
+            sleep 10
+            curl -f http://localhost:3000 || exit 1
+            echo "Deploy successful!"

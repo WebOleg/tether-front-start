@@ -22,16 +22,16 @@ import {
 } from '@/components/ui/table'
 import { UploadProgress } from '@/components/upload-progress'
 import { api, ApiError } from '@/lib/api'
-import { 
-  Upload as LucideUpload, 
-  FileUp, CheckCircle, 
-  AlertCircle, 
-  XCircle, 
-  Loader2, 
-  X, 
-  FileSpreadsheet, 
-  Ban, 
-  Eye, 
+import {
+  Upload as LucideUpload,
+  FileUp, CheckCircle,
+  AlertCircle,
+  XCircle,
+  Loader2,
+  X,
+  FileSpreadsheet,
+  Ban,
+  Eye,
   Trash2
  } from 'lucide-react'
 import type { Upload, SkippedCounts, PaginationLinks, PaginationLink, PaginationMeta as PaginationMetaType } from '@/types'
@@ -97,12 +97,12 @@ const isValidFileType = (file: File): boolean => {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'application/vnd.ms-excel'
   ]
-  
-  const hasValidExtension = validExtensions.some(ext => 
+
+  const hasValidExtension = validExtensions.some(ext =>
     file.name.toLowerCase().endsWith(ext)
   )
   const hasValidMimeType = validMimeTypes.includes(file.type)
-  
+
   return hasValidExtension || hasValidMimeType
 }
 
@@ -123,13 +123,14 @@ export default function UploadsPage() {
   const [meta, setMeta] = useState<PaginationMetaType | null>(null)
   const [links, setLinks] = useState<PaginationLinks | null>(null)
   const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
+  const completedUploadsRef = useRef<Set<number>>(new Set());
 
   const fetchUploads = async () => {
     setLoading(true)
     try {
-      const filters: { page?: number; per_page: number } = { 
+      const filters: { page?: number; per_page: number } = {
         page: currentPage,
-        per_page: 50 
+        per_page: 50
       }
       const response = await api.getUploads(filters)
 
@@ -202,12 +203,12 @@ export default function UploadsPage() {
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     const relatedTarget = e.relatedTarget as Node | null
     if (relatedTarget && dropZoneRef.current?.contains(relatedTarget)) {
       return
     }
-    
+
     setIsDragActive(false)
   }
 
@@ -224,7 +225,7 @@ export default function UploadsPage() {
     const droppedFiles = e.dataTransfer.files
     if (droppedFiles.length > 0) {
       const droppedFile = droppedFiles[0]
-      
+
       if (!isValidFileType(droppedFile)) {
         setUploadStatus({ type: 'error', message: 'Invalid file type. Please upload a CSV, TXT or XLSX file.' })
         return
@@ -243,7 +244,7 @@ export default function UploadsPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    
+
     if (!file) {
       setUploadStatus({ type: 'error', message: 'Please select a file first' })
       return
@@ -263,30 +264,31 @@ export default function UploadsPage() {
     setUploadStatus(null)
     setActiveUploadId(null)
     setLastSkipped(null)
+    completedUploadsRef.current.clear()
 
     try {
       const result = await api.uploadFile(file)
       setActiveUploadId(result.upload.id)
-      
+
       if (result.skipped && result.skipped.total > 0) {
         setLastSkipped(result.skipped)
       }
-      
+
       setFile(null)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
     } catch (error) {
       if (error instanceof ApiError) {
-        setUploadStatus({ 
-          type: 'error', 
+        setUploadStatus({
+          type: 'error',
           message: error.message,
           errors: error.errors.length > 0 ? error.errors : undefined
         })
       } else {
-        setUploadStatus({ 
-          type: 'error', 
-          message: error instanceof Error ? error.message : 'Upload failed' 
+        setUploadStatus({
+          type: 'error',
+          message: error instanceof Error ? error.message : 'Upload failed'
         })
       }
     } finally {
@@ -295,18 +297,23 @@ export default function UploadsPage() {
   }
 
   const handleProgressComplete = (upload: Upload) => {
+    if (completedUploadsRef.current.has(upload.id)) {
+      return;
+    }
+    completedUploadsRef.current.add(upload.id);
+
     fetchUploads()
-    
+
     const successful = upload.processed_records - upload.failed_records
     let message = `Completed: ${successful} created, ${upload.failed_records} failed`
-    
+
     if (lastSkipped && lastSkipped.total > 0) {
       message += `, ${lastSkipped.total} skipped (${formatSkippedMessage(lastSkipped)})`
       setUploadStatus({ type: 'warning', message })
     } else {
       setUploadStatus({ type: 'success', message })
     }
-    
+
     setTimeout(() => {
       setActiveUploadId(null)
     }, 3000)
@@ -330,7 +337,7 @@ export default function UploadsPage() {
 
   const handleConfirmDelete = async () => {
     if (!uploadToDelete) return
-    
+
     try {
       const result = await api.deleteUpload(uploadToDelete)
       if(result.success === true){
@@ -402,8 +409,8 @@ export default function UploadsPage() {
                     <p className="font-medium">{file.name}</p>
                     <p className="text-xs">{formatFileSize(file.size)}</p>
                   </div>
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     disabled={isUploading}
                     className="gap-2"
                   >
@@ -441,8 +448,8 @@ export default function UploadsPage() {
 
             {uploadStatus && !activeUploadId && (
               <div className={`p-3 rounded-lg border ${
-                uploadStatus.type === 'success' 
-                  ? 'bg-green-50 text-green-700 border-green-200' 
+                uploadStatus.type === 'success'
+                  ? 'bg-green-50 text-green-700 border-green-200'
                   : uploadStatus.type === 'warning'
                   ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
                   : 'bg-red-50 text-red-700 border-red-200'
@@ -469,10 +476,10 @@ export default function UploadsPage() {
           </CardContent>
         </Card>
 
-        <PaginationMeta 
+        <PaginationMeta
           meta={meta}
           label="uploads"
-          containerClassName="px-6 py-2" 
+          containerClassName="px-6 py-2"
         />
 
         <Card className="py-6">
@@ -516,7 +523,7 @@ export default function UploadsPage() {
                     const invalid = upload.invalid_count || 0
                     const skippedTotal = upload.skipped?.total || 0
                     const validPercent = total > 0 ? Math.round((valid / total) * 100) : 0
-                    
+
                     return (
                       <TableRow key={upload.id} className="hover:bg-slate-50">
                         <TableCell className="px-0">

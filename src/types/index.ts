@@ -397,6 +397,8 @@ export interface VopStats {
   verified: number
   pending: number
   by_result: Record<string, number>
+  avg_score: number
+  is_processing: boolean
 }
 
 export interface VopVerifyResponse {

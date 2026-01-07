@@ -8,22 +8,6 @@ import { useEffect, useState } from 'react'
 import { Header } from '@/components/layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { api } from '@/lib/api'
 import { 
   Upload, 
@@ -34,11 +18,8 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
-  AlertTriangle,
-  RefreshCw,
 } from 'lucide-react'
-import type { DashboardData, ChargebackStats, ChargebackCodeStats, ChargebackBankStats } from '@/types'
-import { Progress } from '@/components/ui/progress'
+import type { DashboardData } from '@/types'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('de-DE', {
@@ -69,18 +50,8 @@ const statusColors: Record<string, string> = {
 
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
-  const [cbStats, setCbStats] = useState<ChargebackStats | null>(null)
-  const [cbCodeStats, setCbCodeStats] = useState<ChargebackCodeStats | null>(null)
-  const [cbBankStats, setCbBankStats] = useState<ChargebackBankStats | null>(null)
-  const [cbPeriod, setCbPeriod] = useState('7d')
-  const [cbCodePeriod, setCbCodePeriod] = useState('7d')
-  const [cbBankPeriod, setCbBankPeriod] = useState('7d')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
-  // Reconciliation state
-  const [reconciling, setReconciling] = useState(false)
-  const [reconcileResult, setReconcileResult] = useState<{ message: string; success: boolean } | null>(null)
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -97,83 +68,6 @@ export default function AdminDashboard() {
 
     fetchDashboard()
   }, [])
-
-  useEffect(() => {
-    const fetchCbStats = async () => {
-      setCbStats(null)
-      try {
-        const stats = await api.getChargebackStats(cbPeriod)
-        setCbStats(stats)
-      } catch (err) {
-        console.error('Failed to fetch CB stats:', err)
-      }
-    }
-    fetchCbStats()
-  }, [cbPeriod])
-
-  useEffect(() => {
-    const fetchCbCodeStats = async () => {
-      setCbCodeStats(null)
-      try {
-        const codeStats = await api.getChargebackCodeStats(cbCodePeriod)
-        setCbCodeStats(codeStats)
-      } catch (err) {
-        console.error('Failed to fetch CB code stats:', err)
-      }
-    }
-    fetchCbCodeStats()
-  }, [cbCodePeriod])
-
-  useEffect(() => {
-    const fetchCbBankStats = async () => {
-      setCbBankStats(null)
-      try {
-        const bankStats = await api.getChargebackBankStats(cbBankPeriod)
-        setCbBankStats(bankStats)
-      } catch (err) {
-        console.error('Failed to fetch CB bank stats:', err)
-      }
-    }
-    fetchCbBankStats()
-  }, [cbBankPeriod])
-
-  // Reconciliation handler - fetches last 2 months from EMP
-  const handleReconcile = async () => {
-    setReconciling(true)
-    setReconcileResult(null)
-    try {
-      // max_age_hours: 720 = 30 days (1 month), server limit: 720
-      const result = await api.triggerBulkReconciliation({
-        max_age_hours: 720,
-        limit: 5000,
-      })
-      
-      if (result.data.queued) {
-        setReconcileResult({
-          message: `Queued ${result.data.to_process} transactions for reconciliation`,
-          success: true
-        })
-      } else if (result.data.duplicate) {
-        setReconcileResult({
-          message: 'Reconciliation already in progress',
-          success: false
-        })
-      } else {
-        setReconcileResult({
-          message: result.message || 'No eligible transactions to reconcile',
-          success: true
-        })
-      }
-    } catch (err) {
-      console.error('Reconciliation failed:', err)
-      setReconcileResult({
-        message: err instanceof Error ? err.message : 'Reconciliation failed',
-        success: false
-      })
-    } finally {
-      setReconciling(false)
-    }
-  }
 
   if (loading) {
     return (
@@ -274,8 +168,6 @@ export default function AdminDashboard() {
     },
   ]
 
-  const hasAlert = cbStats?.totals?.alert || cbStats?.countries?.some(c => c.alert)
-
   return (
     <>
       <Header title="Dashboard" description="Overview of your debt recovery operations" />
@@ -300,8 +192,8 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* Financial Overview + Reconciliation */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        {/* Financial Overview */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {financialCards.map((card) => (
             <Card key={card.title}>
               <CardContent className="p-6">
@@ -315,278 +207,8 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           ))}
-          
-          {/* Reconciliation Card */}
-          <Card className="border-indigo-200">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="rounded-lg p-2 bg-indigo-100">
-                  <RefreshCw className={`h-5 w-5 text-indigo-600 ${reconciling ? 'animate-spin' : ''}`} />
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500">Gateway Sync</p>
-                  <p className="text-xs text-slate-400">Last 2 months</p>
-                </div>
-              </div>
-              <Button 
-                onClick={handleReconcile} 
-                disabled={reconciling}
-                variant="outline"
-                size="sm"
-                className="w-full border-indigo-300 text-indigo-700 hover:bg-indigo-50"
-              >
-                {reconciling ? 'Syncing...' : 'Reconcile'}
-              </Button>
-              {reconcileResult && (
-                <p className={`text-xs mt-2 ${reconcileResult.success ? 'text-green-600' : 'text-amber-600'}`}>
-                  {reconcileResult.message}
-                </p>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Chargeback Rates by Country */}
-        <Card className={hasAlert ? 'border-red-300' : ''}>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-lg">Chargeback Rates by Country</CardTitle>
-                {hasAlert && (
-                  <Badge variant="destructive" className="gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    Alert
-                  </Badge>
-                )}
-              </div>
-              <Select value={cbPeriod} onValueChange={setCbPeriod}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="24h">Last 24h</SelectItem>
-                  <SelectItem value="7d">Last 7 days</SelectItem>
-                  <SelectItem value="30d">Last 30 days</SelectItem>
-                  <SelectItem value="90d">Last 90 days</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {cbStats ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Country</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Approved</TableHead>
-                    <TableHead className="text-right">Declined</TableHead>
-                    <TableHead className="text-right">Chargebacks</TableHead>
-                    <TableHead className="text-right">CB Rate</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {cbStats.countries.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-slate-500">
-                        No billing data for this period
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    <>
-                      {cbStats.countries.map((row) => (
-                        <TableRow key={row.country} className={row.alert ? 'bg-red-50' : ''}>
-                          <TableCell className="font-medium">{row.country}</TableCell>
-                          <TableCell className="text-right">{row.total}</TableCell>
-                          <TableCell className="text-right">{row.approved}</TableCell>
-                          <TableCell className="text-right">{row.declined}</TableCell>
-                          <TableCell className="text-right">{row.chargebacks}</TableCell>
-                          <TableCell className="text-right font-medium">
-                            {row.cb_rate_total}%
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {row.alert ? (
-                              <Badge variant="destructive">Alert</Badge>
-                            ) : (
-                              <Badge variant="secondary" className="bg-green-100 text-green-800">OK</Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow className="font-semibold bg-slate-50">
-                        <TableCell>TOTAL</TableCell>
-                        <TableCell className="text-right">{cbStats.totals.total}</TableCell>
-                        <TableCell className="text-right">{cbStats.totals.approved}</TableCell>
-                        <TableCell className="text-right">{cbStats.totals.declined}</TableCell>
-                        <TableCell className="text-right">{cbStats.totals.chargebacks}</TableCell>
-                        <TableCell className="text-right">{cbStats.totals.cb_rate_total}%</TableCell>
-                        <TableCell className="text-center">
-                          {cbStats.totals.alert ? (
-                            <Badge variant="destructive">Alert</Badge>
-                          ) : (
-                            <Badge variant="secondary" className="bg-green-100 text-green-800">OK</Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    </>
-                  )}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-4 text-slate-500">Loading...</div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Chargeback Stats */}
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Chargeback Code Statistics */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-lg">Chargeback Code Statistics</CardTitle>
-                </div>
-                <Select value={cbCodePeriod} onValueChange={setCbCodePeriod}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="24h">Last 24h</SelectItem>
-                    <SelectItem value="7d">Last 7 days</SelectItem>
-                    <SelectItem value="30d">Last 30 days</SelectItem>
-                    <SelectItem value="90d">Last 90 days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {cbCodeStats ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-left">Error Code</TableHead>
-                      <TableHead className="text-left">Description</TableHead>
-                      <TableHead className="text-left">Count</TableHead>
-                      <TableHead className="text-left">Total Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cbCodeStats.totals.occurrences === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center text-slate-500">
-                          No Chargeback data for this period
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      <>
-                        {cbCodeStats.codes.map((row) => (
-                          <TableRow key={row.chargeback_code} >
-                            <TableCell className="font-medium">{row.chargeback_code}</TableCell>
-                            <TableCell className="text-left">{row.chargeback_reason}</TableCell>
-                            <TableCell className="text-left">{row.occurrences}</TableCell>
-                            <TableCell className="text-left">{formatCurrency(row.total_amount)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </>
-                    )}
-                    {cbCodeStats.totals.occurrences > 0 && (
-                      <TableRow className="font-semibold bg-slate-50">
-                        <TableCell colSpan={2} className="text-left">TOTAL</TableCell>
-                        <TableCell className="text-left">{cbCodeStats.totals.occurrences}</TableCell>
-                        <TableCell className="text-left">{formatCurrency(cbCodeStats.totals.total_amount)}</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="text-center py-4 text-slate-500">Loading...</div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Chargeback Bank Stats */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-lg">Chargeback Bank Statistics</CardTitle>
-                </div>
-                <Select value={cbBankPeriod} onValueChange={setCbBankPeriod}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="24h">Last 24h</SelectItem>
-                    <SelectItem value="7d">Last 7 days</SelectItem>
-                    <SelectItem value="30d">Last 30 days</SelectItem>
-                    <SelectItem value="90d">Last 90 days</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {cbBankStats ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-left">Bank Name</TableHead>
-                      <TableHead className="text-right">Chargebacks</TableHead>
-                      <TableHead className="text-center">CB Amounts</TableHead>
-                      <TableHead className="">CB Rate</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cbBankStats.totals.total === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center text-slate-500">
-                          No Chargeback data for this period
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      <>
-                        {cbBankStats.banks.map((row) => (
-                          <TableRow key={row.bank_name}>
-                            <TableCell className="font-medium">{row.bank_name}</TableCell>
-                            <TableCell className="text-right">{row.chargebacks}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(row.total_amount)}</TableCell>
-                            <TableCell className="w-40">
-                              <div className="flex items-center gap-2">
-                                <div className="w-20">
-                                  <Progress value={row.cb_rate} variant="red" height="lg" />
-                                </div>
-                                <span className="font-medium w-16 text-right">{row.cb_rate}%</span>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </>
-                    )}
-                    {cbBankStats.totals.total > 0 && (
-                      <TableRow className="font-semibold">
-                        <TableCell className="text-left">TOTAL</TableCell>
-                        <TableCell className="text-right">{cbBankStats.totals.chargebacks}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(cbBankStats.totals.total_amount)}</TableCell>
-                        <TableCell className="w-40">
-                          <div className="flex items-center gap-2">
-                            <div className="w-20">
-                              <Progress value={cbBankStats.totals.total_cb_rate} variant='red' height='lg' />
-                            </div>
-                            <span className="font-medium w-16 text-right">{cbBankStats.totals.total_cb_rate}%</span>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              ) : (
-                <div className="text-center py-4 text-slate-500">Loading...</div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-          
         {/* Status Breakdown */}
         <div className="grid gap-6 md:grid-cols-2">
           {/* Debtors by Status */}

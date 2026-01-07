@@ -31,10 +31,10 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { api } from '@/lib/api'
-import { 
-  ArrowLeft, 
-  RefreshCw, 
-  Loader2, 
+import {
+  ArrowLeft,
+  RefreshCw,
+  Loader2,
   Search,
   Pencil,
   Trash2,
@@ -60,7 +60,7 @@ const uploadStatusColors: Record<string, string> = {
 }
 
 const validationStatusConfig: Record<string, { color: string; textColor: string; rowBg: string; hoverBg: string; icon: React.ReactNode; label: string }> = {
-  valid: { 
+  valid: {
     color: 'text-green-600',
     textColor: 'text-green-600',
     rowBg: 'bg-white',
@@ -68,7 +68,7 @@ const validationStatusConfig: Record<string, { color: string; textColor: string;
     icon: <CheckCircle className="h-5 w-5" />,
     label: 'Valid'
   },
-  invalid: { 
+  invalid: {
     color: 'text-orange-500',
     textColor: 'text-orange-600',
     rowBg: 'bg-orange-50',
@@ -76,7 +76,7 @@ const validationStatusConfig: Record<string, { color: string; textColor: string;
     icon: <XCircle className="h-5 w-5" />,
     label: 'Invalid'
   },
-  error: { 
+  error: {
     color: 'text-red-500',
     textColor: 'text-red-600',
     rowBg: 'bg-red-50',
@@ -84,7 +84,7 @@ const validationStatusConfig: Record<string, { color: string; textColor: string;
     icon: <AlertCircle className="h-5 w-5" />,
     label: 'Error'
   },
-  pending: { 
+  pending: {
     color: 'text-gray-400',
     textColor: 'text-gray-500',
     rowBg: 'bg-white',
@@ -92,7 +92,7 @@ const validationStatusConfig: Record<string, { color: string; textColor: string;
     icon: <Clock className="h-5 w-5" />,
     label: 'Pending'
   },
-  chargebacked: { 
+  chargebacked: {
     color: 'text-red-600',
     textColor: 'text-red-700',
     rowBg: 'bg-red-100',
@@ -153,6 +153,7 @@ export default function UploadDetailPage() {
   const [links, setLinks] = useState<PaginationLinks | null>(null)
   const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
   const [tableLoading, setTableLoading] = useState(false)
+  const [hasFetchedInitial, setHasFetchedInitial] = useState(false)
 
   const fetchVopStats = async () => {
     try {
@@ -185,31 +186,44 @@ export default function UploadDetailPage() {
     }
   }, [uploadId])
 
+  const fetchDebtors = useCallback(async (pageNum?: number, searchQuery?: string) => {
+    try {
+      const debtorsResponse = await api.getUploadDebtors(uploadId, {
+        page: pageNum || currentPage,
+        per_page: 100,
+        search: searchQuery !== undefined ? searchQuery : search || undefined
+      })
+      setDebtors(debtorsResponse.data)
+      setMeta(debtorsResponse.meta || null)
+      setLinks(debtorsResponse.links || null)
+
+      if (debtorsResponse.meta && 'links' in debtorsResponse.meta) {
+        setPaginationLinks((debtorsResponse.meta as PaginationMetaType & {links?: PaginationLink[]}).links || [])
+      }
+      return debtorsResponse
+    } catch (error) {
+      console.error('Failed to fetch debtors:', error)
+      return null
+    }
+  }, [uploadId, currentPage])
+
   useEffect(() => {
     const initPage = async () => {
       setLoading(true)
       try {
         const uploadData = await api.getUpload(uploadId)
         setUpload(uploadData)
-        
+
         // Start async validation (returns 202 immediately)
         setValidating(true)
         api.validateUpload(uploadId).catch(err => {
           console.error('Validation dispatch error:', err)
         })
-        
-        const [debtorsResponse, statsData] = await Promise.all([
-          api.getUploadDebtors(uploadId, { per_page: 100 }),
-          api.getUploadValidationStats(uploadId),
-        ])
-        setDebtors(debtorsResponse.data)
+
+        const statsData = await api.getUploadValidationStats(uploadId)
         setStats(statsData)
-        setMeta(debtorsResponse.meta || null)
-        setLinks(debtorsResponse.links || null)
-        
-        if (debtorsResponse.meta && 'links' in debtorsResponse.meta) {
-          setPaginationLinks((debtorsResponse.meta as PaginationMetaType & {links?: PaginationLink[]}).links || [])
-        }
+
+        await fetchDebtors()
         await fetchVopStats()
         await fetchBillingStats()
       } catch (error) {
@@ -218,9 +232,10 @@ export default function UploadDetailPage() {
       } finally {
         setLoading(false)
         setValidating(false)
+        setHasFetchedInitial(true)
       }
     }
-    
+
     if (uploadId) {
       initPage()
     }
@@ -229,22 +244,21 @@ export default function UploadDetailPage() {
   // Poll validation stats while validating
   useEffect(() => {
     if (!validating || !uploadId) return
-    
+
     const interval = setInterval(async () => {
       const newStats = await fetchValidationStats()
       if (newStats && newStats.pending === 0) {
         setValidating(false)
         // Refresh debtors list
-        const debtorsResponse = await api.getUploadDebtors(uploadId, { per_page: 100 })
-        setDebtors(debtorsResponse.data)
+        await fetchDebtors()
       }
     }, 2000)
-    
+
     // Stop polling after 60 seconds
     const timeout = setTimeout(() => {
       setValidating(false)
     }, 60000)
-    
+
     return () => {
       clearInterval(interval)
       clearTimeout(timeout)
@@ -253,7 +267,7 @@ export default function UploadDetailPage() {
 
   useEffect(() => {
     if (!billingStats?.is_processing) return
-    
+
     const interval = setInterval(async () => {
       const data = await fetchBillingStats()
       if (data && !data.is_processing) {
@@ -261,28 +275,25 @@ export default function UploadDetailPage() {
         toast.success('Billing processing completed!')
       }
     }, 5000)
-    
+
     return () => clearInterval(interval)
   }, [billingStats?.is_processing, fetchBillingStats])
 
   useEffect(() => {
-    if (!uploadId || loading) return
-    
-    const isInitialState = currentPage === 1 && search === ''
-    if (isInitialState) return
-    
+    if (!uploadId || loading || !hasFetchedInitial) return  // Skip if initial fetch isn't done yet
+
     const fetchData = async () => {
       setTableLoading(true)
       try {
-        const debtorsResponse = await api.getUploadDebtors(uploadId, { 
+        const debtorsResponse = await api.getUploadDebtors(uploadId, {
           page: currentPage,
-          per_page: 100, 
-          search: search || undefined 
+          per_page: 100,
+          search: search || undefined
         })
         setDebtors(debtorsResponse.data)
         setMeta(debtorsResponse.meta || null)
         setLinks(debtorsResponse.links || null)
-        
+
         if (debtorsResponse.meta && 'links' in debtorsResponse.meta) {
           setPaginationLinks((debtorsResponse.meta as PaginationMetaType & {links?: PaginationLink[]}).links || [])
         }
@@ -292,33 +303,34 @@ export default function UploadDetailPage() {
         setTableLoading(false)
       }
     }
-    
+
     const timer = setTimeout(() => {
       fetchData()
     }, search ? 300 : 0)
-    
+
     return () => clearTimeout(timer)
-  }, [uploadId, currentPage, search, loading])
+  }, [uploadId, currentPage, search, loading, hasFetchedInitial])
 
   const handleVerifyVop = async () => {
     setVerifyingVop(true)
     try {
       await api.verifyVop(uploadId)
       toast.success('VOP verification started. This may take a few minutes.')
-      
+
       const pollInterval = setInterval(async () => {
         await fetchVopStats()
+        await fetchValidationStats()
       }, 5000)
-      
+
       setTimeout(() => {
         clearInterval(pollInterval)
         fetchVopStats()
+        fetchValidationStats()
+        setVerifyingVop(false)
       }, 120000)
-      
+
     } catch (error) {
       toast.error('Failed to start VOP verification')
-    } finally {
-      setVerifyingVop(false)
     }
   }
 
@@ -337,11 +349,11 @@ export default function UploadDetailPage() {
     if (!confirm(`Send ${stats?.ready_for_sync || 0} debtors to payment gateway?`)) {
       return
     }
-    
+
     setSyncing(true)
     try {
       const result = await api.syncToGateway(uploadId)
-      
+
       if (result.data.duplicate) {
         toast.warning('Billing already in progress for this upload')
       } else if (result.data.queued) {
@@ -371,16 +383,16 @@ export default function UploadDetailPage() {
 
   const handleFilterChargebacks = async () => {
     if (!stats?.chargebacked) return
-    
+
     if (!confirm(`Remove ${stats.chargebacked} chargebacked records from this upload?`)) {
       return
     }
-    
+
     setFiltering(true)
     try {
       const result = await api.filterChargebacks(uploadId)
       toast.success(`Removed ${result.removed} chargebacked records`)
-      
+
       const [debtorsResponse, statsData] = await Promise.all([
         api.getUploadDebtors(uploadId, { per_page: 100, search: search || undefined }),
         api.getUploadValidationStats(uploadId),
@@ -401,15 +413,15 @@ export default function UploadDetailPage() {
 
   const handleSave = async () => {
     if (!editingDebtor) return
-    
+
     setSaving(true)
     try {
       const updated = await api.updateDebtor(editingDebtor.id, { raw_data: editForm })
       setDebtors(prev => prev.map(d => d.id === updated.id ? updated : d))
-      
+
       const newStats = await api.getUploadValidationStats(uploadId)
       setStats(newStats)
-      
+
       toast.success('Debtor updated successfully')
       setEditingDebtor(null)
     } catch (error) {
@@ -421,14 +433,14 @@ export default function UploadDetailPage() {
 
   const handleDelete = async (debtor: Debtor) => {
     if (!confirm(`Delete ${debtor.first_name} ${debtor.last_name}?`)) return
-    
+
     try {
       await api.deleteDebtor(debtor.id)
       setDebtors(prev => prev.filter(d => d.id !== debtor.id))
-      
+
       const newStats = await api.getUploadValidationStats(uploadId)
       setStats(newStats)
-      
+
       toast.success('Debtor deleted')
       setEditingDebtor(null)
     } catch (error) {
@@ -467,7 +479,7 @@ export default function UploadDetailPage() {
   const vopVerified = vopStats ? vopStats.verified : 0
   const vopTotalEligible = vopStats ? vopStats.total_eligible : 0
   const hasBillingActivity = billingStats && billingStats.total_attempts > 0
-  
+
   // VOP Gate: Disable sync button if VOP not completed
   const canSync = vopTotalEligible === 0 || vopPending === 0
 
@@ -523,9 +535,9 @@ export default function UploadDetailPage() {
           </div>
           <div className="flex items-center gap-2">
             {(stats?.chargebacked ?? 0) > 0 && (
-              <Button 
+              <Button
                 variant="destructive"
-                onClick={handleFilterChargebacks} 
+                onClick={handleFilterChargebacks}
                 disabled={filtering}
                 className="gap-2"
               >
@@ -543,9 +555,9 @@ export default function UploadDetailPage() {
               </Button>
             )}
             {vopPending > 0 && (
-              <Button 
+              <Button
                 variant="outline"
-                onClick={handleVerifyVop} 
+                onClick={handleVerifyVop}
                 disabled={verifyingVop}
                 className="gap-2"
               >
@@ -562,8 +574,8 @@ export default function UploadDetailPage() {
                 )}
               </Button>
             )}
-            <Button 
-              onClick={handleSync} 
+            <Button
+              onClick={handleSync}
               disabled={syncing || billingStats?.is_processing || (stats?.ready_for_sync || 0) === 0 || !canSync}
               className="gap-2"
               title={!canSync ? `VOP verification required (${vopPending} pending)` : undefined}
@@ -595,8 +607,8 @@ export default function UploadDetailPage() {
                 {vopPending} of {vopTotalEligible} debtors pending verification. Complete VOP verification to enable billing.
               </p>
             </div>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={handleVerifyVop}
               disabled={verifyingVop}
@@ -811,10 +823,10 @@ export default function UploadDetailPage() {
                         const isChargebacked = displayStatus === 'chargebacked'
                         const isHovered = hoveredId === debtor.id
                         const bgClass = isHovered ? statusConfig.hoverBg : statusConfig.rowBg
-                        
+
                         return (
                           <Fragment key={debtor.id}>
-                            <TableRow 
+                            <TableRow
                               className={`${bgClass} transition-colors ${hasErrors || isChargebacked ? 'border-b-0' : ''}`}
                               onMouseEnter={() => setHoveredId(debtor.id)}
                               onMouseLeave={() => setHoveredId(null)}
@@ -849,7 +861,7 @@ export default function UploadDetailPage() {
                               ))}
                             </TableRow>
                             {(hasErrors || isChargebacked) && (
-                              <TableRow 
+                              <TableRow
                                 className={`${bgClass} transition-colors`}
                                 onMouseEnter={() => setHoveredId(debtor.id)}
                                 onMouseLeave={() => setHoveredId(null)}
@@ -910,7 +922,7 @@ export default function UploadDetailPage() {
               Make changes to the record below. After saving, validation will re-run.
             </DialogDescription>
           </DialogHeader>
-          
+
           {editingErrors.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               <p className="text-sm font-medium text-red-800 mb-1">Validation Errors:</p>
@@ -921,7 +933,7 @@ export default function UploadDetailPage() {
               </ul>
             </div>
           )}
-          
+
           <div className="grid grid-cols-2 gap-4 py-4">
             {editHeaders.map((field, idx) => (
               <div key={`edit-${idx}-${field}`} className="space-y-2">

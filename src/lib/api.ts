@@ -34,18 +34,12 @@ import type {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
 
-/**
- * Reconciliation stats response
- */
 export interface ReconciliationStats {
   eligible: number
   pending: number
   last_reconciled_at: string | null
 }
 
-/**
- * Bulk reconciliation response
- */
 export interface BulkReconciliationResponse {
   message: string
   data: {
@@ -57,9 +51,49 @@ export interface BulkReconciliationResponse {
   }
 }
 
-/**
- * Custom API Error with structured errors array
- */
+export interface EmpRefreshResponse {
+  message: string
+  data: {
+    job_id: string
+    from: string
+    to: string
+    estimated_pages: number
+    queued: boolean
+  }
+}
+
+export interface EmpRefreshStatusResponse {
+  data: {
+    is_processing: boolean
+    job_id: string | null
+    progress: number
+    stats: {
+      inserted: number
+      updated: number
+      errors: number
+      processed_pages: number
+      total_pages: number
+    } | null
+  }
+}
+
+export interface EmpRefreshJobStatusResponse {
+  data: {
+    job_id: string
+    status: 'processing' | 'completed' | 'failed'
+    progress: number
+    stats: {
+      inserted: number
+      updated: number
+      errors: number
+      processed_pages: number
+      total_pages: number
+    }
+    started_at: string
+    completed_at: string | null
+  }
+}
+
 export class ApiError extends Error {
   errors: string[]
   status: number
@@ -234,10 +268,6 @@ class ApiClient {
     return this.request<ApiResponse<Debtor[]>>(`/admin/uploads/${uploadId}/debtors${query}`)
   }
 
-  /**
-   * Start async validation for upload.
-   * Returns immediately with 202 status. Use getUploadValidationStats() to poll for results.
-   */
   async validateUpload(uploadId: number): Promise<{ message: string; status: string }> {
     const token = this.getToken()
     const headers: HeadersInit = {
@@ -393,10 +423,6 @@ class ApiClient {
     })
   }
 
-  // ==========================================================================
-  // Billing Sync Methods
-  // ==========================================================================
-
   async syncToGateway(uploadId: number): Promise<BillingSyncResponse> {
     return this.request<BillingSyncResponse>(
       `/admin/uploads/${uploadId}/sync`,
@@ -418,13 +444,6 @@ class ApiClient {
     )
   }
 
-  // ==========================================================================
-  // Reconciliation Methods
-  // ==========================================================================
-
-  /**
-   * Get reconciliation statistics
-   */
   async getReconciliationStats(): Promise<ReconciliationStats> {
     const response = await this.request<{ data: ReconciliationStats }>(
       '/admin/reconciliation/stats'
@@ -432,11 +451,6 @@ class ApiClient {
     return response.data
   }
 
-  /**
-   * Trigger bulk reconciliation for pending billing attempts
-   * @param params.max_age_hours - Only reconcile attempts older than this (default: 1440 = 60 days)
-   * @param params.limit - Max number of attempts to process (default: 5000)
-   */
   async triggerBulkReconciliation(params?: { 
     max_age_hours?: number
     limit?: number 
@@ -450,9 +464,6 @@ class ApiClient {
     )
   }
 
-  /**
-   * Reconcile single billing attempt
-   */
   async reconcileBillingAttempt(attemptId: number): Promise<{
     message: string
     data: {
@@ -469,9 +480,6 @@ class ApiClient {
     )
   }
 
-  /**
-   * Reconcile all pending billing attempts for an upload
-   */
   async reconcileUpload(uploadId: number): Promise<{
     message: string
     data: {
@@ -485,6 +493,21 @@ class ApiClient {
       `/admin/uploads/${uploadId}/reconcile`,
       { method: 'POST' }
     )
+  }
+
+  async triggerEmpRefresh(from: string, to: string): Promise<EmpRefreshResponse> {
+    return this.request<EmpRefreshResponse>('/admin/emp/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ from, to }),
+    })
+  }
+
+  async getEmpRefreshStatus(): Promise<EmpRefreshStatusResponse> {
+    return this.request<EmpRefreshStatusResponse>('/admin/emp/refresh/status')
+  }
+
+  async getEmpRefreshJobStatus(jobId: string): Promise<EmpRefreshJobStatusResponse> {
+    return this.request<EmpRefreshJobStatusResponse>('/admin/emp/refresh/' + jobId)
   }
 }
 

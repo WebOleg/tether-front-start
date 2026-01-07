@@ -1,13 +1,15 @@
 /**
- * Analytics page - Chargeback ratios and Gateway Sync
+ * Analytics page - Chargeback ratios, Gateway Sync, and EMP Refresh
  */
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Header } from '@/components/layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Table,
   TableBody,
@@ -27,11 +29,12 @@ import { api } from '@/lib/api'
 import { 
   RefreshCw,
   AlertTriangle,
-  TrendingUp,
-  TrendingDown,
+  Download,
   BarChart3,
   PieChart,
   Building2,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react'
 import type { ChargebackStats, ChargebackCodeStats, ChargebackBankStats } from '@/types'
 import { Progress } from '@/components/ui/progress'
@@ -47,6 +50,10 @@ function formatPercent(value: number): string {
   return `${value.toFixed(2)}%`
 }
 
+function formatDate(date: Date): string {
+  return date.toISOString().split('T')[0]
+}
+
 export default function AnalyticsPage() {
   const [cbStats, setCbStats] = useState<ChargebackStats | null>(null)
   const [cbCodeStats, setCbCodeStats] = useState<ChargebackCodeStats | null>(null)
@@ -59,6 +66,25 @@ export default function AnalyticsPage() {
   // Reconciliation state
   const [reconciling, setReconciling] = useState(false)
   const [reconcileResult, setReconcileResult] = useState<{ message: string; success: boolean } | null>(null)
+
+  // EMP Refresh state
+  const [empRefreshing, setEmpRefreshing] = useState(false)
+  const [empJobId, setEmpJobId] = useState<string | null>(null)
+  const [empProgress, setEmpProgress] = useState(0)
+  const [empStats, setEmpStats] = useState<{
+    inserted: number
+    updated: number
+    errors: number
+    processed_pages: number
+    total_pages: number
+  } | null>(null)
+  const [empResult, setEmpResult] = useState<{ message: string; success: boolean } | null>(null)
+  const [empFromDate, setEmpFromDate] = useState(() => {
+    const date = new Date()
+    date.setDate(date.getDate() - 30)
+    return formatDate(date)
+  })
+  const [empToDate, setEmpToDate] = useState(() => formatDate(new Date()))
 
   useEffect(() => {
     const fetchChargebackStats = async () => {
@@ -98,6 +124,67 @@ export default function AnalyticsPage() {
     fetchChargebackBankStats()
   }, [cbBankPeriod])
 
+  // Check for existing EMP refresh job on mount
+  useEffect(() => {
+    const checkExistingJob = async () => {
+      try {
+        const status = await api.getEmpRefreshStatus()
+        if (status.data.is_processing && status.data.job_id) {
+          setEmpRefreshing(true)
+          setEmpJobId(status.data.job_id)
+          setEmpProgress(status.data.progress)
+          setEmpStats(status.data.stats)
+        }
+      } catch (err) {
+        console.error('Failed to check EMP refresh status:', err)
+      }
+    }
+    checkExistingJob()
+  }, [])
+
+  // Poll for EMP refresh progress
+  const pollEmpProgress = useCallback(async (jobId: string) => {
+    try {
+      const status = await api.getEmpRefreshJobStatus(jobId)
+      setEmpProgress(status.data.progress)
+      setEmpStats(status.data.stats)
+
+      if (status.data.status === 'completed') {
+        setEmpRefreshing(false)
+        setEmpJobId(null)
+        setEmpResult({
+          message: `Completed! Inserted: ${status.data.stats.inserted}, Updated: ${status.data.stats.updated}`,
+          success: true
+        })
+      } else if (status.data.status === 'failed') {
+        setEmpRefreshing(false)
+        setEmpJobId(null)
+        setEmpResult({
+          message: `Failed with ${status.data.stats.errors} errors`,
+          success: false
+        })
+      }
+
+      return status.data.status
+    } catch (err) {
+      console.error('Failed to poll EMP refresh status:', err)
+      return 'error'
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!empRefreshing || !empJobId) return
+
+    const interval = setInterval(async () => {
+      const status = await pollEmpProgress(empJobId)
+      if (status === 'completed' || status === 'failed' || status === 'error') {
+        clearInterval(interval)
+      }
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [empRefreshing, empJobId, pollEmpProgress])
+
   const handleReconcile = async () => {
     setReconciling(true)
     setReconcileResult(null)
@@ -134,6 +221,38 @@ export default function AnalyticsPage() {
     }
   }
 
+  const handleEmpRefresh = async () => {
+    setEmpRefreshing(true)
+    setEmpResult(null)
+    setEmpProgress(0)
+    setEmpStats(null)
+
+    try {
+      const result = await api.triggerEmpRefresh(empFromDate, empToDate)
+      
+      if (result.data.queued) {
+        setEmpJobId(result.data.job_id)
+        setEmpResult({
+          message: `Started refresh for ${result.data.estimated_pages} pages`,
+          success: true
+        })
+      } else {
+        setEmpRefreshing(false)
+        setEmpResult({
+          message: 'Failed to start refresh',
+          success: false
+        })
+      }
+    } catch (err: any) {
+      console.error('EMP refresh failed:', err)
+      setEmpRefreshing(false)
+      setEmpResult({
+        message: err.message || 'EMP refresh failed',
+        success: false
+      })
+    }
+  }
+
   const hasAlert = cbStats?.countries?.some(c => c.alert) || false
   const totalCbRateApproved = cbStats?.totals?.cb_rate_approved || 0
   const totalCbRateAll = cbStats?.totals?.cb_rate_total || 0
@@ -144,7 +263,7 @@ export default function AnalyticsPage() {
       <main className="container mx-auto px-4 py-8">
 
         {/* Top Row - Key Metrics */}
-        <div className="grid gap-6 md:grid-cols-3 mb-8">
+        <div className="grid gap-6 md:grid-cols-4 mb-8">
           {/* Chargeback / Approved Ratio */}
           <Card className={totalCbRateApproved > 1 ? 'border-red-300' : ''}>
             <CardHeader className="pb-2">
@@ -226,6 +345,75 @@ export default function AnalyticsPage() {
                 <p className={`text-xs mt-2 ${reconcileResult.success ? 'text-green-600' : 'text-amber-600'}`}>
                   {reconcileResult.message}
                 </p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* EMP Refresh */}
+          <Card className="border-emerald-200 bg-emerald-50/50">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Download className="h-5 w-5 text-emerald-600" />
+                <CardTitle className="text-sm font-medium text-slate-700">
+                  EMP Refresh
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-slate-500 mb-3">Fetch transactions from gateway</p>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                  <Label className="text-xs">From</Label>
+                  <Input
+                    type="date"
+                    value={empFromDate}
+                    onChange={(e) => setEmpFromDate(e.target.value)}
+                    className="h-8 text-xs"
+                    disabled={empRefreshing}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">To</Label>
+                  <Input
+                    type="date"
+                    value={empToDate}
+                    onChange={(e) => setEmpToDate(e.target.value)}
+                    className="h-8 text-xs"
+                    disabled={empRefreshing}
+                  />
+                </div>
+              </div>
+              <Button 
+                onClick={handleEmpRefresh} 
+                disabled={empRefreshing}
+                variant="outline"
+                size="sm"
+                className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+              >
+                {empRefreshing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    {empProgress}%
+                  </>
+                ) : (
+                  'Refresh from EMP'
+                )}
+              </Button>
+              {empRefreshing && empStats && (
+                <div className="mt-2">
+                  <Progress value={empProgress} className="h-2 [&>div]:bg-emerald-500" />
+                  <div className="flex justify-between text-xs text-slate-500 mt-1">
+                    <span>+{empStats.inserted} new</span>
+                    <span>↻{empStats.updated} updated</span>
+                    {empStats.errors > 0 && <span className="text-red-500">✗{empStats.errors}</span>}
+                  </div>
+                </div>
+              )}
+              {empResult && !empRefreshing && (
+                <div className={`flex items-center gap-1 text-xs mt-2 ${empResult.success ? 'text-green-600' : 'text-red-600'}`}>
+                  {empResult.success ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                  {empResult.message}
+                </div>
               )}
             </CardContent>
           </Card>

@@ -22,13 +22,30 @@ jobs:
           script: |
             set -euo pipefail
 
-            cd /opt/tether-staging/frontend
+            REPO_DIR="/opt/tether-staging/frontend"
+            COMPOSE="docker compose -f docker-compose.staging.yml"
 
-            git fetch --all
-            git checkout staging || git checkout -b staging
+            cd "$REPO_DIR"
+
+            echo "== whoami =="; whoami; id
+            echo "== repo perms =="; ls -ld .git .git/objects .git/objects/pack || true
+
+            # --- Git self-heal (prevents 'insufficient permission' + stale locks) ---
+            sudo chown -R "${USER}:${USER}" .git || true
+            sudo chmod -R u+rwX .git || true
+            sudo rm -f .git/index.lock .git/packed-refs.lock .git/objects/pack/*.lock || true
+
+            # Retry fetch
+            for i in 1 2 3; do
+              git fetch --all --prune && break
+              echo "git fetch failed (attempt $i). retrying..."
+              sleep 2
+            done
+
+            git checkout -B staging origin/staging
             git reset --hard origin/staging
 
-            docker compose -f docker-compose.staging.yml build
-            docker compose -f docker-compose.staging.yml up -d
+            $COMPOSE build
+            $COMPOSE up -d
 
-            docker compose -f docker-compose.staging.yml ps
+            $COMPOSE ps

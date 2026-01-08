@@ -464,6 +464,7 @@ export default function AnalyticsPage() {
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead className="text-right">Approved</TableHead>
                     <TableHead className="text-right">Chargebacks</TableHead>
+                    <TableHead className="text-right">CB Amount</TableHead>
                     <TableHead className="text-right">CB Rate</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -477,11 +478,23 @@ export default function AnalyticsPage() {
                       <TableCell className="text-right">{country.total}</TableCell>
                       <TableCell className="text-right">{country.approved}</TableCell>
                       <TableCell className="text-right">{country.chargebacks}</TableCell>
+                      <TableCell className="text-right">{formatCurrency((country as any).chargeback_amount || 0)}</TableCell>
                       <TableCell className={`text-right font-medium ${country.alert ? 'text-red-600' : ''}`}>
                         {formatPercent(country.cb_rate_approved)}
                       </TableCell>
                     </TableRow>
                   ))}
+                  {/* Total Row */}
+                  <TableRow className="bg-slate-100 font-semibold border-t-2">
+                    <TableCell>Total</TableCell>
+                    <TableCell className="text-right">{cbStats.totals.total}</TableCell>
+                    <TableCell className="text-right">{cbStats.totals.approved}</TableCell>
+                    <TableCell className="text-right">{cbStats.totals.chargebacks}</TableCell>
+                    <TableCell className="text-right">{formatCurrency((cbStats.totals as any).chargeback_amount || 0)}</TableCell>
+                    <TableCell className={`text-right ${cbStats.totals.alert ? 'text-red-600' : ''}`}>
+                      {formatPercent(cbStats.totals.cb_rate_approved)}
+                    </TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             ) : (
@@ -533,6 +546,12 @@ export default function AnalyticsPage() {
                         <TableCell className="text-right">{formatCurrency(code.total_amount)}</TableCell>
                       </TableRow>
                     ))}
+                    {/* Total Row */}
+                    <TableRow className="bg-slate-100 font-semibold border-t-2">
+                      <TableCell colSpan={2}>Total</TableCell>
+                      <TableCell className="text-right">{cbCodeStats.totals.occurrences}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(cbCodeStats.totals.total_amount)}</TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               ) : (
@@ -569,7 +588,7 @@ export default function AnalyticsPage() {
                     <TableRow>
                       <TableHead>Bank</TableHead>
                       <TableHead className="text-right">Chargebacks</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">CB Amount</TableHead>
                       <TableHead className="text-right">CB Rate</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -578,12 +597,21 @@ export default function AnalyticsPage() {
                       <TableRow key={bank.bank_name}>
                         <TableCell className="font-medium">{bank.bank_name}</TableCell>
                         <TableCell className="text-right">{bank.chargebacks}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(bank.total_amount)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency((bank as any).chargeback_amount || bank.total_amount)}</TableCell>
                         <TableCell className={`text-right font-medium ${bank.cb_rate > 1 ? 'text-red-600' : ''}`}>
                           {formatPercent(bank.cb_rate)}
                         </TableCell>
                       </TableRow>
                     ))}
+                    {/* Total Row */}
+                    <TableRow className="bg-slate-100 font-semibold border-t-2">
+                      <TableCell>Total</TableCell>
+                      <TableCell className="text-right">{cbBankStats.totals.chargebacks}</TableCell>
+                      <TableCell className="text-right">{formatCurrency((cbBankStats.totals as any).chargeback_amount || cbBankStats.totals.total_amount)}</TableCell>
+                      <TableCell className={`text-right ${(cbBankStats.totals as any).cb_rate > 1 ? 'text-red-600' : ''}`}>
+                        {formatPercent((cbBankStats.totals as any).cb_rate || (cbBankStats.totals as any).total_cb_rate || 0)}
+                      </TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               ) : (

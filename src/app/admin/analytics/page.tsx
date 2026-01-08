@@ -39,6 +39,15 @@ import {
 import type { ChargebackStats, ChargebackCodeStats, ChargebackBankStats } from '@/types'
 import { Progress } from '@/components/ui/progress'
 
+interface EmpRefreshStats {
+  inserted: number
+  updated: number
+  unchanged?: number
+  errors: number
+  processed_pages?: number
+  total_pages?: number
+}
+
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('de-DE', {
     style: 'currency',
@@ -71,13 +80,7 @@ export default function AnalyticsPage() {
   const [empRefreshing, setEmpRefreshing] = useState(false)
   const [empJobId, setEmpJobId] = useState<string | null>(null)
   const [empProgress, setEmpProgress] = useState(0)
-  const [empStats, setEmpStats] = useState<{
-    inserted: number
-    updated: number
-    errors: number
-    processed_pages: number
-    total_pages: number
-  } | null>(null)
+  const [empStats, setEmpStats] = useState<EmpRefreshStats | null>(null)
   const [empResult, setEmpResult] = useState<{ message: string; success: boolean } | null>(null)
   const [empFromDate, setEmpFromDate] = useState(() => {
     const date = new Date()
@@ -133,7 +136,7 @@ export default function AnalyticsPage() {
           setEmpRefreshing(true)
           setEmpJobId(status.data.job_id)
           setEmpProgress(status.data.progress)
-          setEmpStats(status.data.stats)
+          setEmpStats(status.data.stats as EmpRefreshStats)
         }
       } catch (err) {
         console.error('Failed to check EMP refresh status:', err)
@@ -147,20 +150,25 @@ export default function AnalyticsPage() {
     try {
       const status = await api.getEmpRefreshJobStatus(jobId)
       setEmpProgress(status.data.progress)
-      setEmpStats(status.data.stats)
+      const stats = status.data.stats as EmpRefreshStats
+      setEmpStats(stats)
 
       if (status.data.status === 'completed') {
         setEmpRefreshing(false)
         setEmpJobId(null)
+        const parts = []
+        if (stats.inserted > 0) parts.push(`${stats.inserted} new`)
+        if (stats.updated > 0) parts.push(`${stats.updated} updated`)
+        if (stats.unchanged && stats.unchanged > 0) parts.push(`${stats.unchanged} unchanged`)
         setEmpResult({
-          message: `Completed! Inserted: ${status.data.stats.inserted}, Updated: ${status.data.stats.updated}`,
+          message: `Completed! ${parts.join(', ') || 'No changes'}`,
           success: true
         })
       } else if (status.data.status === 'failed') {
         setEmpRefreshing(false)
         setEmpJobId(null)
         setEmpResult({
-          message: `Failed with ${status.data.stats.errors} errors`,
+          message: `Failed with ${stats.errors} errors`,
           success: false
         })
       }
@@ -403,8 +411,9 @@ export default function AnalyticsPage() {
                 <div className="mt-2">
                   <Progress value={empProgress} className="h-2 [&>div]:bg-emerald-500" />
                   <div className="flex justify-between text-xs text-slate-500 mt-1">
-                    <span>+{empStats.inserted} new</span>
-                    <span>↻{empStats.updated} updated</span>
+                    <span className="text-green-600">+{empStats.inserted} new</span>
+                    <span className="text-blue-600">↻{empStats.updated} upd</span>
+                    <span className="text-slate-400">={empStats.unchanged || 0}</span>
                     {empStats.errors > 0 && <span className="text-red-500">✗{empStats.errors}</span>}
                   </div>
                 </div>

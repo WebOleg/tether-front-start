@@ -315,7 +315,7 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-slate-900">
+                <span className={`text-3xl font-bold ${totalCbRateAmountApproved > 1 ? 'text-red-600' : 'text-slate-900'}`}>
                   {formatPercent(totalCbRateAmountApproved)}
                 </span>
                 <span className="text-sm text-slate-500">chargeback amount / total amount</span>

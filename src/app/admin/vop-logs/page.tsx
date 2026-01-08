@@ -1,6 +1,6 @@
 /**
  * VOP Logs list page.
- * Shows IBAN verification results with scores and status.
+ * Shows IBAN verification results with scores, BAV status and name matching.
  */
 
 'use client'
@@ -24,8 +24,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
-import type { PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType, VopLog, VopResult } from '@/types'
-import { CheckCircle, XCircle } from 'lucide-react'
+import type { PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType, VopLog, VopResult, NameMatch } from '@/types'
+import { CheckCircle, XCircle, MinusCircle, User, UserCheck, UserX } from 'lucide-react'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 
 const resultColors: Record<VopResult, string> = {
@@ -34,6 +34,14 @@ const resultColors: Record<VopResult, string> = {
   inconclusive: 'bg-yellow-100 text-yellow-800',
   mismatch: 'bg-orange-100 text-orange-800',
   rejected: 'bg-red-100 text-red-800',
+}
+
+const nameMatchColors: Record<NameMatch, string> = {
+  yes: 'bg-green-100 text-green-800',
+  partial: 'bg-blue-100 text-blue-800',
+  no: 'bg-red-100 text-red-800',
+  unavailable: 'bg-slate-100 text-slate-600',
+  error: 'bg-orange-100 text-orange-800',
 }
 
 function formatDate(dateString: string): string {
@@ -57,10 +65,39 @@ function ScoreIndicator({ score }: { score: number }) {
   )
 }
 
+function NameMatchIndicator({ nameMatch, score }: { nameMatch: NameMatch | null, score: number | null }) {
+  if (!nameMatch) {
+    return <span className="text-slate-400">—</span>
+  }
+
+  const icons: Record<NameMatch, React.ReactNode> = {
+    yes: <UserCheck className="h-4 w-4" />,
+    partial: <User className="h-4 w-4" />,
+    no: <UserX className="h-4 w-4" />,
+    unavailable: <MinusCircle className="h-4 w-4" />,
+    error: <XCircle className="h-4 w-4" />,
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Badge className={nameMatchColors[nameMatch]}>
+        <span className="flex items-center gap-1">
+          {icons[nameMatch]}
+          {nameMatch}
+        </span>
+      </Badge>
+      {score !== null && nameMatch !== 'unavailable' && nameMatch !== 'error' && (
+        <span className="text-xs text-slate-500">({score}%)</span>
+      )}
+    </div>
+  )
+}
+
 export default function VopLogsPage() {
   const [vopLogs, setVopLogs] = useState<VopLog[]>([])
   const [loading, setLoading] = useState(true)
   const [resultFilter, setResultFilter] = useState<string>('all')
+  const [bavFilter, setBavFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [meta, setMeta] = useState<PaginationMetaType | null>(null)
   const [links, setLinks] = useState<PaginationLinks | null>(null)
@@ -70,19 +107,23 @@ export default function VopLogsPage() {
     const fetchVopLogs = async () => {
       setLoading(true)
       try {
-        const filters: { result?: VopResult; page: number; per_page: number } = {         
+        const filters: { result?: VopResult; bav_verified?: boolean; page: number; per_page: number } = {         
           page: currentPage,
           per_page: 50 
         }
         if (resultFilter !== 'all') {
           filters.result = resultFilter as VopResult
         }
+        if (bavFilter === 'verified') {
+          filters.bav_verified = true
+        } else if (bavFilter === 'not_verified') {
+          filters.bav_verified = false
+        }
         const response = await api.getVopLogs(filters)
         setVopLogs(response.data)
         setMeta(response.meta || null)
         setLinks(response.links || null)
 
-        // Extract pagination links from meta if available
         if (response.meta && 'links' in response.meta) {
           setPaginationLinks((response.meta as PaginationMetaType & {links?: PaginationLink[]}).links || [])
         }      
@@ -94,7 +135,7 @@ export default function VopLogsPage() {
     }
 
     fetchVopLogs()
-  }, [resultFilter, currentPage])
+  }, [resultFilter, bavFilter, currentPage])
 
   const handlePreviousPage = () => {
     if (links?.prev) {
@@ -116,7 +157,7 @@ export default function VopLogsPage() {
     <>
       <Header
         title="VOP Verifications"
-        description="IBAN validation and bank verification results"
+        description="IBAN validation, bank verification and name matching results"
       />
       <div className="p-6">
         {/* Filters */}
@@ -137,6 +178,20 @@ export default function VopLogsPage() {
               <SelectItem value="rejected">Rejected</SelectItem>
             </SelectContent>
           </Select>
+
+          <Select value={bavFilter} onValueChange={(value) => {
+            setBavFilter(value)
+            setCurrentPage(1)
+          }}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by BAV" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All BAV Status</SelectItem>
+              <SelectItem value="verified">BAV Verified</SelectItem>
+              <SelectItem value="not_verified">Not BAV Verified</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <PaginationMeta
@@ -144,6 +199,7 @@ export default function VopLogsPage() {
           label="vop logs"
           containerClassName='px-2'
         />
+        
         {/* Table */}
         <div className="rounded-lg border bg-white">
           <Table>
@@ -154,19 +210,20 @@ export default function VopLogsPage() {
                 <TableHead>Valid</TableHead>
                 <TableHead>Score</TableHead>
                 <TableHead>Result</TableHead>
+                <TableHead>Name Match</TableHead>
                 <TableHead>Date</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : vopLogs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     No VOP logs found
                   </TableCell>
                 </TableRow>
@@ -200,6 +257,12 @@ export default function VopLogsPage() {
                       <Badge className={resultColors[log.result]}>
                         {log.result.replace('_', ' ')}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <NameMatchIndicator 
+                        nameMatch={log.name_match} 
+                        score={log.name_match_score} 
+                      />
                     </TableCell>
                     <TableCell className="text-slate-500">
                       {formatDate(log.created_at)}

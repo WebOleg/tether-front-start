@@ -98,6 +98,8 @@ export interface UploadDelete {
   message: string
 }
 
+export type VopStatus = 'pending' | 'verified' | 'error'
+
 export interface Debtor {
   id: number
   upload_id: number
@@ -121,6 +123,10 @@ export interface Debtor {
   validation_status: ValidationStatus
   validation_errors: string[] | null
   validated_at: string | null
+  vop_status: VopStatus
+  vop_match: boolean | null
+  vop_verified_at: string | null
+  bav_selected: boolean
   risk_class: RiskClass | null
   external_reference: string | null
   bank_name: string | null
@@ -150,6 +156,8 @@ export interface ValidationStats {
   skipped?: SkippedCounts | null
 }
 
+export type NameMatch = 'yes' | 'partial' | 'no' | 'unavailable' | 'error'
+
 export interface VopLog {
   id: number
   debtor_id: number
@@ -163,8 +171,12 @@ export interface VopLog {
   vop_score: number
   score_label: ScoreLabel
   result: VopResult
+  name_match: NameMatch | null
+  name_match_score: number | null
+  bav_verified: boolean
   is_positive: boolean
   is_negative: boolean
+  has_name_match: boolean
   created_at: string
 }
 
@@ -226,6 +238,7 @@ export interface VopLogFilters {
   upload_id?: number
   debtor_id?: number
   result?: VopResult
+  bav_verified?: boolean
   page?: number
   per_page?: number
 }
@@ -400,7 +413,10 @@ export interface VopStats {
   total_eligible: number
   verified: number
   pending: number
+  bav_verified: number
+  bav_selected: number
   by_result: Record<string, number>
+  by_name_match: Record<string, number>
   avg_score: number
   is_processing: boolean
 }
@@ -434,6 +450,7 @@ export interface VopSingleVerifyResponse {
     credits_used: number
   }
 }
+
 // ==========================================================================
 // Billing Sync Types
 // ==========================================================================

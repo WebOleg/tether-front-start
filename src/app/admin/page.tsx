@@ -18,6 +18,8 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
+  AlertTriangle,
+  XCircle,
 } from 'lucide-react'
 import type { DashboardData } from '@/types'
 
@@ -46,6 +48,20 @@ const statusColors: Record<string, string> = {
   failed: 'bg-red-100 text-red-800',
   declined: 'bg-red-100 text-red-800',
   error: 'bg-red-100 text-red-800',
+  chargebacked: 'bg-orange-100 text-orange-800',
+  voided: 'bg-slate-100 text-slate-800',
+}
+
+const statusIcons: Record<string, React.ReactNode> = {
+  approved: <CheckCircle className="h-4 w-4 text-green-600" />,
+  pending: <Clock className="h-4 w-4 text-yellow-600" />,
+  declined: <XCircle className="h-4 w-4 text-red-600" />,
+  error: <AlertCircle className="h-4 w-4 text-red-600" />,
+  voided: <AlertCircle className="h-4 w-4 text-slate-600" />,
+  chargebacked: <AlertTriangle className="h-4 w-4 text-orange-600" />,
+  processing: <AlertCircle className="h-4 w-4 text-blue-600" />,
+  recovered: <CheckCircle className="h-4 w-4 text-green-600" />,
+  failed: <AlertCircle className="h-4 w-4 text-red-600" />,
 }
 
 export default function AdminDashboard() {
@@ -161,10 +177,11 @@ export default function AdminDashboard() {
       color: 'text-blue-600',
     },
     {
-      title: 'Valid IBAN Rate',
-      value: `${data.debtors.valid_iban_rate}%`,
-      icon: ShieldCheck,
-      color: 'text-purple-600',
+      title: 'Chargebacks',
+      value: formatCurrency(data.billing.total_chargeback_amount || 0),
+      subtitle: `${data.billing.chargeback_rate || 0}% rate`,
+      icon: AlertTriangle,
+      color: 'text-orange-600',
     },
   ]
 
@@ -202,6 +219,9 @@ export default function AdminDashboard() {
                   <div>
                     <p className="text-sm text-slate-500">{card.title}</p>
                     <p className="text-xl font-semibold">{card.value}</p>
+                    {'subtitle' in card && card.subtitle && (
+                      <p className="text-xs text-slate-400">{card.subtitle}</p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -221,10 +241,7 @@ export default function AdminDashboard() {
                 {Object.entries(data.debtors.by_status).map(([status, count]) => (
                   <div key={status} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      {status === 'pending' && <Clock className="h-4 w-4 text-yellow-600" />}
-                      {status === 'processing' && <AlertCircle className="h-4 w-4 text-blue-600" />}
-                      {status === 'recovered' && <CheckCircle className="h-4 w-4 text-green-600" />}
-                      {status === 'failed' && <AlertCircle className="h-4 w-4 text-red-600" />}
+                      {statusIcons[status] || <AlertCircle className="h-4 w-4 text-slate-600" />}
                       <span className="capitalize">{status}</span>
                     </div>
                     <span className="font-semibold">{count.toLocaleString()}</span>
@@ -244,11 +261,7 @@ export default function AdminDashboard() {
                 {Object.entries(data.billing.by_status).map(([status, count]) => (
                   <div key={status} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      {status === 'approved' && <CheckCircle className="h-4 w-4 text-green-600" />}
-                      {status === 'pending' && <Clock className="h-4 w-4 text-yellow-600" />}
-                      {status === 'declined' && <AlertCircle className="h-4 w-4 text-red-600" />}
-                      {status === 'error' && <AlertCircle className="h-4 w-4 text-red-600" />}
-                      {status === 'voided' && <AlertCircle className="h-4 w-4 text-slate-600" />}
+                      {statusIcons[status] || <AlertCircle className="h-4 w-4 text-slate-600" />}
                       <span className="capitalize">{status}</span>
                     </div>
                     <span className="font-semibold">{count.toLocaleString()}</span>
@@ -306,7 +319,7 @@ export default function AdminDashboard() {
                         <p className="text-sm font-medium">
                           {(billing as any).debtor 
                             ? `${(billing as any).debtor.first_name} ${(billing as any).debtor.last_name}`
-                            : `Debtor #${(billing as any).debtor_id}`
+                            : `Transaction #${billing.id}`
                           }
                         </p>
                         <p className="text-xs text-slate-500">{formatDate(billing.created_at)}</p>

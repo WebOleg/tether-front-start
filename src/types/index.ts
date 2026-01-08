@@ -270,8 +270,11 @@ export interface DashboardBillingStats {
   total_attempts: number
   by_status: Record<string, number>
   approval_rate: number
+  chargeback_rate: number
   total_approved_amount: number
+  total_chargeback_amount: number
   today: number
+  average_attempts_per_debtor: number
 }
 
 export interface DashboardTrend {
@@ -280,6 +283,7 @@ export interface DashboardTrend {
   debtors: number
   billing_attempts: number
   successful_payments: number
+  chargebacks: number
 }
 
 export interface DashboardRecentActivity {

@@ -264,6 +264,8 @@ export default function AnalyticsPage() {
   const hasAlert = cbStats?.countries?.some(c => c.alert) || false
   const totalCbRateApproved = cbStats?.totals?.cb_rate_approved || 0
   const totalCbRateAll = cbStats?.totals?.cb_rate_total || 0
+  const totalCbAlertAmountApproved = cbStats?.totals?.cb_alert_amount_approved || false
+  const totalCbRateAmountApproved = cbStats?.totals?.cb_rate_amount_approved || 0
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -271,7 +273,7 @@ export default function AnalyticsPage() {
       <main className="container mx-auto px-4 py-8">
 
         {/* Top Row - Key Metrics */}
-        <div className="grid gap-6 md:grid-cols-4 mb-8">
+        <div className="grid gap-6 md:grid-cols-3 mb-8">
           {/* Chargeback / Approved Ratio */}
           <Card className={totalCbRateApproved > 1 ? 'border-red-300' : ''}>
             <CardHeader className="pb-2">
@@ -292,10 +294,38 @@ export default function AnalyticsPage() {
                 <span className="text-sm text-slate-500">chargebacks / approved</span>
               </div>
               <Progress 
-                value={Math.min(totalCbRateApproved, 5) * 20} 
+                value={totalCbRateApproved} 
                 className={`mt-2 h-2 ${totalCbRateApproved > 1 ? '[&>div]:bg-red-500' : '[&>div]:bg-green-500'}`}
               />
               <p className="text-xs text-slate-400 mt-1">Target: &lt;1%</p>
+            </CardContent>
+          </Card>
+
+          {/* Chargeback / All transactions Amount Ratio */}
+          <Card className={ totalCbAlertAmountApproved ? 'border-red-300' : ''}>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-slate-500">
+                  CB Rate (vs Approved Amount)
+                </CardTitle>
+                {totalCbAlertAmountApproved && (
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold text-slate-900">
+                  {formatPercent(totalCbRateAmountApproved)}
+                </span>
+                <span className="text-sm text-slate-500">chargeback amount / total amount</span>
+              </div>
+              <Progress 
+                value={cbStats ? totalCbRateAmountApproved : 0}
+                max={cbStats ? cbStats.threshold : 100}
+                className={`mt-2 h-2 ${totalCbRateAmountApproved > 1 ? '[&>div]:bg-red-500' : '[&>div]:bg-green-500'}`}
+              />
+              <p className="text-xs text-slate-400 mt-1">Includes approved transactions only</p>
             </CardContent>
           </Card>
 

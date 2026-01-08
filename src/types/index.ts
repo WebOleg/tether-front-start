@@ -357,12 +357,17 @@ export interface CountryChargebackStats {
   alert: boolean
 }
 
+export interface CountryChargebackTotals extends Omit<CountryChargebackStats, 'country'> {
+  cb_rate_amount_approved: number
+  cb_alert_amount_approved: boolean
+}
+
 export interface ChargebackStats {
   period: string
   start_date: string
   threshold: number
   countries: CountryChargebackStats[]
-  totals: Omit<CountryChargebackStats, 'country'>
+  totals: CountryChargebackTotals
 }
 
 export interface ChargebackCodeDetail {

@@ -51,6 +51,7 @@ import {
 } from 'lucide-react'
 import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
+import { Progress } from '@/components/ui/progress'
 
 const uploadStatusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -139,7 +140,8 @@ export default function UploadDetailPage() {
   const [vopStats, setVopStats] = useState<VopStats | null>(null)
   const [billingStats, setBillingStats] = useState<BillingStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [validating, setValidating] = useState(false)
+  const [validating, setValidating] = useState(true)
+  const [validationCompleted, setValidationCompleted] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [filtering, setFiltering] = useState(false)
   const [verifyingVop, setVerifyingVop] = useState(false)
@@ -154,10 +156,12 @@ export default function UploadDetailPage() {
   const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
   const [tableLoading, setTableLoading] = useState(false)
   const [hasFetchedInitial, setHasFetchedInitial] = useState(false)
+  const [VerifyVopInProgress, setVerifyVopInProgress] = useState(true)
 
   const fetchVopStats = async () => {
     try {
       const data = await api.getVopStats(uploadId)
+      setVerifyVopInProgress(data?.is_processing ?? true)
       setVopStats(data)
     } catch (error) {
       console.error('Failed to fetch VOP stats:', error)
@@ -179,6 +183,9 @@ export default function UploadDetailPage() {
     try {
       const statsData = await api.getUploadValidationStats(uploadId)
       setStats(statsData)
+      if(statsData.pending === 0){
+        setValidationCompleted(true)
+      }
       return statsData
     } catch (error) {
       console.error('Failed to fetch validation stats:', error)
@@ -205,7 +212,7 @@ export default function UploadDetailPage() {
       console.error('Failed to fetch debtors:', error)
       return null
     }
-  }, [uploadId, currentPage])
+  }, [uploadId, currentPage, search])
 
   useEffect(() => {
     const initPage = async () => {
@@ -222,6 +229,10 @@ export default function UploadDetailPage() {
 
         const statsData = await api.getUploadValidationStats(uploadId)
         setStats(statsData)
+        if(statsData.pending === 0){
+          setValidating(false)
+          setValidationCompleted(true)
+        }
 
         await fetchDebtors()
         await fetchVopStats()
@@ -231,7 +242,6 @@ export default function UploadDetailPage() {
         toast.error('Failed to load upload')
       } finally {
         setLoading(false)
-        setValidating(false)
         setHasFetchedInitial(true)
       }
     }
@@ -244,11 +254,14 @@ export default function UploadDetailPage() {
   // Poll validation stats while validating
   useEffect(() => {
     if (!validating || !uploadId) return
-
+    
     const interval = setInterval(async () => {
       const newStats = await fetchValidationStats()
       if (newStats && newStats.pending === 0) {
+        setStats(newStats)
+        fetchVopStats()
         setValidating(false)
+        setValidationCompleted(true)
         // Refresh debtors list
         await fetchDebtors()
       }
@@ -312,6 +325,12 @@ export default function UploadDetailPage() {
   }, [uploadId, currentPage, search, loading, hasFetchedInitial])
 
   const handleVerifyVop = async () => {
+    fetchVopStats()
+    if(VerifyVopInProgress === true){
+      toast.warning('VOP verification is already in progress.')
+      return
+    }
+
     setVerifyingVop(true)
     try {
       await api.verifyVop(uploadId)
@@ -481,7 +500,7 @@ export default function UploadDetailPage() {
   const hasBillingActivity = billingStats && billingStats.total_attempts > 0
 
   // VOP Gate: Disable sync button if VOP not completed
-  const canSync = vopTotalEligible === 0 || vopPending === 0
+  const canSync = (vopTotalEligible === 0 || vopPending === 0) && validating === false
 
   const handlePreviousPage = () => {
     if (links?.prev) {
@@ -520,7 +539,7 @@ export default function UploadDetailPage() {
             <span className="text-sm text-slate-500">
               {stats?.total || 0} records
             </span>
-            {validating && (
+            {!validationCompleted && (
               <Badge className="bg-blue-100 text-blue-800 gap-1">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Validating...
@@ -554,7 +573,7 @@ export default function UploadDetailPage() {
                 )}
               </Button>
             )}
-            {vopPending > 0 && (
+            {validationCompleted && vopPending > 0 && (
               <Button
                 variant="outline"
                 onClick={handleVerifyVop}
@@ -596,7 +615,7 @@ export default function UploadDetailPage() {
         </div>
 
         {/* VOP Gate Warning Banner */}
-        {vopPending > 0 && (stats?.ready_for_sync || 0) > 0 && (
+        {validationCompleted && vopPending > 0 && (stats?.ready_for_sync || 0) > 0 && (
           <div className="mx-6 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
             <ShieldCheck className="h-5 w-5 text-amber-600 flex-shrink-0" />
             <div className="flex-1">
@@ -620,6 +639,35 @@ export default function UploadDetailPage() {
                 'Verify Now'
               )}
             </Button>
+          </div>
+        )}
+
+        {/* Validation Info Banner */}
+        {!validationCompleted && (
+          <div className="mx-6 mt-4 p-3 bg-blue-100 border border-blue-300 rounded-lg">
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 text-blue-700 flex-shrink-0 animate-spin" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-blue-900">
+                  Validation in progress
+                </p>
+                <p className="text-xs text-blue-700">
+                  Validated {stats?.total ? stats.total - (stats.pending || 0) : 0} of {stats?.total || 0} debtors. Please wait for completion.
+                </p>
+              </div>
+            </div>
+            <div className="mt-3">
+              <Progress 
+                value={stats?.total ? stats.total - (stats.pending || 0) : 0} 
+                max={stats?.total || 100}
+                variant="default"
+                height="md"
+                className="bg-blue-200"
+              />
+              <p className="text-xs text-blue-600 mt-1 text-right">
+                {stats?.total ? Math.round((stats.total - (stats.pending || 0)) / stats.total * 100) : 0}% complete
+              </p>
+            </div>
           </div>
         )}
 

@@ -89,6 +89,8 @@ export interface Upload {
   is_deletable?: boolean
   skipped?: SkippedCounts | null
   skipped_rows?: SkippedRow[] | null
+  bav_excluded_count?: number
+  bav_verified_count?: number
 }
 
 export type UploadStatus = 'pending' | 'processing' | 'completed' | 'failed'

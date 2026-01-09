@@ -672,7 +672,7 @@ export default function UploadDetailPage() {
         )}
 
         {stats && (
-          <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
+          <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
             <Card>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
@@ -707,6 +707,15 @@ export default function UploadDetailPage() {
                   <span className="text-sm text-slate-500">Chargebacked</span>
                 </div>
                 <p className="text-2xl font-semibold mt-1">{stats.chargebacked}</p>
+              </CardContent>
+            </Card>
+            <Card className={(upload.bav_excluded_count ?? 0) > 0 ? 'border-amber-300 bg-amber-50' : ''}>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-amber-500 rounded-full" />
+                  <span className="text-sm text-slate-500">BAV Excluded</span>
+                </div>
+                <p className="text-2xl font-semibold mt-1">{upload.bav_excluded_count ?? 0}</p>
               </CardContent>
             </Card>
             <Card className={vopVerified > 0 ? 'border-green-300 bg-green-50' : ''}>

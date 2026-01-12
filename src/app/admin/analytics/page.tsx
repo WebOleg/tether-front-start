@@ -309,7 +309,7 @@ export default function AnalyticsPage() {
               <div className="flex items-center gap-2">
                 <Download className="h-5 w-5 text-indigo-600" />
                 <CardTitle className="text-sm font-medium text-slate-700">
-                  EMP Refresh <span className="text-xs">(Fetch transactions form gateway)</span>
+                  EMP Refresh <span className="text-xs">(Fetch transactions from gateway)</span>
                 </CardTitle>
               </div>
             </CardHeader>
@@ -404,79 +404,83 @@ export default function AnalyticsPage() {
         <div className="grid gap-6 md:grid-cols-3 mb-8">
 
           {/* Chargeback / Approved Ratio */}
-          <Card className={totalCbRateApproved > 1 ? 'border-red-300' : ''}>
+          <Card className={totalCbRateApproved < 20 ? 'border-green-300' : totalCbRateApproved < 25 ? 'border-amber-300' : 'border-red-300'}>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-slate-500">
                   CB Rate (vs Approved)
                 </CardTitle>
-                {totalCbRateApproved > 1 && (
+                {totalCbRateApproved >= 25 && (
                   <AlertTriangle className="h-4 w-4 text-red-500" />
                 )}
               </div>
             </CardHeader>
             <CardContent>
               <div className="flex items-baseline gap-2">
-                <span className={`text-3xl font-bold ${totalCbRateApproved > 1 ? 'text-red-600' : 'text-slate-900'}`}>
+                <span className={`text-3xl font-bold ${totalCbRateApproved < 20 ? 'text-green-600' : totalCbRateApproved < 25 ? 'text-amber-600' : 'text-red-600'}`}>
                   {formatPercent(totalCbRateApproved)}
                 </span>
                 <span className="text-sm text-slate-500">chargebacks / approved</span>
               </div>
               <Progress 
                 value={totalCbRateApproved} 
-                className={`mt-2 h-2 ${totalCbRateApproved > 1 ? '[&>div]:bg-red-500' : '[&>div]:bg-green-500'}`}
+                className={`mt-2 h-2 ${totalCbRateApproved < 20 ? '[&>div]:bg-green-500' : totalCbRateApproved < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
               />
-              <p className="text-xs text-slate-400 mt-1">Target: &lt;1%</p>
+              <p className="text-xs text-slate-400 mt-1">Includes approved transactions</p>
             </CardContent>
           </Card>
 
           {/* Chargeback / All transactions Amount Ratio */}
-          <Card className={ totalCbAlertAmountApproved ? 'border-red-300' : ''}>
+          <Card className={ totalCbRateAmountApproved < 20 ? 'border-green-300' : totalCbRateAmountApproved < 25 ? 'border-amber-300' : 'border-red-300'}>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-slate-500">
                   CB Rate (vs Approved Amount)
                 </CardTitle>
-                {totalCbAlertAmountApproved && (
+                {totalCbRateAmountApproved >= 25 && (
                   <AlertTriangle className="h-4 w-4 text-red-500" />
                 )}
               </div>
             </CardHeader>
             <CardContent>
               <div className="flex items-baseline gap-2">
-                <span className={`text-3xl font-bold ${totalCbRateAmountApproved > 1 ? 'text-red-600' : 'text-slate-900'}`}>
+                <span className={`text-3xl font-bold ${totalCbRateAmountApproved < 20 ? 'text-green-600' : totalCbRateAmountApproved < 25 ? 'text-amber-600' : 'text-red-600'}`}>
                   {formatPercent(totalCbRateAmountApproved)}
                 </span>
-                <span className="text-sm text-slate-500">chargeback amount / total amount</span>
-              </div>
+                <span className="text-sm text-slate-500">chargeback amount / approved amount</span>              </div>
               <Progress 
                 value={cbStats ? totalCbRateAmountApproved : 0}
                 max={cbStats ? cbStats.threshold : 100}
-                className={`mt-2 h-2 ${totalCbRateAmountApproved > 1 ? '[&>div]:bg-red-500' : '[&>div]:bg-green-500'}`}
+                className={`mt-2 h-2 ${totalCbRateAmountApproved < 20 ? '[&>div]:bg-green-500' : totalCbRateAmountApproved < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
               />
-              <p className="text-xs text-slate-400 mt-1">Includes approved transactions only</p>
+              <p className="text-xs text-slate-400 mt-1">Includes approved transactions amount</p>
             </CardContent>
           </Card>
 
           {/* Chargeback / All Transactions Ratio */}
-          <Card>
+          <Card className={ totalCbRateAll < 20 ? 'border-green-300' : totalCbRateAll < 25 ? 'border-amber-300' : 'border-red-300'}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">
-                CB Rate (vs All)
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-slate-500">
+                  CB Rate (vs All)
+                </CardTitle>
+                { totalCbRateAll >= 25 && (
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-slate-900">
+                <span className={`text-3xl font-bold ${totalCbRateAll < 20 ? 'text-green-600' : totalCbRateAll < 25 ? 'text-amber-600' : 'text-red-600'}`}>
                   {formatPercent(totalCbRateAll)}
                 </span>
                 <span className="text-sm text-slate-500">chargebacks / total</span>
               </div>
               <Progress 
                 value={Math.min(totalCbRateAll, 5) * 20} 
-                className="mt-2 h-2 [&>div]:bg-blue-500"
+                className={`mt-2 h-2 ${totalCbRateAll < 20 ? '[&>div]:bg-green-500' : totalCbRateAll < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
               />
-              <p className="text-xs text-slate-400 mt-1">Includes pending transactions</p>
+              <p className="text-xs text-slate-400 mt-1">Includes all transactions</p>
             </CardContent>
           </Card>
         </div>

@@ -396,6 +396,7 @@ export interface ChargebackBankDetail {
   total_amount: number;
   chargebacks: number;
   cb_rate: number;
+  alert: boolean;
 } 
 
 export interface ChargebackBankTotal {
@@ -403,6 +404,7 @@ export interface ChargebackBankTotal {
   total_amount: number;
   chargebacks: number;
   total_cb_rate: number;
+  alert: boolean;
 }
 
 export interface ChargebackBankStats {

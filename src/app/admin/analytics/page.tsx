@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 import type { ChargebackStats, ChargebackCodeStats, ChargebackBankStats } from '@/types'
 import { Progress } from '@/components/ui/progress'
+import { toast } from 'sonner'
 
 interface EmpRefreshStats {
   inserted: number
@@ -93,39 +94,18 @@ export default function AnalyticsPage() {
     const fetchChargebackStats = async () => {
       try {
         const stats = await api.getChargebackStats(cbPeriod)
+        const codeStats = await api.getChargebackCodeStats(cbPeriod)
+        const bankStats = await api.getChargebackBankStats(cbPeriod)
+        setCbCodeStats(codeStats)
+        setCbBankStats(bankStats)
         setCbStats(stats)
       } catch (err) {
+        toast.error('Failed to load chargeback statistics')
         console.error('Failed to fetch chargeback stats:', err)
       }
     }
     fetchChargebackStats()
   }, [cbPeriod])
-
-  useEffect(() => {
-    const fetchChargebackCodeStats = async () => {
-      try {
-        const stats = await api.getChargebackCodeStats(cbCodePeriod)
-        setCbCodeStats(stats)
-      } catch (err) {
-        console.error('Failed to fetch chargeback code stats:', err)
-      }
-    }
-    fetchChargebackCodeStats()
-  }, [cbCodePeriod])
-
-  useEffect(() => {
-    const fetchChargebackBankStats = async () => {
-      try {
-        const stats = await api.getChargebackBankStats(cbBankPeriod)
-        setCbBankStats(stats)
-      } catch (err) {
-        console.error('Failed to fetch chargeback bank stats:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchChargebackBankStats()
-  }, [cbBankPeriod])
 
   // Check for existing EMP refresh job on mount
   useEffect(() => {
@@ -266,94 +246,18 @@ export default function AnalyticsPage() {
   const totalCbRateAll = cbStats?.totals?.cb_rate_total || 0
   const totalCbAlertAmountApproved = cbStats?.totals?.cb_alert_amount_approved || false
   const totalCbRateAmountApproved = cbStats?.totals?.cb_rate_amount_approved || 0
+  const hasBankAlert = cbBankStats?.totals?.alert || false
 
   return (
     <div className="min-h-screen bg-slate-50">
       <Header title="Analytics" description="Chargeback rates and transaction analysis" />
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-6 py-8">
 
-        {/* Top Row - Key Metrics */}
-        <div className="grid gap-6 md:grid-cols-3 mb-8">
-          {/* Chargeback / Approved Ratio */}
-          <Card className={totalCbRateApproved > 1 ? 'border-red-300' : ''}>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-slate-500">
-                  CB Rate (vs Approved)
-                </CardTitle>
-                {totalCbRateApproved > 1 && (
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-baseline gap-2">
-                <span className={`text-3xl font-bold ${totalCbRateApproved > 1 ? 'text-red-600' : 'text-slate-900'}`}>
-                  {formatPercent(totalCbRateApproved)}
-                </span>
-                <span className="text-sm text-slate-500">chargebacks / approved</span>
-              </div>
-              <Progress 
-                value={totalCbRateApproved} 
-                className={`mt-2 h-2 ${totalCbRateApproved > 1 ? '[&>div]:bg-red-500' : '[&>div]:bg-green-500'}`}
-              />
-              <p className="text-xs text-slate-400 mt-1">Target: &lt;1%</p>
-            </CardContent>
-          </Card>
-
-          {/* Chargeback / All transactions Amount Ratio */}
-          <Card className={ totalCbAlertAmountApproved ? 'border-red-300' : ''}>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-slate-500">
-                  CB Rate (vs Approved Amount)
-                </CardTitle>
-                {totalCbAlertAmountApproved && (
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-baseline gap-2">
-                <span className={`text-3xl font-bold ${totalCbRateAmountApproved > 1 ? 'text-red-600' : 'text-slate-900'}`}>
-                  {formatPercent(totalCbRateAmountApproved)}
-                </span>
-                <span className="text-sm text-slate-500">chargeback amount / total amount</span>
-              </div>
-              <Progress 
-                value={cbStats ? totalCbRateAmountApproved : 0}
-                max={cbStats ? cbStats.threshold : 100}
-                className={`mt-2 h-2 ${totalCbRateAmountApproved > 1 ? '[&>div]:bg-red-500' : '[&>div]:bg-green-500'}`}
-              />
-              <p className="text-xs text-slate-400 mt-1">Includes approved transactions only</p>
-            </CardContent>
-          </Card>
-
-          {/* Chargeback / All Transactions Ratio */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500">
-                CB Rate (vs All)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-slate-900">
-                  {formatPercent(totalCbRateAll)}
-                </span>
-                <span className="text-sm text-slate-500">chargebacks / total</span>
-              </div>
-              <Progress 
-                value={Math.min(totalCbRateAll, 5) * 20} 
-                className="mt-2 h-2 [&>div]:bg-blue-500"
-              />
-              <p className="text-xs text-slate-400 mt-1">Includes pending transactions</p>
-            </CardContent>
-          </Card>
-
+        {/* Top Row - Gatewaysync and EMP refresh */}
+        <div className="grid gap-6 md:grid-cols-3 mb-8 items-start">
           {/* Gateway Sync */}
-          <Card className="border-indigo-200 bg-indigo-50/50">
-            <CardHeader className="pb-2">
+          <Card className={` ${reconciling ? "border-indigo-200 bg-indigo-50/50" : ""} md:col-span-1 gap-1 pb-9`}>
+            <CardHeader className="pb-1">
               <div className="flex items-center gap-2">
                 <RefreshCw className="h-5 w-5 text-indigo-600" />
                 <CardTitle className="text-sm font-medium text-slate-700">
@@ -361,14 +265,14 @@ export default function AnalyticsPage() {
                 </CardTitle>
               </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-xs text-slate-500 mb-3">Sync transaction statuses from EMP (last 30 days)</p>
+            <CardContent className="py-0">
+              <p className="text-xs text-slate-500 mb-1">Sync transaction statuses from EMP (last 30 days)</p>
               <Button 
                 onClick={handleReconcile} 
                 disabled={reconciling}
                 variant="outline"
                 size="sm"
-                className="w-full border-indigo-300 text-indigo-700 hover:bg-indigo-100"
+                className="w-full border-indigo-300 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800"
               >
                 {reconciling ? (
                   <>
@@ -376,30 +280,41 @@ export default function AnalyticsPage() {
                     Syncing...
                   </>
                 ) : (
-                  'Reconcile'
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" /> Reconcile
+                  </>
                 )}
               </Button>
               {reconcileResult && (
-                <p className={`text-xs mt-2 ${reconcileResult.success ? 'text-green-600' : 'text-amber-600'}`}>
-                  {reconcileResult.message}
+                <p className={`text-sm mt-2 ${reconcileResult.success ? 'text-green-600' : 'text-amber-600'}`}>
+                  {reconcileResult.success ? (
+                    <span className="flex items-center gap-1">
+                      <CheckCircle className="h-4 w-4" />
+                      {reconcileResult.message}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <AlertTriangle className="h-4 w-4" />
+                      {reconcileResult.message}
+                    </span>
+                  )}
                 </p>
               )}
             </CardContent>
           </Card>
 
           {/* EMP Refresh */}
-          <Card className="border-emerald-200 bg-emerald-50/50">
+          <Card className={`${empRefreshing ? "border-indigo-200 bg-indigo-50/50" : ""}  md:col-span-2 gap-1`}>
             <CardHeader className="pb-2">
               <div className="flex items-center gap-2">
-                <Download className="h-5 w-5 text-emerald-600" />
+                <Download className="h-5 w-5 text-indigo-600" />
                 <CardTitle className="text-sm font-medium text-slate-700">
-                  EMP Refresh
+                  EMP Refresh <span className="text-xs">(Fetch transactions from gateway)</span>
                 </CardTitle>
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-xs text-slate-500 mb-3">Fetch transactions from gateway</p>
-              <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="grid md:grid-cols-3 gap-2 mb-3 sm:grid-cols-1">
                 <div>
                   <Label className="text-xs">From</Label>
                   <Input
@@ -420,26 +335,31 @@ export default function AnalyticsPage() {
                     disabled={empRefreshing}
                   />
                 </div>
+                <div className="md:mt-4">
+                  <Button 
+                    onClick={handleEmpRefresh} 
+                    disabled={empRefreshing}
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-indigo-300 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800"
+                  >
+                    {empRefreshing ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        {empProgress}%
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Refresh from EMP
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
-              <Button 
-                onClick={handleEmpRefresh} 
-                disabled={empRefreshing}
-                variant="outline"
-                size="sm"
-                className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-100"
-              >
-                {empRefreshing ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    {empProgress}%
-                  </>
-                ) : (
-                  'Refresh from EMP'
-                )}
-              </Button>
               {empRefreshing && empStats && (
                 <div className="mt-2">
-                  <Progress value={empProgress} className="h-2 [&>div]:bg-emerald-500" />
+                  <Progress value={empProgress} className="h-2 [&>div]:bg-blue-500" />
                   <div className="flex justify-between text-xs text-slate-500 mt-1">
                     <span className="text-green-600">+{empStats.inserted} new</span>
                     <span className="text-blue-600">↻{empStats.updated} upd</span>
@@ -449,11 +369,118 @@ export default function AnalyticsPage() {
                 </div>
               )}
               {empResult && !empRefreshing && (
-                <div className={`flex items-center gap-1 text-xs mt-2 ${empResult.success ? 'text-green-600' : 'text-red-600'}`}>
-                  {empResult.success ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                <div className={`flex items-center gap-1 text-sm mt-1 ${empResult.success ? 'text-green-600' : 'text-amber-600'}`}>
+                  {empResult.success ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
                   {empResult.message}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </div>
+
+        { /* Second Row Time Period Selection */ }
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-slate-700">Chargeback Analytics</h2>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="cb-period" className="text-sm">Period:</Label>
+            <Select
+              value={cbPeriod}
+              onValueChange={setCbPeriod}
+            >
+              <SelectTrigger className="w-32 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="24h">Last 24h</SelectItem>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+                <SelectItem value="90d">Last 90 days</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Third Row Chargeback Ratios */}
+        <div className="grid gap-6 md:grid-cols-3 mb-8">
+
+          {/* Chargeback / Approved Ratio */}
+          <Card className={totalCbRateApproved < 20 ? 'border-green-300' : totalCbRateApproved < 25 ? 'border-amber-300' : 'border-red-300'}>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-slate-500">
+                  CB Rate (vs Approved)
+                </CardTitle>
+                {totalCbRateApproved >= 25 && (
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-3xl font-bold ${totalCbRateApproved < 20 ? 'text-green-600' : totalCbRateApproved < 25 ? 'text-amber-600' : 'text-red-600'}`}>
+                  {formatPercent(totalCbRateApproved)}
+                </span>
+                <span className="text-sm text-slate-500">chargebacks / approved</span>
+              </div>
+              <Progress 
+                value={totalCbRateApproved} 
+                className={`mt-2 h-2 ${totalCbRateApproved < 20 ? '[&>div]:bg-green-500' : totalCbRateApproved < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
+              />
+              <p className="text-xs text-slate-400 mt-1">Includes approved transactions</p>
+            </CardContent>
+          </Card>
+
+          {/* Chargeback / All transactions Amount Ratio */}
+          <Card className={ totalCbRateAmountApproved < 20 ? 'border-green-300' : totalCbRateAmountApproved < 25 ? 'border-amber-300' : 'border-red-300'}>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-slate-500">
+                  CB Rate (vs Approved Amount)
+                </CardTitle>
+                {totalCbRateAmountApproved >= 25 && (
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-3xl font-bold ${totalCbRateAmountApproved < 20 ? 'text-green-600' : totalCbRateAmountApproved < 25 ? 'text-amber-600' : 'text-red-600'}`}>
+                  {formatPercent(totalCbRateAmountApproved)}
+                </span>
+                <span className="text-sm text-slate-500">chargeback amount / approved amount</span>              </div>
+              <Progress 
+                value={cbStats ? totalCbRateAmountApproved : 0}
+                max={cbStats ? cbStats.threshold : 100}
+                className={`mt-2 h-2 ${totalCbRateAmountApproved < 20 ? '[&>div]:bg-green-500' : totalCbRateAmountApproved < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
+              />
+              <p className="text-xs text-slate-400 mt-1">Includes approved transactions amount</p>
+            </CardContent>
+          </Card>
+
+          {/* Chargeback / All Transactions Ratio */}
+          <Card className={ totalCbRateAll < 20 ? 'border-green-300' : totalCbRateAll < 25 ? 'border-amber-300' : 'border-red-300'}>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-slate-500">
+                  CB Rate (vs All)
+                </CardTitle>
+                { totalCbRateAll >= 25 && (
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-3xl font-bold ${totalCbRateAll < 20 ? 'text-green-600' : totalCbRateAll < 25 ? 'text-amber-600' : 'text-red-600'}`}>
+                  {formatPercent(totalCbRateAll)}
+                </span>
+                <span className="text-sm text-slate-500">chargebacks / total</span>
+              </div>
+              <Progress 
+                value={Math.min(totalCbRateAll, 5) * 20} 
+                className={`mt-2 h-2 ${totalCbRateAll < 20 ? '[&>div]:bg-green-500' : totalCbRateAll < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
+              />
+              <p className="text-xs text-slate-400 mt-1">Includes all transactions</p>
             </CardContent>
           </Card>
         </div>
@@ -466,23 +493,9 @@ export default function AnalyticsPage() {
                 <BarChart3 className="h-5 w-5 text-slate-500" />
                 <CardTitle className="text-lg">Chargeback Rates by Country</CardTitle>
                 {hasAlert && (
-                  <Badge variant="destructive" className="gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    Alert
-                  </Badge>
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
                 )}
               </div>
-              <Select value={cbPeriod} onValueChange={setCbPeriod}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="24h">Last 24h</SelectItem>
-                  <SelectItem value="7d">Last 7 days</SelectItem>
-                  <SelectItem value="30d">Last 30 days</SelectItem>
-                  <SelectItem value="90d">Last 90 days</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </CardHeader>
           <CardContent>
@@ -503,7 +516,7 @@ export default function AnalyticsPage() {
                     <TableRow key={country.country} className={country.alert ? 'bg-red-50' : ''}>
                       <TableCell className="font-medium">
                         {country.country}
-                        {country.alert && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2" />}
+                        {country.alert && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2 -translate-y-0.5" />}
                       </TableCell>
                       <TableCell className="text-right">{country.total}</TableCell>
                       <TableCell className="text-right">{country.approved}</TableCell>
@@ -543,17 +556,6 @@ export default function AnalyticsPage() {
                   <PieChart className="h-5 w-5 text-slate-500" />
                   <CardTitle className="text-lg">By Reason Code</CardTitle>
                 </div>
-                <Select value={cbCodePeriod} onValueChange={setCbCodePeriod}>
-                  <SelectTrigger className="w-28">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="24h">24h</SelectItem>
-                    <SelectItem value="7d">7 days</SelectItem>
-                    <SelectItem value="30d">30 days</SelectItem>
-                    <SelectItem value="90d">90 days</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </CardHeader>
             <CardContent>
@@ -591,24 +593,16 @@ export default function AnalyticsPage() {
           </Card>
 
           {/* Chargeback by Bank */}
-          <Card>
+          <Card className={`${hasBankAlert ? "border-red-300" : "" }`}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-slate-500" />
                   <CardTitle className="text-lg">By Bank</CardTitle>
+                  {hasBankAlert && (
+                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                  )}
                 </div>
-                <Select value={cbBankPeriod} onValueChange={setCbBankPeriod}>
-                  <SelectTrigger className="w-28">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="24h">24h</SelectItem>
-                    <SelectItem value="7d">7 days</SelectItem>
-                    <SelectItem value="30d">30 days</SelectItem>
-                    <SelectItem value="90d">90 days</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </CardHeader>
             <CardContent>
@@ -624,21 +618,21 @@ export default function AnalyticsPage() {
                   </TableHeader>
                   <TableBody>
                     {cbBankStats.banks.map((bank) => (
-                      <TableRow key={bank.bank_name}>
+                      <TableRow key={bank.bank_name} className={`${bank.alert ? "bg-red-50" : "" }`}>
                         <TableCell className="font-medium">{bank.bank_name}</TableCell>
                         <TableCell className="text-right">{bank.chargebacks}</TableCell>
-                        <TableCell className="text-right">{formatCurrency((bank as any).chargeback_amount || bank.total_amount)}</TableCell>
-                        <TableCell className={`text-right font-medium ${bank.cb_rate > 1 ? 'text-red-600' : ''}`}>
+                        <TableCell className="text-right">{formatCurrency((bank as any).chargeback_amount)}</TableCell>
+                        <TableCell className={`text-right font-medium ${bank.alert ? 'text-red-600' : ''}`}>
                           {formatPercent(bank.cb_rate)}
                         </TableCell>
                       </TableRow>
                     ))}
                     {/* Total Row */}
-                    <TableRow className="bg-slate-100 font-semibold border-t-2">
+                    <TableRow className={`${hasBankAlert ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
                       <TableCell>Total</TableCell>
                       <TableCell className="text-right">{cbBankStats.totals.chargebacks}</TableCell>
                       <TableCell className="text-right">{formatCurrency((cbBankStats.totals as any).chargeback_amount || cbBankStats.totals.total_amount)}</TableCell>
-                      <TableCell className={`text-right ${(cbBankStats.totals as any).cb_rate > 1 ? 'text-red-600' : ''}`}>
+                      <TableCell className={`text-right ${hasBankAlert ? 'text-red-600' : ''}`}>
                         {formatPercent((cbBankStats.totals as any).cb_rate || (cbBankStats.totals as any).total_cb_rate || 0)}
                       </TableCell>
                     </TableRow>

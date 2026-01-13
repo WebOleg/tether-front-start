@@ -13,14 +13,26 @@ import {
   CreditCard,
   BarChart3,
   LogOut,
+  RotateCcw,
+  Euro
 } from 'lucide-react'
 import { api } from '@/lib/api'
+
+export const ChargebackIcon = ({ className }: { className?: string }) => {
+  return (
+    <div className={cn("relative", className)}>
+      <RotateCcw className="w-full h-full" />
+      <Euro className="absolute top-1/2 right-0 w-3 h-3 -translate-x-1/3 -translate-y-1/2" />
+    </div>
+  );
+};
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { name: 'Uploads', href: '/admin/uploads', icon: Upload },
   { name: 'Debtors', href: '/admin/debtors', icon: Users },
+  { name: 'Chargebacks', href: '/admin/chargebacks', icon: ChargebackIcon },
   { name: 'VOP Logs', href: '/admin/vop-logs', icon: ShieldCheck },
   { name: 'Billing', href: '/admin/billing', icon: CreditCard },
 ]

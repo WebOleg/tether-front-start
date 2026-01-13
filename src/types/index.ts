@@ -496,3 +496,43 @@ export interface BillingRetryResponse {
     can_retry: boolean
   }
 }
+
+// ==========================================================================
+// BIC Analytics Types
+// ==========================================================================
+
+export interface BicAnalyticsDetail {
+  bic: string
+  bank_country: string
+  total_transactions: number
+  approved_count: number
+  declined_count: number
+  chargeback_count: number
+  error_count: number
+  pending_count: number
+  total_volume: number
+  approved_volume: number
+  chargeback_volume: number
+  cb_rate_count: number
+  cb_rate_volume: number
+  is_high_risk: boolean
+}
+
+export interface BicAnalyticsTotals {
+  total_bics: number
+  high_risk_bics: number
+  total_transactions: number
+  total_chargebacks: number
+  overall_cb_rate: number
+  total_volume: number
+  chargeback_volume: number
+}
+
+export interface BicAnalyticsStats {
+  period: string
+  start_date: string
+  end_date: string
+  threshold: number
+  bics: BicAnalyticsDetail[]
+  totals: BicAnalyticsTotals
+}

@@ -30,6 +30,7 @@ import type {
   BillingSyncResponse,
   BillingStats,
   BillingRetryResponse,
+  BicAnalyticsStats,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -508,6 +509,24 @@ class ApiClient {
 
   async getEmpRefreshJobStatus(jobId: string): Promise<EmpRefreshJobStatusResponse> {
     return this.request<EmpRefreshJobStatusResponse>('/admin/emp/refresh/' + jobId)
+  }
+
+  // BIC Analytics
+  async getBicAnalytics(period: string = '30d'): Promise<BicAnalyticsStats> {
+    const response = await this.request<{ data: BicAnalyticsStats }>(
+      `/admin/analytics/bic?period=${period}`
+    )
+    return response.data
+  }
+
+  async getBicAnalyticsExport(period: string = '30d'): Promise<Blob> {
+    const token = this.getToken()
+    const headers: HeadersInit = { 'Accept': 'text/csv' }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    const response = await fetch(`${API_BASE_URL}/admin/analytics/bic/export?period=${period}`, { headers })
+    return response.blob()
   }
 }
 

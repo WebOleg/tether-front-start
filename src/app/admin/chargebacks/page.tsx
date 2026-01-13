@@ -277,9 +277,9 @@ export default function ChargebacksPage() {
                     ))}
                   </TableCell>
                   <TableCell>
-                    <Link href={`/admin/debtors/${cb.debtor.id}`} className="font-medium text-blue-600 hover:underline">
+                    <div className="font-medium text-blue-600">
                       {cb.debtor.first_name} {cb.debtor.last_name}
-                    </Link>
+                    </div>
                     <div className="text-sm text-slate-500">
                       {cb.debtor.email}
                     </div>

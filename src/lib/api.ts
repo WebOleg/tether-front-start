@@ -30,6 +30,8 @@ import type {
   BillingSyncResponse,
   BillingStats,
   BillingRetryResponse,
+  ChargebackCodes,
+  Chargebacks,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -414,6 +416,16 @@ class ApiClient {
 
   async getUploadVopLogs(uploadId: number): Promise<ApiResponse<VopLog[]>> {
     return this.request<ApiResponse<VopLog[]>>(`/admin/uploads/${uploadId}/vop-logs`)
+  }
+
+  async getChargebackCodes(): Promise<ChargebackCodes[]> {
+    const response = await this.request<{ data: ChargebackCodes[] }>('/admin/chargebacks/codes')
+    return response.data
+  }
+
+  async getChargebacks(params?: object): Promise<ApiResponse<Chargebacks[]>> {
+    const query = this.buildQuery(params)
+    return this.request<ApiResponse<Chargebacks[]>>(`/admin/chargebacks${query}`)
   }
 
   async verifySingleIban(data: VopSingleVerifyRequest): Promise<VopSingleVerifyResponse> {

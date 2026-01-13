@@ -6,8 +6,8 @@
 'use client'
 
 import { Header } from '@/components/layout'
-import { Pagination, PaginationMeta } from '@/components/ui/pagination';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Pagination, PaginationMeta } from '@/components/ui/pagination'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -16,17 +16,118 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api'
 import { ChargebackCodes, Chargebacks, PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType } from '@/types';
 import Link from 'next/link';
-import { format } from 'path';
 import { useEffect, useState } from 'react'
+
+const riskColors: Record<string, string> = {
+  low: 'bg-green-100 text-green-800',
+  medium: 'bg-yellow-100 text-yellow-800',
+  high: 'bg-red-100 text-red-800',
+}
 
 function formatCurrency(amount: number, currency: string): string {
   return new Intl.NumberFormat('de-DE', {
     style: 'currency',
     currency: currency,
   }).format(amount)
+}
+
+const CHARGEBACK_RULES: Record<string, { risk: 'low' | 'medium' | 'high'; action: string[] }> = {
+  "AC01": { risk: "medium", action: [
+    "Stop billing",
+    "Contct customer to confirm account",
+  ] },
+  "AC04": { risk: "medium", action: [
+    "Stop billing",
+    "Ask customer for new account"
+  ] },
+  "AC06": { risk: "medium", action: [
+    "Stop billing",
+    "Ask customer to unblock"
+  ] },
+  "AC13": { risk: "medium", action: [
+    "Stop billing",
+    "Confirm account type"
+  ] },
+  "AG01": { risk: "medium", action: [
+    "Try another payment method",
+  ] },
+  "AG02": { risk: "low", action: [
+    "Fix transaction data",
+    "Retry"
+  ] },
+  "AM04": { risk: "high", action: [
+    "Retry Later"
+  ] },
+  "AM05": { risk: "medium", action: [
+    "Check Duplicates",
+    "Cancel Extra collections"
+  ] },
+  "BE05": { risk: "low", action: [
+    "Check Details (Creditor ID)",
+    "Retry"
+  ] },
+  "CNOR": { risk: "high", action: [
+    "Stop Billing",
+    "Verify SEPA setup with customer"
+  ] },
+  "DNOR": { risk: "high", action: [
+    "Stop Billing",
+    "Request customer for different bank"
+  ] },
+  "ED05": { risk: "high", action: [
+    "Stiop Billing",
+    "investigate settlement issue"  
+  ] },
+  "MD01": { risk: "high", action: [
+    "Stop billing",
+    "Collect new mandate"
+  ] },
+  "MD02": { risk: "high", action: [
+    "Stop billing",
+    "Correct mandate"
+  ] },
+  "MD06": { risk: "high", action: [
+    "Stop billing",
+    "review mandate details"
+  ] },
+  "MD07": { risk: "high", action: [
+    "Stop billing",
+    "Cancel mandate / Close Customer Account"
+  ] },
+  "MS02": { risk: "high", action: [
+    "Stop billing",
+  ] },
+  "MS03": { risk: "medium", action: [
+    "Stop Billing",
+    "Contact Bank / Customer"
+  ] },
+  "RC01": { risk: "low", action: [
+    "Stop Billing",
+    "Correct details and retry"
+  ] },
+  "RR01": { risk: "low", action: [
+    "Add transaction data",
+    "Retry"
+  ] },
+  "RR02": { risk: "low", action: [
+    "Update customer profile",
+    "Retry"
+  ] },
+  "RR03": { risk: "low", action: [
+    "Update transaction data",
+    "Retry"
+  ] },
+  "RR04": { risk: "medium", action: [
+    "Contact bank",
+  ] },
+  "SL01": { risk: "medium", action: [
+    "Stip Billing",
+    "Ask customr to change bank settings"
+  ] }
 }
 
 export default function ChargebacksPage() {
@@ -105,21 +206,23 @@ export default function ChargebacksPage() {
       />
       <div className="p-6">
         {/** Filter Chargeback */}
-        <div className="mb-4 flex gap-4">
-          <Select value={selectedCode} onValueChange={(val) => { setSelectedCode(val); setCurrentPage(1); }}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Filter by code" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All CB Codes</SelectItem>
-              {chargebackCodes.map((code) => (
-                <SelectItem key={code} value={code}>
-                  {code}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {chargebackCodes && chargebackCodes.length > 1 && (
+          <div className="mb-4 flex gap-4">
+            <Select value={selectedCode} onValueChange={(val) => { setSelectedCode(val); setCurrentPage(1); }}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter by code" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All CB Codes</SelectItem>
+                {chargebackCodes.map((code) => (
+                  <SelectItem key={code} value={code}>
+                    {code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         
         {meta && (
           <PaginationMeta
@@ -133,15 +236,15 @@ export default function ChargebacksPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Cb Code</TableHead>
+                <TableHead>Code</TableHead>
                 <TableHead>Details</TableHead>
                 <TableHead>Risk Level</TableHead>
                 <TableHead>Required Actions</TableHead>
                 <TableHead>Debtor</TableHead>
                 <TableHead>IBAN</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Bank Name</TableHead>
-                <TableHead>Bank Country</TableHead>
+                <TableHead>Bank</TableHead>
+                <TableHead>Country</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -161,8 +264,18 @@ export default function ChargebacksPage() {
                 <TableRow key={cb.id}>
                   <TableCell className="font-medium text-blue-600">{cb.error_code}</TableCell>
                   <TableCell>{cb.error_message}</TableCell>
-                  <TableCell></TableCell>
-                  <TableCell></TableCell>
+                  <TableCell>
+                    {cb.error_code && CHARGEBACK_RULES[cb.error_code] && (
+                      <Badge className={riskColors[CHARGEBACK_RULES[cb.error_code].risk]}>
+                        {CHARGEBACK_RULES[cb.error_code].risk}
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {cb.error_code && CHARGEBACK_RULES[cb.error_code]?.action.map((action, index) => (
+                      <div key={index}>- {action}</div>
+                    ))}
+                  </TableCell>
                   <TableCell>
                     <Link href={`/admin/debtors/${cb.debtor.id}`} className="font-medium text-blue-600 hover:underline">
                       {cb.debtor.first_name} {cb.debtor.last_name}
@@ -175,8 +288,12 @@ export default function ChargebacksPage() {
                   <TableCell className="text-right font-medium">
                     {formatCurrency(cb.amount, cb.currency)}
                   </TableCell>
-                  <TableCell>{cb.bank_name}</TableCell>
-                  <TableCell>{(cb as any).bank_country || cb.country}</TableCell>
+                  <TableCell>
+                    {cb.bank_name}
+                  </TableCell>
+                  <TableCell>
+                    {cb.bank_country}
+                  </TableCell>
                 </TableRow>
               )))}
             </TableBody>

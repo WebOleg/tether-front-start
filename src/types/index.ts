@@ -506,7 +506,7 @@ export interface Chargebacks {
   amount: number
   currency: string
   bank_name: string | null
-  country: string | null
+  bank_country: string | null
   processed_at: string
   debtor: {
     id: number

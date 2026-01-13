@@ -6,7 +6,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { Header } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -168,12 +167,9 @@ export default function DebtorsPage() {
                 debtors.map((debtor) => (
                   <TableRow key={debtor.id}>
                     <TableCell>
-                      <Link
-                        href={`/admin/debtors/${debtor.id}`}
-                        className="font-medium text-blue-600 hover:underline"
-                      >
+                      <span className="font-medium">
                         {debtor.full_name}
-                      </Link>
+                      </span>
                       <div className="text-sm text-slate-500">
                         {debtor.email}
                       </div>

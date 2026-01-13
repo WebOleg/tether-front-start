@@ -57,7 +57,8 @@ function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
-function formatPercent(value: number): string {
+function formatPercent(value: number | undefined | null): string {
+  if (value === undefined || value === null) return '0.00%'
   return `${value.toFixed(2)}%`
 }
 
@@ -295,7 +296,7 @@ export default function AnalyticsPage() {
         {/* Top Row - Gatewaysync and EMP refresh */}
         <div className="grid gap-6 md:grid-cols-3 mb-8 items-start">
           {/* Gateway Sync */}
-          <Card className={` ${reconciling ? "border-indigo-200 bg-indigo-50/50" : ""} md:col-span-1 gap-1 pb-9`}>
+          <Card className={`${reconciling ? "border-indigo-200 bg-indigo-50/50" : ""} md:col-span-1 gap-1 pb-9`}>
             <CardHeader className="pb-1">
               <div className="flex items-center gap-2">
                 <RefreshCw className="h-5 w-5 text-indigo-600" />
@@ -343,7 +344,7 @@ export default function AnalyticsPage() {
           </Card>
 
           {/* EMP Refresh */}
-          <Card className={`${empRefreshing ? "border-indigo-200 bg-indigo-50/50" : ""}  md:col-span-2 gap-1`}>
+          <Card className={`${empRefreshing ? "border-indigo-200 bg-indigo-50/50" : ""} md:col-span-2 gap-1`}>
             <CardHeader className="pb-2">
               <div className="flex items-center gap-2">
                 <Download className="h-5 w-5 text-indigo-600" />
@@ -417,7 +418,7 @@ export default function AnalyticsPage() {
           </Card>
         </div>
 
-        { /* Second Row Time Period Selection */ }
+        {/* Second Row Time Period Selection */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-slate-700">Chargeback Analytics</h2>
           <div className="flex items-center gap-2">
@@ -441,7 +442,6 @@ export default function AnalyticsPage() {
 
         {/* Third Row Chargeback Ratios */}
         <div className="grid gap-6 md:grid-cols-3 mb-8">
-
           {/* Chargeback / Approved Ratio */}
           <Card className={totalCbRateApproved < 20 ? 'border-green-300' : totalCbRateApproved < 25 ? 'border-amber-300' : 'border-red-300'}>
             <CardHeader className="pb-2">
@@ -470,7 +470,7 @@ export default function AnalyticsPage() {
           </Card>
 
           {/* Chargeback / All transactions Amount Ratio */}
-          <Card className={ totalCbRateAmountApproved < 20 ? 'border-green-300' : totalCbRateAmountApproved < 25 ? 'border-amber-300' : 'border-red-300'}>
+          <Card className={totalCbRateAmountApproved < 20 ? 'border-green-300' : totalCbRateAmountApproved < 25 ? 'border-amber-300' : 'border-red-300'}>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-slate-500">
@@ -486,7 +486,8 @@ export default function AnalyticsPage() {
                 <span className={`text-3xl font-bold ${totalCbRateAmountApproved < 20 ? 'text-green-600' : totalCbRateAmountApproved < 25 ? 'text-amber-600' : 'text-red-600'}`}>
                   {formatPercent(totalCbRateAmountApproved)}
                 </span>
-                <span className="text-sm text-slate-500">chargeback amount / approved amount</span>              </div>
+                <span className="text-sm text-slate-500">chargeback amount / approved amount</span>
+              </div>
               <Progress 
                 value={cbStats ? totalCbRateAmountApproved : 0}
                 max={cbStats ? cbStats.threshold : 100}
@@ -497,13 +498,13 @@ export default function AnalyticsPage() {
           </Card>
 
           {/* Chargeback / All Transactions Ratio */}
-          <Card className={ totalCbRateAll < 20 ? 'border-green-300' : totalCbRateAll < 25 ? 'border-amber-300' : 'border-red-300'}>
+          <Card className={totalCbRateAll < 20 ? 'border-green-300' : totalCbRateAll < 25 ? 'border-amber-300' : 'border-red-300'}>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-medium text-slate-500">
                   CB Rate (vs All)
                 </CardTitle>
-                { totalCbRateAll >= 25 && (
+                {totalCbRateAll >= 25 && (
                   <AlertTriangle className="h-4 w-4 text-red-500" />
                 )}
               </div>
@@ -632,7 +633,7 @@ export default function AnalyticsPage() {
           </Card>
 
           {/* Chargeback by Bank */}
-          <Card className={`${hasBankAlert ? "border-red-300" : "" }`}>
+          <Card className={`${hasBankAlert ? "border-red-300" : ""}`}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -657,7 +658,7 @@ export default function AnalyticsPage() {
                   </TableHeader>
                   <TableBody>
                     {cbBankStats.banks.map((bank) => (
-                      <TableRow key={bank.bank_name} className={`${bank.alert ? "bg-red-50" : "" }`}>
+                      <TableRow key={bank.bank_name} className={`${bank.alert ? "bg-red-50" : ""}`}>
                         <TableCell className="font-medium">{bank.bank_name}</TableCell>
                         <TableCell className="text-right">{bank.chargebacks}</TableCell>
                         <TableCell className="text-right">{formatCurrency((bank as any).chargeback_amount)}</TableCell>

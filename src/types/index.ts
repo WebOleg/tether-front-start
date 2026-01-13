@@ -497,6 +497,26 @@ export interface BillingRetryResponse {
   }
 }
 
+export type ChargebackCodes = string
+
+export interface Chargebacks {
+  id: number
+  error_code: string | null
+  error_message: string | null
+  amount: number
+  currency: string
+  bank_name: string | null
+  bank_country: string | null
+  processed_at: string
+  debtor: {
+    id: number
+    first_name: string
+    last_name: string | null
+    email: string
+    iban_masked: string
+  }
+}
+
 // ==========================================================================
 // BIC Analytics Types
 // ==========================================================================

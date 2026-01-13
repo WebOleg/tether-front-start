@@ -112,7 +112,7 @@ export default function AnalyticsPage() {
     fetchChargebackStats()
   }, [cbPeriod])
 
-  // Fetch BIC Analytics
+    // Fetch BIC Analytics
   useEffect(() => {
     const fetchBicStats = async () => {
       setBicLoading(true)
@@ -127,6 +127,32 @@ export default function AnalyticsPage() {
     }
     fetchBicStats()
   }, [bicPeriod])
+  
+  useEffect(() => {
+    const fetchChargebackCodeStats = async () => {
+      try {
+        const stats = await api.getChargebackCodeStats(cbCodePeriod)
+        setCbCodeStats(stats)
+      } catch (err) {
+        console.error('Failed to fetch chargeback code stats:', err)
+      }
+    }
+    fetchChargebackCodeStats()
+  }, [cbCodePeriod])
+
+  useEffect(() => {
+    const fetchChargebackBankStats = async () => {
+      try {
+        const stats = await api.getChargebackBankStats(cbBankPeriod)
+        setCbBankStats(stats)
+      } catch (err) {
+        console.error('Failed to fetch chargeback bank stats:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchChargebackBankStats()
+  }, [cbBankPeriod])
 
   // Check for existing EMP refresh job on mount
   useEffect(() => {
@@ -287,6 +313,7 @@ export default function AnalyticsPage() {
   const totalCbRateAmountApproved = cbStats?.totals?.cb_rate_amount_approved || 0
   const hasBankAlert = cbBankStats?.totals?.alert || false
   const hasBicAlert = bicStats?.totals?.high_risk_bics ? bicStats.totals.high_risk_bics > 0 : false
+
 
   return (
     <div className="min-h-screen bg-slate-50">

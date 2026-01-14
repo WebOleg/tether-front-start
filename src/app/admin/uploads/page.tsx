@@ -523,6 +523,9 @@ export default function UploadsPage() {
                     const invalid = upload.invalid_count || 0
                     const skippedTotal = upload.skipped?.total || 0
                     const validPercent = total > 0 ? Math.round((valid / total) * 100) : 0
+                    const billedWithEmp = upload.billed_with_emp_count || 0
+                    const chargebacks = upload.chargeback_count || 0
+                    const chargebackPercent = billedWithEmp > 0 ? Math.round((chargebacks / billedWithEmp) * 100) : 0
 
                     return (
                       <TableRow key={upload.id} className="hover:bg-slate-50">
@@ -561,9 +564,13 @@ export default function UploadsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
-                          <span className={`text-sm font-medium ${validPercent === 100 ? 'text-green-600' : validPercent >= 80 ? 'text-yellow-600' : 'text-red-600'}`}>
-                            {validPercent}%
-                          </span>
+                          {billedWithEmp > 0 ? (
+                            <span className={`text-sm font-medium ${chargebackPercent === 0 ? 'text-green-600' : chargebackPercent < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              {chargebackPercent}%
+                            </span>
+                          ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-slate-500">
                           {formatDate(upload.created_at)}

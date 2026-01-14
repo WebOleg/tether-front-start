@@ -156,8 +156,8 @@ export interface ValidationStats {
   chargebacked: number
   ready_for_sync: number
   skipped?: SkippedCounts | null
+  is_processing: boolean
 }
-
 export type NameMatch = 'yes' | 'partial' | 'no' | 'unavailable' | 'error'
 
 export interface VopLog {

@@ -159,14 +159,15 @@ export default function AdminDashboard() {
 
   const financialCards = [
     {
-      title: 'Total Debt',
+      title: 'Total Billed (EMP)',
       value: formatCurrency(data.debtors.total_amount),
       icon: TrendingUp,
       color: 'text-slate-600',
     },
     {
-      title: 'Recovered',
+      title: 'Net Recovered',
       value: formatCurrency(data.debtors.recovered_amount),
+      subtitle: `${data.debtors.recovery_rate}% recovery rate`,
       icon: CheckCircle,
       color: 'text-green-600',
     },

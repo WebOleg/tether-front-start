@@ -708,9 +708,9 @@ export default function UploadDetailPage() {
                 </div>
                 <p className="text-2xl font-semibold mt-1">
                   {stats.chargebacked}
-                  {stats.total > 0 && (
+                  {(upload?.billed_with_emp_count ?? 0) > 0 && (
                     <span className="text-sm text-slate-500 ml-2">
-                      ({Math.round((stats.chargebacked / stats.total) * 100)}%)
+                      ({Math.round((stats.chargebacked / (upload?.billed_with_emp_count ?? 1)) * 100)}%)
                     </span>
                   )}
                 </p>

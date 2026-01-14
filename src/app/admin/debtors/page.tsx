@@ -28,10 +28,19 @@ import type { Debtor, DebtorStatus, PaginationMeta as PaginationMetaType, Pagina
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 
 const statusColors: Record<DebtorStatus, string> = {
+  uploaded: 'bg-slate-100 text-slate-800',
   pending: 'bg-yellow-100 text-yellow-800',
   processing: 'bg-blue-100 text-blue-800',
   recovered: 'bg-green-100 text-green-800',
   failed: 'bg-red-100 text-red-800',
+}
+
+const statusLabels: Record<DebtorStatus, string> = {
+  uploaded: 'Uploaded',
+  pending: 'Billing',
+  processing: 'Processing',
+  recovered: 'Recovered',
+  failed: 'Failed',
 }
 
 const riskColors: Record<string, string> = {
@@ -121,7 +130,8 @@ export default function DebtorsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="uploaded">Uploaded</SelectItem>
+              <SelectItem value="pending">Billing</SelectItem>
               <SelectItem value="processing">Processing</SelectItem>
               <SelectItem value="recovered">Recovered</SelectItem>
               <SelectItem value="failed">Failed</SelectItem>
@@ -185,7 +195,7 @@ export default function DebtorsPage() {
                     <TableCell>{debtor.bank_country_iso_reference}</TableCell>
                     <TableCell>
                       <Badge className={statusColors[debtor.status]}>
-                        {debtor.status}
+                        {statusLabels[debtor.status]}
                       </Badge>
                     </TableCell>
                     <TableCell>

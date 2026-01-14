@@ -143,7 +143,7 @@ export interface Debtor {
   latest_billing?: BillingAttempt
 }
 
-export type DebtorStatus = 'pending' | 'processing' | 'recovered' | 'failed'
+export type DebtorStatus = 'uploaded' | 'pending' | 'processing' | 'recovered' | 'failed'
 export type ValidationStatus = 'pending' | 'valid' | 'invalid'
 export type RiskClass = 'low' | 'medium' | 'high'
 

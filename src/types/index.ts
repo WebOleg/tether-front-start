@@ -91,6 +91,8 @@ export interface Upload {
   skipped_rows?: SkippedRow[] | null
   bav_excluded_count?: number
   bav_verified_count?: number
+  billed_with_emp_count?: number
+  chargeback_count?: number
 }
 
 export type UploadStatus = 'pending' | 'processing' | 'completed' | 'failed'

@@ -678,7 +678,14 @@ export default function UploadDetailPage() {
                   <div className="w-3 h-3 bg-red-600 rounded-full" />
                   <span className="text-sm text-slate-500">Chargebacked</span>
                 </div>
-                <p className="text-2xl font-semibold mt-1">{stats.chargebacked}</p>
+                <p className="text-2xl font-semibold mt-1">
+                  {stats.chargebacked}
+                  {(upload?.billed_with_emp_count ?? 0) > 0 && (
+                    <span className="text-sm text-slate-500 ml-2">
+                      ({Math.round((stats.chargebacked / (upload?.billed_with_emp_count ?? 1)) * 100)}%)
+                    </span>
+                  )}
+                </p>
               </CardContent>
             </Card>
             <Card className={(upload.bav_excluded_count ?? 0) > 0 ? 'border-amber-300 bg-amber-50' : ''}>

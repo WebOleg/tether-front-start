@@ -498,7 +498,8 @@ export default function UploadsPage() {
                   <TableHead className="text-center">Records</TableHead>
                   <TableHead className="text-center">Valid</TableHead>
                   <TableHead className="text-center">Invalid</TableHead>
-                  <TableHead className="text-center">%</TableHead>
+                  <TableHead className="text-center">Valid %</TableHead>
+                  <TableHead className="text-center">CB %</TableHead>
                   <TableHead>Uploaded</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -506,13 +507,13 @@ export default function UploadsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
                     </TableCell>
                   </TableRow>
                 ) : uploads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                    <TableCell colSpan={9} className="text-center py-8 text-slate-500">
                       No uploads yet
                     </TableCell>
                   </TableRow>
@@ -562,6 +563,11 @@ export default function UploadsPage() {
                             <XCircle className="h-4 w-4" />
                             <span className="text-sm font-medium">{invalid}</span>
                           </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className={`text-sm font-medium ${validPercent === 100 ? 'text-green-600' : validPercent >= 80 ? 'text-yellow-600' : 'text-red-600'}`}>
+                            {validPercent}%
+                          </span>
                         </TableCell>
                         <TableCell className="text-center">
                           {billedWithEmp > 0 ? (

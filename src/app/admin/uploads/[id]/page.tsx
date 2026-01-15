@@ -143,6 +143,7 @@ export default function UploadDetailPage() {
   const [syncing, setSyncing] = useState(false)
   const [filtering, setFiltering] = useState(false)
   const [verifyingVop, setVerifyingVop] = useState(false)
+  const [validating, setValidating] = useState(false) // Local state for immediate UI feedback
   const [search, setSearch] = useState('')
   const [hoveredId, setHoveredId] = useState<number | null>(null)
   const [editingDebtor, setEditingDebtor] = useState<Debtor | null>(null)
@@ -156,8 +157,20 @@ export default function UploadDetailPage() {
   const [hasFetchedInitial, setHasFetchedInitial] = useState(false)
   const [VerifyVopInProgress, setVerifyVopInProgress] = useState(true)
 
+  // Show validation UI when local state OR backend reports processing
+  const isValidating = validating || stats?.is_processing
+  
   // Derived state: validation is complete when not processing and no pending
   const validationCompleted = stats ? !stats.is_processing && stats.pending === 0 : false
+
+  // Sync local validating state with backend
+  useEffect(() => {
+    if (stats?.is_processing) {
+      setValidating(true)
+    } else if (stats && !stats.is_processing && stats.pending === 0) {
+      setValidating(false)
+    }
+  }, [stats?.is_processing, stats?.pending])
 
   const fetchVopStats = useCallback(async () => {
     try {
@@ -219,10 +232,16 @@ export default function UploadDetailPage() {
         const uploadData = await api.getUpload(uploadId)
         setUpload(uploadData)
 
+        // Set local validating state BEFORE starting validation
+        setValidating(true)
+        
         // Start async validation (returns 202 immediately)
         api.validateUpload(uploadId).catch(err => {
           console.error('Validation dispatch error:', err)
         })
+
+        // Small delay to allow backend to start processing
+        await new Promise(resolve => setTimeout(resolve, 500))
 
         await fetchValidationStats()
         await fetchDebtors()
@@ -242,20 +261,21 @@ export default function UploadDetailPage() {
     }
   }, [uploadId, fetchBillingStats, fetchValidationStats, fetchDebtors, fetchVopStats])
 
-  // Poll validation stats while processing (uses backend is_processing flag)
+  // Poll validation stats while processing (uses local validating OR backend is_processing flag)
   useEffect(() => {
-    if (!stats?.is_processing || !uploadId) return
+    if (!isValidating || !uploadId) return
     
     const interval = setInterval(async () => {
       const newStats = await fetchValidationStats()
-      if (newStats && !newStats.is_processing) {
+      if (newStats && !newStats.is_processing && newStats.pending === 0) {
+        setValidating(false)
         fetchVopStats()
         await fetchDebtors()
       }
     }, 2000)
 
     return () => clearInterval(interval)
-  }, [stats?.is_processing, uploadId, fetchValidationStats, fetchDebtors, fetchVopStats])
+  }, [isValidating, uploadId, fetchValidationStats, fetchDebtors, fetchVopStats])
 
   useEffect(() => {
     if (!billingStats?.is_processing) return
@@ -474,7 +494,7 @@ export default function UploadDetailPage() {
   const vopTotalEligible = vopStats ? vopStats.total_eligible : 0
   const hasBillingActivity = billingStats && billingStats.total_attempts > 0
 
-  const canSync = (vopTotalEligible === 0 || vopPending === 0) && !stats?.is_processing
+  const canSync = (vopTotalEligible === 0 || vopPending === 0) && !isValidating
 
   const handlePreviousPage = () => {
     if (links?.prev) {
@@ -513,7 +533,7 @@ export default function UploadDetailPage() {
             <span className="text-sm text-slate-500">
               {stats?.total || 0} records
             </span>
-            {stats?.is_processing && (
+            {isValidating && (
               <Badge className="bg-blue-100 text-blue-800 gap-1">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Validating...
@@ -615,7 +635,7 @@ export default function UploadDetailPage() {
           </div>
         )}
 
-        {stats?.is_processing && (
+        {isValidating && (
           <div className="mx-6 mt-4 p-3 bg-blue-100 border border-blue-300 rounded-lg">
             <div className="flex items-center gap-3">
               <Loader2 className="h-5 w-5 text-blue-700 flex-shrink-0 animate-spin" />

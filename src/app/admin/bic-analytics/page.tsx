@@ -125,7 +125,10 @@ export default function BicAnalyticsPage() {
         total_transactions: 0,
         total_chargebacks: 0,
         total_volume: 0,
-        overall_cb_rate: 0,
+        approved_volume: 0,
+        chargeback_volume: 0,
+        cb_rate_count: 0,
+        cb_rate_volume: 0,
       }
     }
     
@@ -134,17 +137,24 @@ export default function BicAnalyticsPage() {
       approved_count: acc.approved_count + bic.approved_count,
       chargeback_count: acc.chargeback_count + bic.chargeback_count,
       total_volume: acc.total_volume + bic.total_volume,
-      chargeback_volume: acc.chargeback_volume + bic.chargeback_volume,
+      approved_volume: acc.approved_volume + (bic.approved_volume ?? 0),
+      chargeback_volume: acc.chargeback_volume + (bic.chargeback_volume ?? 0),
     }), {
       total_transactions: 0,
       approved_count: 0,
       chargeback_count: 0,
       total_volume: 0,
+      approved_volume: 0,
       chargeback_volume: 0,
     })
     
-    const everApproved = totals.approved_count + totals.chargeback_count
-    const cbRate = everApproved > 0 ? (totals.chargeback_count / everApproved) * 100 : 0
+    // Bank KPI formula: chargebacks / approved
+    const cbRateCount = totals.approved_count > 0 
+      ? (totals.chargeback_count / totals.approved_count) * 100 
+      : 0
+    const cbRateVolume = totals.approved_volume > 0 
+      ? (totals.chargeback_volume / totals.approved_volume) * 100 
+      : 0
     
     return {
       total_bics: filteredBics.length,
@@ -152,7 +162,10 @@ export default function BicAnalyticsPage() {
       total_transactions: totals.total_transactions,
       total_chargebacks: totals.chargeback_count,
       total_volume: totals.total_volume,
-      overall_cb_rate: cbRate,
+      approved_volume: totals.approved_volume,
+      chargeback_volume: totals.chargeback_volume,
+      cb_rate_count: cbRateCount,
+      cb_rate_volume: cbRateVolume,
     }
   }, [filteredBics])
 
@@ -254,8 +267,8 @@ export default function BicAnalyticsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cb_rate_count">CB Rate %</SelectItem>
-                  <SelectItem value="cb_rate_volume">CB Volume %</SelectItem>
+                  <SelectItem value="cb_rate_count">CB % Count</SelectItem>
+                  <SelectItem value="cb_rate_volume">CB % Volume</SelectItem>
                   <SelectItem value="chargeback_count">Chargebacks</SelectItem>
                   <SelectItem value="total_transactions">Total TX</SelectItem>
                   <SelectItem value="total_volume">Volume</SelectItem>
@@ -280,7 +293,7 @@ export default function BicAnalyticsPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-4 mb-6">
+        <div className="grid gap-4 md:grid-cols-5 mb-6">
           <Card>
             <CardContent className="pt-4">
               <div className="text-sm text-slate-500">Total BICs</div>
@@ -307,10 +320,22 @@ export default function BicAnalyticsPage() {
               <div className="text-2xl font-bold">{filteredTotals.total_transactions.toLocaleString()}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className={filteredTotals.cb_rate_count >= 25 ? 'border-red-300' : ''}>
             <CardContent className="pt-4">
-              <div className="text-sm text-slate-500">Overall CB Rate</div>
-              <div className="text-2xl font-bold">{formatPercent(filteredTotals.overall_cb_rate)}</div>
+              <div className="text-sm text-slate-500">CB % Count</div>
+              <div className={`text-2xl font-bold ${filteredTotals.cb_rate_count >= 25 ? 'text-red-600' : ''}`}>
+                {formatPercent(filteredTotals.cb_rate_count)}
+              </div>
+              <div className="text-xs text-slate-400">chargebacks / approved</div>
+            </CardContent>
+          </Card>
+          <Card className={filteredTotals.cb_rate_volume >= 25 ? 'border-red-300' : ''}>
+            <CardContent className="pt-4">
+              <div className="text-sm text-slate-500">CB % Volume</div>
+              <div className={`text-2xl font-bold ${filteredTotals.cb_rate_volume >= 25 ? 'text-red-600' : ''}`}>
+                {formatPercent(filteredTotals.cb_rate_volume)}
+              </div>
+              <div className="text-xs text-slate-400">CB amount / approved amount</div>
             </CardContent>
           </Card>
         </div>
@@ -340,7 +365,8 @@ export default function BicAnalyticsPage() {
                     <TableHead className="text-right">Declined</TableHead>
                     <TableHead className="text-right">Chargebacks</TableHead>
                     <TableHead className="text-right">Volume €</TableHead>
-                    <TableHead className="text-right">CB Rate</TableHead>
+                    <TableHead className="text-right">CB % Count</TableHead>
+                    <TableHead className="text-right">CB % Volume</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -356,8 +382,11 @@ export default function BicAnalyticsPage() {
                       <TableCell className="text-right text-amber-600">{bic.declined_count}</TableCell>
                       <TableCell className="text-right text-red-600">{bic.chargeback_count}</TableCell>
                       <TableCell className="text-right">{formatCurrency(bic.total_volume)}</TableCell>
-                      <TableCell className={`text-right font-medium ${bic.is_high_risk ? 'text-red-600' : ''}`}>
+                      <TableCell className={`text-right font-medium ${(bic.cb_rate_count ?? 0) >= 25 ? 'text-red-600' : ''}`}>
                         {formatPercent(bic.cb_rate_count)}
+                      </TableCell>
+                      <TableCell className={`text-right font-medium ${(bic.cb_rate_volume ?? 0) >= 25 ? 'text-red-600' : ''}`}>
+                        {formatPercent(bic.cb_rate_volume)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -369,8 +398,11 @@ export default function BicAnalyticsPage() {
                     <TableCell className="text-right">-</TableCell>
                     <TableCell className="text-right">{filteredTotals.total_chargebacks}</TableCell>
                     <TableCell className="text-right">{formatCurrency(filteredTotals.total_volume)}</TableCell>
-                    <TableCell className={`text-right ${hasHighRisk ? 'text-red-600' : ''}`}>
-                      {formatPercent(filteredTotals.overall_cb_rate)}
+                    <TableCell className={`text-right ${filteredTotals.cb_rate_count >= 25 ? 'text-red-600' : ''}`}>
+                      {formatPercent(filteredTotals.cb_rate_count)}
+                    </TableCell>
+                    <TableCell className={`text-right ${filteredTotals.cb_rate_volume >= 25 ? 'text-red-600' : ''}`}>
+                      {formatPercent(filteredTotals.cb_rate_volume)}
                     </TableCell>
                   </TableRow>
                 </TableBody>

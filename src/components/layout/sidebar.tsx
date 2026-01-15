@@ -14,10 +14,10 @@ import {
   BarChart3,
   LogOut,
   RotateCcw,
-  Euro
+  Euro,
+  Building2,
 } from 'lucide-react'
 import { api } from '@/lib/api'
-
 export const ChargebackIcon = ({ className }: { className?: string }) => {
   return (
     <div className={cn("relative", className)}>
@@ -26,32 +26,28 @@ export const ChargebackIcon = ({ className }: { className?: string }) => {
     </div>
   );
 };
-
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
+  { name: 'BIC Analytics', href: '/admin/bic-analytics', icon: Building2 },
   { name: 'Uploads', href: '/admin/uploads', icon: Upload },
   { name: 'Debtors', href: '/admin/debtors', icon: Users },
   { name: 'Chargebacks', href: '/admin/chargebacks', icon: ChargebackIcon },
   { name: 'VOP Logs', href: '/admin/vop-logs', icon: ShieldCheck },
   { name: 'Billing', href: '/admin/billing', icon: CreditCard },
 ]
-
 export function Sidebar() {
   const pathname = usePathname()
-
   const handleLogout = async () => {
     await api.logout()
     window.location.href = '/login'
   }
-
   return (
     <aside className="flex h-screen w-64 flex-col bg-slate-900 text-white">
       {/* Logo */}
       <div className="flex h-16 items-center justify-center border-b border-slate-700">
         <h1 className="text-xl font-bold">Tether Admin</h1>
       </div>
-
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-4">
         {navigation.map((item) => {
@@ -75,7 +71,6 @@ export function Sidebar() {
           )
         })}
       </nav>
-
       {/* Logout */}
       <div className="border-t border-slate-700 p-4">
         <button

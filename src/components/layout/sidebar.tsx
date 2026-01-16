@@ -49,9 +49,12 @@ const navigation = [
 interface SidebarProps {
   isCollapsed?: boolean
   onToggleCollapse?: () => void
+  isMobileOpen?: boolean
+  onMobileClose?: () => void
+  isMobile?: boolean
 }
 
-export function Sidebar({ isCollapsed = false, onToggleCollapse }: SidebarProps) {
+export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = false, onMobileClose, isMobile = false }: SidebarProps) {
   const pathname = usePathname()
 
   const handleLogout = async () => {
@@ -59,14 +62,23 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse }: SidebarProps)
     window.location.href = '/login'
   }
 
+  const handleNavClick = () => {
+    if (onMobileClose) {
+      onMobileClose()
+    }
+  }
+
+  // On mobile, always show full menu. On desktop, respect collapse state
+  const shouldShowCollapsed = !isMobile && isCollapsed
+
   return (
     <aside className={cn(
       "relative flex h-screen flex-col bg-slate-900 text-white transition-all duration-300",
-      isCollapsed ? "w-20" : "w-64"
+      shouldShowCollapsed ? "w-20" : "w-64"
     )}>
       {/* Logo */}
       <div className="flex h-16 items-center justify-center border-b border-slate-700 px-4">
-        {isCollapsed ? (
+        {shouldShowCollapsed ? (
           <h1 className="text-xl font-bold">T</h1>
         ) : (
           <h1 className="text-xl font-bold">Tether Admin</h1>
@@ -83,21 +95,22 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse }: SidebarProps)
             <Link
               key={item.name}
               href={item.href}
+              onClick={handleNavClick}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-slate-800 text-white'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-white',
-                isCollapsed && 'justify-center'
+                shouldShowCollapsed && 'justify-center'
               )}
             >
               <item.icon className="h-5 w-5 shrink-0" />
-              {!isCollapsed && <span>{item.name}</span>}
+              {!shouldShowCollapsed && <span>{item.name}</span>}
             </Link>
           )
 
-          // Wrap with tooltip when collapsed
-          if (isCollapsed) {
+          // Wrap with tooltip only when collapsed on desktop
+          if (shouldShowCollapsed) {
             return (
               <Tooltip key={item.name}>
                 <TooltipTrigger asChild>
@@ -116,7 +129,7 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse }: SidebarProps)
 
       {/* Logout */}
       <div className="border-t border-slate-700 p-4">
-        {isCollapsed ? (
+        {shouldShowCollapsed ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -145,10 +158,10 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse }: SidebarProps)
       {onToggleCollapse && (
         <button
           onClick={onToggleCollapse}
-          className="absolute top-16 -right-3 -translate-y-1/2 bg-slate-800 hover:bg-slate-700 text-white rounded-full p-1.5 shadow-lg border border-slate-700 transition-all z-10"
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="absolute top-1/2 -right-3 -translate-y-1/2 bg-slate-800 hover:bg-slate-700 text-white rounded-full p-1.5 shadow-lg border border-slate-700 transition-all z-10"
+          aria-label={shouldShowCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {isCollapsed ? (
+          {shouldShowCollapsed ? (
             <ChevronRight className="h-4 w-4" />
           ) : (
             <ChevronLeft className="h-4 w-4" />

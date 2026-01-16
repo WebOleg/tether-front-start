@@ -627,7 +627,7 @@ export default function AnalyticsPage() {
         {/* Two Column Layout for Codes and Banks */}
         <div className="grid gap-6 md:grid-cols-2">
           {/* Chargeback Codes */}
-          <Card>
+          <Card className="max-h-[500px] flex flex-col">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -636,7 +636,7 @@ export default function AnalyticsPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-y-auto">
               {loading ? loadingSpinner : (
                 <>
                   {cbCodeStats && cbCodeStats.codes && cbCodeStats.codes.length > 0 ? (
@@ -678,7 +678,7 @@ export default function AnalyticsPage() {
           </Card>
 
           {/* Chargeback by Bank */}
-          <Card className={`${hasBankAlert ? "border-red-300" : ""}`}>
+          <Card className={`h-[500px] flex flex-col ${hasBankAlert ? "border-red-300" : ""}`}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -699,7 +699,7 @@ export default function AnalyticsPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-y-auto">
               {loading ? loadingSpinner : (
                 <>
                   {filteredBankStats && filteredBankStats.banks && filteredBankStats.banks.length > 0 ? (

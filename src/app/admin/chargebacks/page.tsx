@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api'
 import { ChargebackCodes, Chargebacks, PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType } from '@/types';
-import Link from 'next/link';
+import { CHARGEBACK_RULES, getChargebackRule } from '@/lib/chargebacks'
 import { useEffect, useState } from 'react'
 
 const riskColors: Record<string, string> = {
@@ -33,101 +33,6 @@ function formatCurrency(amount: number, currency: string): string {
     style: 'currency',
     currency: currency,
   }).format(amount)
-}
-
-const CHARGEBACK_RULES: Record<string, { risk: 'low' | 'medium' | 'high'; action: string[] }> = {
-  "AC01": { risk: "medium", action: [
-    "Stop billing",
-    "Contct customer to confirm account",
-  ] },
-  "AC04": { risk: "medium", action: [
-    "Stop billing",
-    "Ask customer for new account"
-  ] },
-  "AC06": { risk: "medium", action: [
-    "Stop billing",
-    "Ask customer to unblock"
-  ] },
-  "AC13": { risk: "medium", action: [
-    "Stop billing",
-    "Confirm account type"
-  ] },
-  "AG01": { risk: "medium", action: [
-    "Try another payment method",
-  ] },
-  "AG02": { risk: "low", action: [
-    "Fix transaction data",
-    "Retry"
-  ] },
-  "AM04": { risk: "high", action: [
-    "Retry Later"
-  ] },
-  "AM05": { risk: "medium", action: [
-    "Check Duplicates",
-    "Cancel Extra collections"
-  ] },
-  "BE05": { risk: "low", action: [
-    "Check Details (Creditor ID)",
-    "Retry"
-  ] },
-  "CNOR": { risk: "high", action: [
-    "Stop Billing",
-    "Verify SEPA setup with customer"
-  ] },
-  "DNOR": { risk: "high", action: [
-    "Stop Billing",
-    "Request customer for different bank"
-  ] },
-  "ED05": { risk: "high", action: [
-    "Stiop Billing",
-    "investigate settlement issue"  
-  ] },
-  "MD01": { risk: "high", action: [
-    "Stop billing",
-    "Collect new mandate"
-  ] },
-  "MD02": { risk: "high", action: [
-    "Stop billing",
-    "Correct mandate"
-  ] },
-  "MD06": { risk: "high", action: [
-    "Stop billing",
-    "review mandate details"
-  ] },
-  "MD07": { risk: "high", action: [
-    "Stop billing",
-    "Cancel mandate / Close Customer Account"
-  ] },
-  "MS02": { risk: "high", action: [
-    "Stop billing",
-  ] },
-  "MS03": { risk: "medium", action: [
-    "Stop Billing",
-    "Contact Bank / Customer"
-  ] },
-  "RC01": { risk: "low", action: [
-    "Stop Billing",
-    "Correct details and retry"
-  ] },
-  "RR01": { risk: "low", action: [
-    "Add transaction data",
-    "Retry"
-  ] },
-  "RR02": { risk: "low", action: [
-    "Update customer profile",
-    "Retry"
-  ] },
-  "RR03": { risk: "low", action: [
-    "Update transaction data",
-    "Retry"
-  ] },
-  "RR04": { risk: "medium", action: [
-    "Contact bank",
-  ] },
-  "SL01": { risk: "medium", action: [
-    "Stip Billing",
-    "Ask customr to change bank settings"
-  ] }
 }
 
 export default function ChargebacksPage() {
@@ -236,66 +141,78 @@ export default function ChargebacksPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Details</TableHead>
+                <TableHead>CB Code</TableHead>
                 <TableHead>Risk Level</TableHead>
                 <TableHead>Required Actions</TableHead>
                 <TableHead>Debtor</TableHead>
                 <TableHead>IBAN</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Bank</TableHead>
-                <TableHead>Country</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
                       Loading chargebacks...
                     </TableCell>
                   </TableRow>
                 ) : chargebacks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
                       No chargebacks found
                     </TableCell>
                   </TableRow>
-                ) : ( chargebacks.map((cb) => (
-                <TableRow key={cb.id}>
-                  <TableCell className="font-medium text-blue-600">{cb.error_code}</TableCell>
-                  <TableCell>{cb.error_message}</TableCell>
-                  <TableCell>
-                    {cb.error_code && CHARGEBACK_RULES[cb.error_code] && (
-                      <Badge className={riskColors[CHARGEBACK_RULES[cb.error_code].risk]}>
-                        {CHARGEBACK_RULES[cb.error_code].risk}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {cb.error_code && CHARGEBACK_RULES[cb.error_code]?.action.map((action, index) => (
-                      <div key={index}>- {action}</div>
-                    ))}
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium text-blue-600">
-                      {cb.debtor.first_name} {cb.debtor.last_name}
-                    </div>
-                    <div className="text-sm text-slate-500">
-                      {cb.debtor.email}
-                    </div>
-                  </TableCell>
-                  <TableCell>{(cb.debtor as any).iban || cb.debtor.iban_masked}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(cb.amount, cb.currency)}
-                  </TableCell>
-                  <TableCell>
-                    {cb.bank_name}
-                  </TableCell>
-                  <TableCell>
-                    {cb.bank_country}
-                  </TableCell>
-                </TableRow>
-              )))}
+                ) : ( chargebacks.map((cb) => {
+                  const rule = cb.error_code ? getChargebackRule(cb.error_code) : undefined
+                  return (
+                    <TableRow key={cb.id}>
+                      <TableCell>
+                        <div className="font-mono text-blue-600">
+                          {cb.error_code}
+                        </div>
+                        <div className="text-slate-600 text-xs">
+                          {rule?.detail}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {cb.error_code && CHARGEBACK_RULES[cb.error_code] && (
+                          <Badge className={riskColors[CHARGEBACK_RULES[cb.error_code].risk]}>
+                            {CHARGEBACK_RULES[cb.error_code].risk}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {cb.error_code && CHARGEBACK_RULES[cb.error_code]?.action.map((action, index) => (
+                          <div key={index}>
+                            {action}
+                          </div>
+                        ))}
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium text-blue-600">
+                          {cb.debtor.first_name} {cb.debtor.last_name}
+                        </div>
+                        <div className="text-sm text-slate-500">
+                          {cb.debtor.email}
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono">{(cb.debtor as any).iban || cb.debtor.iban_masked}</TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(cb.amount, cb.currency)}
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          {cb.bank_name ?? 'Unknown Bank'}
+                        </div>
+                        <div className="text-sm text-slate-600">
+                          {cb.bank_country}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                }
+              ))}
             </TableBody>
           </Table>
         </div>

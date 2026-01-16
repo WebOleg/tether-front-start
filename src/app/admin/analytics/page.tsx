@@ -37,6 +37,7 @@ import {
 import type { ChargebackStats, ChargebackCodeStats, ChargebackBankStats } from '@/types'
 import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
+import { getChargebackRule } from '@/lib/chargebacks'
 
 interface EmpRefreshStats {
   inserted: number
@@ -594,14 +595,19 @@ export default function AnalyticsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {cbCodeStats.codes.map((code) => (
-                      <TableRow key={code.chargeback_code}>
-                        <TableCell className="font-mono text-sm">{code.chargeback_code}</TableCell>
-                        <TableCell className="text-sm">{code.chargeback_reason}</TableCell>
-                        <TableCell className="text-right">{code.occurrences}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(code.total_amount)}</TableCell>
-                      </TableRow>
-                    ))}
+                    {cbCodeStats.codes.map((code) => {
+                      const rule = code.chargeback_code ? getChargebackRule(code.chargeback_code) : undefined
+
+                      return (
+                        <TableRow key={code.chargeback_code}>
+                          <TableCell className="font-mono text-sm">{code.chargeback_code}</TableCell>
+                          <TableCell className="text-xs">{rule?.detail}</TableCell>
+                          <TableCell className="text-right">{code.occurrences}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(code.total_amount)}</TableCell>
+                        </TableRow>
+                      )
+                    }
+                    )}
                     {/* Total Row */}
                     <TableRow className="bg-slate-100 font-semibold border-t-2">
                       <TableCell colSpan={2}>Total</TableCell>

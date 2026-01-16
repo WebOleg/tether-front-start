@@ -23,7 +23,7 @@ export const CHARGEBACK_ACTIONS = {
 export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   AC01: {
     risk: 'medium',
-    detail: 'Incorrect Account Number',
+    detail: 'Incorrect account number',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Contact customer to confirm account',
@@ -31,7 +31,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   AC04: {
     risk: 'high',
-    detail: 'Closed Account Number',
+    detail: 'Closed account number',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Ask customer for new account',
@@ -39,7 +39,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   AC06: {
     risk: 'high',
-    detail: 'Blocked Account',
+    detail: 'Blocked account',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Ask customer to unblock',
@@ -47,7 +47,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   AC13: {
     risk: 'medium',
-    detail: 'Invalid Debtor Account Type',
+    detail: 'Invalid debtor account type',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Confirm account type',
@@ -55,14 +55,14 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   AG01: {
     risk: 'medium',
-    detail: 'Transaction Forbidden',
+    detail: 'Transaction forbidden',
     action: [
       'Try another payment method',
     ],
   },
   AG02: {
     risk: 'low',
-    detail: 'Invalid Bank Operation Code',
+    detail: 'Invalid bank operation code',
     action: [
       CHARGEBACK_ACTIONS.FIX_DATA,
       CHARGEBACK_ACTIONS.RETRY,
@@ -70,7 +70,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   AM04: {
     risk: 'medium',
-    detail: 'Insufficient Funds',
+    detail: 'Insufficient funds',
     action: [
       CHARGEBACK_ACTIONS.RETRY_LATER,
     ],
@@ -85,7 +85,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   BE05: {
     risk: 'low',
-    detail: 'Identifier of Creditor Incorrect',
+    detail: 'Identifier of creditor incorrect',
     action: [
       'Check details (Creditor ID)',
       CHARGEBACK_ACTIONS.RETRY,
@@ -93,7 +93,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   CNOR: {
     risk: 'high',
-    detail: 'Creditor Bank Is Not Registered',
+    detail: 'Creditor bank is not registered',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Verify SEPA setup with customer',
@@ -101,7 +101,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   DNOR: {
     risk: 'high',
-    detail: 'Debtor Bank Is Not Registered',
+    detail: 'Debtor bank is not registered',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Request customer for different bank',
@@ -109,7 +109,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   ED05: {
     risk: 'high',
-    detail: 'Settlement Failed',
+    detail: 'Settlement failed',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Investigate settlement issue',
@@ -117,7 +117,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   MD01: {
     risk: 'high',
-    detail: 'No Mandate',
+    detail: 'No mandate',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Collect new mandate',
@@ -125,7 +125,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   MD02: {
     risk: 'high',
-    detail: 'Missing Mandatory Information In Mandate',
+    detail: 'Missing mandatory information in mandate',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Correct mandate',
@@ -133,7 +133,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   MD06: {
     risk: 'high',
-    detail: 'Refund Request By End Customer',
+    detail: 'Refund request by end customer',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Review mandate details',
@@ -141,7 +141,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   MD07: {
     risk: 'high',
-    detail: 'End Customer Deceased',
+    detail: 'End customer deceased',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Cancel mandate / Close customer account',
@@ -149,14 +149,14 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   MS02: {
     risk: 'high',
-    detail: 'Not Specified Reason Customer Generated',
+    detail: 'Not specified reason customer generated',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
     ],
   },
   MS03: {
     risk: 'high',
-    detail: 'Not Specified Reason Agent Generated',
+    detail: 'Not specified reason agent generated',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Contact bank / customer',
@@ -164,7 +164,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   RC01: {
     risk: 'medium',
-    detail: 'Bank Identifier Incorrect',
+    detail: 'Bank identifier incorrect',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Correct details and retry',
@@ -172,7 +172,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   RR01: {
     risk: 'low',
-    detail: 'Missing Debtor Account Or Identification',
+    detail: 'Missing debtor account or identification',
     action: [
       'Add transaction data',
       CHARGEBACK_ACTIONS.RETRY,
@@ -180,7 +180,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   RR02: {
     risk: 'low',
-    detail: 'Missing Debtor Name Or Address',
+    detail: 'Missing debtor name or address',
     action: [
       CHARGEBACK_ACTIONS.UPDATE_PROFILE,
       CHARGEBACK_ACTIONS.RETRY,
@@ -188,7 +188,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   RR03: {
     risk: 'low',
-    detail: 'Missing Creditor Name Or Address',
+    detail: 'Missing creditor name or address',
     action: [
       'Update transaction data',
       CHARGEBACK_ACTIONS.RETRY,
@@ -196,14 +196,14 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   RR04: {
     risk: 'medium',
-    detail: 'Regulatory Reason',
+    detail: 'Regulatory reason',
     action: [
       CHARGEBACK_ACTIONS.CONTACT_BANK,
     ],
   },
   SL01: {
     risk: 'medium',
-    detail: 'Specific Service Offered By Debtor Agent',
+    detail: 'Specific service offered by debtor agent',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Ask customer to change bank settings',

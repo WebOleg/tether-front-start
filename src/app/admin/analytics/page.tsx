@@ -33,6 +33,8 @@ import {
   PieChart,
   Building2,
   CheckCircle,
+  Search,
+  Loader2
 } from 'lucide-react'
 import type { ChargebackStats, ChargebackCodeStats, ChargebackBankStats } from '@/types'
 import { Progress } from '@/components/ui/progress'
@@ -89,10 +91,21 @@ export default function AnalyticsPage() {
     return formatDate(date)
   })
   const [empToDate, setEmpToDate] = useState(() => formatDate(new Date()))
+  const [bankSearchQuery, setBankSearchQuery] = useState('')
+
+  const filteredBankStats = bankSearchQuery.trim()
+    ? {
+        ...cbBankStats,
+        banks: cbBankStats?.banks.filter(bank => 
+          bank.bank_name.toLowerCase().includes(bankSearchQuery.toLowerCase())
+        ) || []
+      }
+    : cbBankStats
 
   useEffect(() => {
     const fetchChargebackStats = async () => {
       try {
+        setLoading(true)
         const stats = await api.getChargebackStats(cbPeriod)
         const codeStats = await api.getChargebackCodeStats(cbPeriod)
         const bankStats = await api.getChargebackBankStats(cbPeriod)
@@ -102,6 +115,8 @@ export default function AnalyticsPage() {
       } catch (err) {
         toast.error('Failed to load chargeback statistics')
         console.error('Failed to fetch chargeback stats:', err)
+      } finally {
+        setLoading(false)
       }
     }
     fetchChargebackStats()
@@ -272,6 +287,11 @@ export default function AnalyticsPage() {
   const totalCbRateAll = cbStats?.totals?.cb_rate_total || 0
   const totalCbRateAmountApproved = cbStats?.totals?.cb_rate_amount_approved || 0
   const hasBankAlert = cbBankStats?.totals?.alert || false
+  const loadingSpinner = (
+    <div className="flex items-center justify-center h-16">
+      <Loader2 className="h-6 w-6 text-slate-400 animate-spin" />
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -440,17 +460,21 @@ export default function AnalyticsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-baseline gap-2">
-                <span className={`text-3xl font-bold ${totalCbRateApproved < 20 ? 'text-green-600' : totalCbRateApproved < 25 ? 'text-amber-600' : 'text-red-600'}`}>
-                  {formatPercent(totalCbRateApproved)}
-                </span>
-                <span className="text-sm text-slate-500">chargebacks / approved</span>
-              </div>
-              <Progress 
-                value={totalCbRateApproved} 
-                className={`mt-2 h-2 ${totalCbRateApproved < 20 ? '[&>div]:bg-green-500' : totalCbRateApproved < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
-              />
-              <p className="text-xs text-slate-400 mt-1">Includes approved transactions</p>
+              { loading ? loadingSpinner : (
+                <>
+                  <div className="flex items-baseline gap-2">
+                    <span className={`text-3xl font-bold ${totalCbRateApproved < 20 ? 'text-green-600' : totalCbRateApproved < 25 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {formatPercent(totalCbRateApproved)}
+                    </span>
+                    <span className="text-sm text-slate-500">chargebacks / approved</span>
+                  </div>
+                  <Progress 
+                    value={totalCbRateApproved} 
+                    className={`mt-2 h-2 ${totalCbRateApproved < 20 ? '[&>div]:bg-green-500' : totalCbRateApproved < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Includes approved transactions</p>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -467,18 +491,22 @@ export default function AnalyticsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-baseline gap-2">
-                <span className={`text-3xl font-bold ${totalCbRateAmountApproved < 20 ? 'text-green-600' : totalCbRateAmountApproved < 25 ? 'text-amber-600' : 'text-red-600'}`}>
-                  {formatPercent(totalCbRateAmountApproved)}
-                </span>
-                <span className="text-sm text-slate-500">chargeback amount / approved amount</span>
-              </div>
-              <Progress 
-                value={cbStats ? totalCbRateAmountApproved : 0}
-                max={cbStats ? cbStats.threshold : 100}
-                className={`mt-2 h-2 ${totalCbRateAmountApproved < 20 ? '[&>div]:bg-green-500' : totalCbRateAmountApproved < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
-              />
-              <p className="text-xs text-slate-400 mt-1">Includes approved transactions amount</p>
+              { loading ? loadingSpinner : (
+                <>
+                  <div className="flex items-baseline gap-2">
+                    <span className={`text-3xl font-bold ${totalCbRateAmountApproved < 20 ? 'text-green-600' : totalCbRateAmountApproved < 25 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {formatPercent(totalCbRateAmountApproved)}
+                    </span>
+                    <span className="text-sm text-slate-500">chargeback amount / approved amount</span>
+                  </div>
+                  <Progress 
+                    value={cbStats ? totalCbRateAmountApproved : 0}
+                    max={cbStats ? cbStats.threshold : 100}
+                    className={`mt-2 h-2 ${totalCbRateAmountApproved < 20 ? '[&>div]:bg-green-500' : totalCbRateAmountApproved < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Includes approved transactions amount</p>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -495,17 +523,21 @@ export default function AnalyticsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-baseline gap-2">
-                <span className={`text-3xl font-bold ${totalCbRateAll < 20 ? 'text-green-600' : totalCbRateAll < 25 ? 'text-amber-600' : 'text-red-600'}`}>
-                  {formatPercent(totalCbRateAll)}
-                </span>
-                <span className="text-sm text-slate-500">chargebacks / total</span>
-              </div>
-              <Progress 
-                value={Math.min(totalCbRateAll, 5) * 20} 
-                className={`mt-2 h-2 ${totalCbRateAll < 20 ? '[&>div]:bg-green-500' : totalCbRateAll < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
-              />
-              <p className="text-xs text-slate-400 mt-1">Includes all transactions</p>
+              { loading ? loadingSpinner : (
+                <>
+                  <div className="flex items-baseline gap-2">
+                    <span className={`text-3xl font-bold ${totalCbRateAll < 20 ? 'text-green-600' : totalCbRateAll < 25 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {formatPercent(totalCbRateAll)}
+                    </span>
+                    <span className="text-sm text-slate-500">chargebacks / total</span>
+                  </div>
+                  <Progress 
+                    value={Math.min(totalCbRateAll, 5) * 20} 
+                    className={`mt-2 h-2 ${totalCbRateAll < 20 ? '[&>div]:bg-green-500' : totalCbRateAll < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Includes all transactions</p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -524,57 +556,61 @@ export default function AnalyticsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {cbStats && cbStats.countries && cbStats.countries.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Country</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Approved</TableHead>
-                    <TableHead className="text-right">Chargebacks</TableHead>
-                    <TableHead className="text-right">CB Amount</TableHead>
-                    <TableHead className="text-right">CB Rate</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {cbStats.countries.map((country) => (
-                    <TableRow key={country.country} className={country.alert ? 'bg-red-50' : ''}>
-                      <TableCell className="font-medium">
-                        {country.country}
-                        {country.alert && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2 -translate-y-0.5" />}
-                      </TableCell>
-                      <TableCell className="text-right">{country.total}</TableCell>
-                      <TableCell className="text-right">{country.approved}</TableCell>
-                      <TableCell className="text-right">{country.chargebacks}</TableCell>
-                      <TableCell className="text-right">{formatCurrency((country as any).chargeback_amount || 0)}</TableCell>
-                      <TableCell className={`text-right font-medium ${country.alert ? 'text-red-600' : ''}`}>
-                        {formatPercent(country.cb_rate_approved)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {/* Total Row */}
-                  <TableRow className="bg-slate-100 font-semibold border-t-2">
-                    <TableCell>Total</TableCell>
-                    <TableCell className="text-right">{cbStats.totals.total}</TableCell>
-                    <TableCell className="text-right">{cbStats.totals.approved}</TableCell>
-                    <TableCell className="text-right">{cbStats.totals.chargebacks}</TableCell>
-                    <TableCell className="text-right">{formatCurrency((cbStats.totals as any).chargeback_amount || 0)}</TableCell>
-                    <TableCell className={`text-right ${cbStats.totals.alert ? 'text-red-600' : ''}`}>
-                      {formatPercent(cbStats.totals.cb_rate_approved)}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            ) : (
-              <p className="text-slate-500 text-center py-4">No chargeback data available</p>
+            { loading ? loadingSpinner : (  
+              <>
+                {cbStats && cbStats.countries && cbStats.countries.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Country</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead className="text-right">Approved</TableHead>
+                        <TableHead className="text-right">Chargebacks</TableHead>
+                        <TableHead className="text-right">CB Amount</TableHead>
+                        <TableHead className="text-right">CB Rate</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {cbStats.countries.map((country) => (
+                        <TableRow key={country.country} className={country.alert ? 'bg-red-50' : ''}>
+                          <TableCell className="font-medium">
+                            {country.country}
+                            {country.alert && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2 -translate-y-0.5" />}
+                          </TableCell>
+                          <TableCell className="text-right">{country.total}</TableCell>
+                          <TableCell className="text-right">{country.approved}</TableCell>
+                          <TableCell className="text-right">{country.chargebacks}</TableCell>
+                          <TableCell className="text-right">{formatCurrency((country as any).chargeback_amount || 0)}</TableCell>
+                          <TableCell className={`text-right font-medium ${country.alert ? 'text-red-600' : ''}`}>
+                            {formatPercent(country.cb_rate_approved)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {/* Total Row */}
+                      <TableRow className="bg-slate-100 font-semibold border-t-2">
+                        <TableCell>Total</TableCell>
+                        <TableCell className="text-right">{cbStats.totals.total}</TableCell>
+                        <TableCell className="text-right">{cbStats.totals.approved}</TableCell>
+                        <TableCell className="text-right">{cbStats.totals.chargebacks}</TableCell>
+                        <TableCell className="text-right">{formatCurrency((cbStats.totals as any).chargeback_amount || 0)}</TableCell>
+                        <TableCell className={`text-right ${cbStats.totals.alert ? 'text-red-600' : ''}`}>
+                          {formatPercent(cbStats.totals.cb_rate_approved)}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-slate-500 text-center py-4">No chargeback data available</p>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
 
         {/* Two Column Layout for Codes and Banks */}
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2 items-start">
           {/* Chargeback Codes */}
-          <Card>
+          <Card className="max-h-[600px] flex flex-col">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -583,93 +619,117 @@ export default function AnalyticsPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              {cbCodeStats && cbCodeStats.codes && cbCodeStats.codes.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead className="text-right">Count</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cbCodeStats.codes.map((code) => {
-                      const rule = code.chargeback_code ? getChargebackRule(code.chargeback_code) : undefined
-
-                      return (
-                        <TableRow key={code.chargeback_code}>
-                          <TableCell className="font-mono text-sm">{code.chargeback_code}</TableCell>
-                          <TableCell className="text-xs">{rule?.detail}</TableCell>
-                          <TableCell className="text-right">{code.occurrences}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(code.total_amount)}</TableCell>
+            <CardContent className="flex-1 overflow-y-auto">
+              { loading ? loadingSpinner : (
+                <>
+                  {cbCodeStats && cbCodeStats.codes && cbCodeStats.codes.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Code</TableHead>
+                          <TableHead>Reason</TableHead>
+                          <TableHead className="text-right">Count</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
                         </TableRow>
-                      )
-                    }
-                    )}
-                    {/* Total Row */}
-                    <TableRow className="bg-slate-100 font-semibold border-t-2">
-                      <TableCell colSpan={2}>Total</TableCell>
-                      <TableCell className="text-right">{cbCodeStats.totals.occurrences}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(cbCodeStats.totals.total_amount)}</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-slate-500 text-center py-4">No chargeback codes recorded</p>
+                      </TableHeader>
+                      <TableBody>
+                        {cbCodeStats.codes.map((code) => {
+                          const rule = code.chargeback_code ? getChargebackRule(code.chargeback_code) : undefined
+
+                          return (
+                            <TableRow key={code.chargeback_code}>
+                              <TableCell className="font-mono text-sm">{code.chargeback_code}</TableCell>
+                              <TableCell className="text-xs">{rule?.detail}</TableCell>
+                              <TableCell className="text-right">{code.occurrences}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(code.total_amount)}</TableCell>
+                            </TableRow>
+                          )
+                        }
+                        )}
+                        {/* Total Row */}
+                        <TableRow className="bg-slate-100 font-semibold border-t-2">
+                          <TableCell colSpan={2}>Total</TableCell>
+                          <TableCell className="text-right">{cbCodeStats.totals.occurrences}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(cbCodeStats.totals.total_amount)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <p className="text-slate-500 text-center py-4">No chargeback codes recorded</p>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
 
           {/* Chargeback by Bank */}
-          <Card className={`${hasBankAlert ? "border-red-300" : ""}`}>
+          <Card className={`h-[500px] flex flex-col ${hasBankAlert ? "border-red-300" : ""}`}>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-slate-500" />
-                  <CardTitle className="text-lg">By Bank</CardTitle>
-                  {hasBankAlert && (
-                    <AlertTriangle className="h-5 w-5 text-red-500" />
-                  )}
+              <div className="grid md:grid-cols-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-slate-500" />
+                    <CardTitle className="text-lg">By Bank</CardTitle>
+                    {hasBankAlert && (
+                      <AlertTriangle className="h-5 w-5 text-red-500" />
+                    )}
+                  </div>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search banks..."
+                    value={bankSearchQuery}
+                    onChange={(e) => setBankSearchQuery(e.target.value)}
+                    className="h-8 text-xs pl-8"
+                  />
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              {cbBankStats && cbBankStats.banks && cbBankStats.banks.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Bank</TableHead>
-                      <TableHead className="text-right">Chargebacks</TableHead>
-                      <TableHead className="text-right">CB Amount</TableHead>
-                      <TableHead className="text-right">CB Rate</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cbBankStats.banks.map((bank) => (
-                      <TableRow key={bank.bank_name} className={`${bank.alert ? "bg-red-50" : ""}`}>
-                        <TableCell className="font-medium">{bank.bank_name}</TableCell>
-                        <TableCell className="text-right">{bank.chargebacks}</TableCell>
-                        <TableCell className="text-right">{formatCurrency((bank as any).chargeback_amount)}</TableCell>
-                        <TableCell className={`text-right font-medium ${bank.alert ? 'text-red-600' : ''}`}>
-                          {formatPercent(bank.cb_rate)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {/* Total Row */}
-                    <TableRow className={`${hasBankAlert ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
-                      <TableCell>Total</TableCell>
-                      <TableCell className="text-right">{cbBankStats.totals.chargebacks}</TableCell>
-                      <TableCell className="text-right">{formatCurrency((cbBankStats.totals as any).chargeback_amount || cbBankStats.totals.total_amount)}</TableCell>
-                      <TableCell className={`text-right ${hasBankAlert ? 'text-red-600' : ''}`}>
-                        {formatPercent((cbBankStats.totals as any).cb_rate || (cbBankStats.totals as any).total_cb_rate || 0)}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-slate-500 text-center py-4">No bank data available</p>
+            <CardContent className="flex-1 overflow-y-auto">
+              { loading ? loadingSpinner : (
+                <>
+                  {filteredBankStats && filteredBankStats.banks && filteredBankStats.banks.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Bank</TableHead>
+                          <TableHead className="text-right">Chargebacks</TableHead>
+                          <TableHead className="text-right">CB Amount</TableHead>
+                          <TableHead className="text-right">CB Rate</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredBankStats.banks.map((bank) => (
+                          <TableRow key={bank.bank_name} className={`${bank.alert ? "bg-red-50" : ""}`}>
+                            <TableCell className="font-medium">{bank.bank_name}</TableCell>
+                            <TableCell className="text-right">{bank.chargebacks}</TableCell>
+                            <TableCell className="text-right">{formatCurrency((bank as any).chargeback_amount)}</TableCell>
+                            <TableCell className={`text-right font-medium ${bank.alert ? 'text-red-600' : ''}`}>
+                              {formatPercent(bank.cb_rate)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {/* Total Row - Hidden when searching */}
+                        {!bankSearchQuery.trim() && (
+                          <TableRow className={`${hasBankAlert ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
+                            <TableCell>Total</TableCell>
+                            <TableCell className="text-right">{cbBankStats?.totals.chargebacks}</TableCell>
+                            <TableCell className="text-right">{formatCurrency((cbBankStats?.totals as any).chargeback_amount || cbBankStats?.totals.total_amount)}</TableCell>
+                            <TableCell className={`text-right ${hasBankAlert ? 'text-red-600' : ''}`}>
+                              {formatPercent((cbBankStats?.totals as any).cb_rate || (cbBankStats?.totals as any).total_cb_rate || 0)}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <p className="text-slate-500 text-center py-4">
+                      {bankSearchQuery ? 'No banks found matching your search' : 'No bank data available'}
+                    </p>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

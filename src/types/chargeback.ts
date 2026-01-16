@@ -46,6 +46,7 @@ export interface BankChargebackStats {
   chargebacks: number
   chargeback_amount: number
   cb_rate: number
+  alert: boolean
 }
 
 export interface ChargebackBankStats {

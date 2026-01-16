@@ -380,7 +380,7 @@ class ApiClient {
   }
 
   async getChargebackStats(params: StatsFilterParams = {}): Promise<ChargebackStats> {
-    const query = this.buildQuery({ period: params.period || '7d', month: params.month, year: params.year })
+    const query = this.buildQuery({ period: params.period, month: params.month, year: params.year })
     const response = await this.request<{ data: ChargebackStats }>(
       `/admin/stats/chargeback-rates${query}`
     )
@@ -396,7 +396,7 @@ class ApiClient {
   }
 
   async getChargebackCodeStats(params: StatsFilterParams = {}): Promise<ChargebackCodeStats> {
-    const query = this.buildQuery({ period: params.period || '7d', month: params.month, year: params.year })
+    const query = this.buildQuery({ period: params.period, month: params.month, year: params.year })
     const response = await this.request<{ data: ChargebackCodeStats }>(
       `/admin/stats/chargeback-codes${query}`
     )
@@ -404,7 +404,7 @@ class ApiClient {
   }
 
   async getChargebackBankStats(params: StatsFilterParams = {}): Promise<ChargebackBankStats> {
-    const query = this.buildQuery({ period: params.period || '7d', month: params.month, year: params.year })
+    const query = this.buildQuery({ period: params.period, month: params.month, year: params.year })
     const response = await this.request<{ data: ChargebackBankStats }>(
       `/admin/stats/chargeback-banks${query}`
     )

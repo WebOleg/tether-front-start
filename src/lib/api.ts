@@ -97,6 +97,12 @@ export interface EmpRefreshJobStatusResponse {
   }
 }
 
+export interface StatsFilterParams {
+  period?: string
+  month?: number
+  year?: number
+}
+
 export class ApiError extends Error {
   errors: string[]
   status: number
@@ -373,9 +379,10 @@ class ApiClient {
     return response.data
   }
 
-  async getChargebackStats(period: string = '7d'): Promise<ChargebackStats> {
+  async getChargebackStats(params: StatsFilterParams = {}): Promise<ChargebackStats> {
+    const query = this.buildQuery({ period: params.period || '7d', month: params.month, year: params.year })
     const response = await this.request<{ data: ChargebackStats }>(
-      `/admin/stats/chargeback-rates?period=${period}`
+      `/admin/stats/chargeback-rates${query}`
     )
     return response.data
   }
@@ -388,16 +395,18 @@ class ApiClient {
     return response.data
   }
 
-  async getChargebackCodeStats(period: string = '7d'): Promise<ChargebackCodeStats> {
+  async getChargebackCodeStats(params: StatsFilterParams = {}): Promise<ChargebackCodeStats> {
+    const query = this.buildQuery({ period: params.period || '7d', month: params.month, year: params.year })
     const response = await this.request<{ data: ChargebackCodeStats }>(
-      `/admin/stats/chargeback-codes?period=${period}`
+      `/admin/stats/chargeback-codes${query}`
     )
     return response.data
   }
 
-  async getChargebackBankStats(period: string = '7d'): Promise<ChargebackBankStats> {
+  async getChargebackBankStats(params: StatsFilterParams = {}): Promise<ChargebackBankStats> {
+    const query = this.buildQuery({ period: params.period || '7d', month: params.month, year: params.year })
     const response = await this.request<{ data: ChargebackBankStats }>(
-      `/admin/stats/chargeback-banks?period=${period}`
+      `/admin/stats/chargeback-banks${query}`
     )
     return response.data
   }

@@ -3,7 +3,7 @@
  */
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Header } from '@/components/layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -64,14 +64,32 @@ function formatDate(date: Date): string {
   return date.toISOString().split('T')[0]
 }
 
+// Generate months from November 2025 to current date
+function generateMonthOptions() {
+  const options: { value: string; label: string; month: number; year: number }[] = []
+  const startDate = new Date(2025, 10, 1) // November 2025 (month is 0-indexed)
+  const endDate = new Date()
+
+  let current = new Date(startDate)
+  while (current <= endDate) {
+    const month = current.getMonth() + 1
+    const year = current.getFullYear()
+    const label = current.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    options.push({ value: `${year}-${month}`, label, month, year })
+    current.setMonth(current.getMonth() + 1)
+  }
+
+  return options.reverse() // Most recent first
+}
+
 export default function AnalyticsPage() {
   const [cbStats, setCbStats] = useState<ChargebackStats | null>(null)
   const [cbCodeStats, setCbCodeStats] = useState<ChargebackCodeStats | null>(null)
   const [cbBankStats, setCbBankStats] = useState<ChargebackBankStats | null>(null)
-  const [cbPeriod, setCbPeriod] = useState('7d')
-  const [cbCodePeriod, setCbCodePeriod] = useState('7d')
-  const [cbBankPeriod, setCbBankPeriod] = useState('7d')
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('7d')
   const [loading, setLoading] = useState(true)
+  
+  const monthOptions = useMemo(() => generateMonthOptions(), [])
   
   // Reconciliation state
   const [reconciling, setReconciling] = useState(false)
@@ -90,48 +108,41 @@ export default function AnalyticsPage() {
   })
   const [empToDate, setEmpToDate] = useState(() => formatDate(new Date()))
 
+  // Parse selected period into API params
+  const getFilterParams = useCallback(() => {
+    if (selectedPeriod === 'all') {
+      return {}
+    }
+    if (['24h', '7d', '30d', '90d'].includes(selectedPeriod)) {
+      return { period: selectedPeriod }
+    }
+    // Monthly format: "2025-12"
+    const [year, month] = selectedPeriod.split('-').map(Number)
+    return { month, year }
+  }, [selectedPeriod])
+
   useEffect(() => {
     const fetchChargebackStats = async () => {
+      setLoading(true)
       try {
-        const stats = await api.getChargebackStats(cbPeriod)
-        const codeStats = await api.getChargebackCodeStats(cbPeriod)
-        const bankStats = await api.getChargebackBankStats(cbPeriod)
+        const params = getFilterParams()
+        const [stats, codeStats, bankStats] = await Promise.all([
+          api.getChargebackStats(params),
+          api.getChargebackCodeStats(params),
+          api.getChargebackBankStats(params),
+        ])
+        setCbStats(stats)
         setCbCodeStats(codeStats)
         setCbBankStats(bankStats)
-        setCbStats(stats)
       } catch (err) {
         toast.error('Failed to load chargeback statistics')
         console.error('Failed to fetch chargeback stats:', err)
-      }
-    }
-    fetchChargebackStats()
-  }, [cbPeriod])
-
-  useEffect(() => {
-    const fetchChargebackCodeStats = async () => {
-      try {
-        const stats = await api.getChargebackCodeStats(cbCodePeriod)
-        setCbCodeStats(stats)
-      } catch (err) {
-        console.error('Failed to fetch chargeback code stats:', err)
-      }
-    }
-    fetchChargebackCodeStats()
-  }, [cbCodePeriod])
-
-  useEffect(() => {
-    const fetchChargebackBankStats = async () => {
-      try {
-        const stats = await api.getChargebackBankStats(cbBankPeriod)
-        setCbBankStats(stats)
-      } catch (err) {
-        console.error('Failed to fetch chargeback bank stats:', err)
       } finally {
         setLoading(false)
       }
     }
-    fetchChargebackBankStats()
-  }, [cbBankPeriod])
+    fetchChargebackStats()
+  }, [selectedPeriod, getFilterParams])
 
   // Check for existing EMP refresh job on mount
   useEffect(() => {
@@ -407,19 +418,25 @@ export default function AnalyticsPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-slate-700">Chargeback Analytics</h2>
           <div className="flex items-center gap-2">
-            <Label htmlFor="cb-period" className="text-sm">Period:</Label>
+            <Label htmlFor="cb-period" className="text-sm">Filter by Month:</Label>
             <Select
-              value={cbPeriod}
-              onValueChange={setCbPeriod}
+              value={selectedPeriod}
+              onValueChange={setSelectedPeriod}
             >
-              <SelectTrigger className="w-32 h-8">
+              <SelectTrigger className="w-44 h-8">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
                 <SelectItem value="24h">Last 24h</SelectItem>
                 <SelectItem value="7d">Last 7 days</SelectItem>
                 <SelectItem value="30d">Last 30 days</SelectItem>
                 <SelectItem value="90d">Last 90 days</SelectItem>
+                {monthOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

@@ -184,29 +184,39 @@ export default function ChargebacksPage() {
                       </TableCell>
                       <TableCell>
                         {cb.error_code && CHARGEBACK_RULES[cb.error_code]?.action.map((action, index) => (
-                          <div key={index}>
+                          <div key={index} className="text-xs text-slate-500">
                             {action}
                           </div>
                         ))}
                       </TableCell>
                       <TableCell>
-                        <div className="font-medium text-blue-600">
-                          {cb.debtor.first_name} {cb.debtor.last_name}
-                        </div>
-                        <div className="text-sm text-slate-500">
-                          {cb.debtor.email}
-                        </div>
+                        {cb.debtor ? (
+                          <>
+                            <div className="font-medium text-blue-600">
+                              {cb.debtor.first_name} {cb.debtor.last_name}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {cb.debtor.email}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-sm text-slate-500">
+                            -
+                          </div>
+                        )}
                       </TableCell>
-                      <TableCell className="font-mono">{(cb.debtor as any).iban || cb.debtor.iban_masked}</TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="font-mono text-sm">
+                        {cb.debtor ? ((cb.debtor as any).iban || cb.debtor.iban_masked) : '-'}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-mono">
                         {formatCurrency(cb.amount, cb.currency)}
                       </TableCell>
                       <TableCell>
                         <div>
-                          {cb.bank_name ?? 'Unknown Bank'}
+                          {cb.bank_name ?? '-'}
                         </div>
                         <div className="text-sm text-slate-600">
-                          {cb.bank_country}
+                          {cb.bank_country ?? '-'}
                         </div>
                       </TableCell>
                     </TableRow>

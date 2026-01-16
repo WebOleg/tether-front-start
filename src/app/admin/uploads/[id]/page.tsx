@@ -101,6 +101,14 @@ const validationStatusConfig: Record<string, { color: string; textColor: string;
     icon: <Ban className="h-5 w-5" />,
     label: 'Chargebacked'
   },
+  approved: {
+    color: 'text-green-600',
+    textColor: 'text-green-700',
+    rowBg: 'bg-green-50',
+    hoverBg: 'bg-green-100',
+    icon: <CheckCircle className="h-5 w-5" />,
+    label: 'Approved'
+  },
 }
 
 function formatDate(dateString: string): string {
@@ -123,6 +131,9 @@ function formatCurrency(amount: number): string {
 function getValidationDisplayStatus(debtor: Debtor): string {
   if (debtor.latest_billing?.status === 'chargebacked') {
     return 'chargebacked'
+  }
+  if (debtor.latest_billing?.status === 'approved') {
+    return 'approved'
   }
   if (debtor.validation_errors?.some(e => e.toLowerCase().includes('encoding'))) {
     return 'error'

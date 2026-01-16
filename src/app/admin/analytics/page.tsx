@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { api } from '@/lib/api'
+import { api, type DateMode } from '@/lib/api'
 import { 
   RefreshCw,
   AlertTriangle,
@@ -35,6 +35,8 @@ import {
   CheckCircle,
   Search,
   Loader2,
+  Calendar,
+  CalendarClock,
 } from 'lucide-react'
 import type { ChargebackStats, ChargebackCodeStats, ChargebackBankStats } from '@/types'
 import { Progress } from '@/components/ui/progress'
@@ -89,6 +91,7 @@ export default function AnalyticsPage() {
   const [cbCodeStats, setCbCodeStats] = useState<ChargebackCodeStats | null>(null)
   const [cbBankStats, setCbBankStats] = useState<ChargebackBankStats | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState<string>('7d')
+  const [dateMode, setDateMode] = useState<DateMode>('transaction')
   const [loading, setLoading] = useState(true)
   
   const monthOptions = useMemo(() => generateMonthOptions(), [])
@@ -124,16 +127,20 @@ export default function AnalyticsPage() {
 
   // Parse selected period into API params
   const getFilterParams = useCallback(() => {
+    const base: { period?: string; month?: number; year?: number; date_mode: DateMode } = {
+      date_mode: dateMode,
+    }
+    
     if (selectedPeriod === 'all') {
-      return {}
+      return base
     }
     if (['24h', '7d', '30d', '90d'].includes(selectedPeriod)) {
-      return { period: selectedPeriod }
+      return { ...base, period: selectedPeriod }
     }
     // Monthly format: "2025-12"
     const [year, month] = selectedPeriod.split('-').map(Number)
-    return { month, year }
-  }, [selectedPeriod])
+    return { ...base, month, year }
+  }, [selectedPeriod, dateMode])
 
   useEffect(() => {
     const fetchChargebackStats = async () => {
@@ -156,7 +163,7 @@ export default function AnalyticsPage() {
       }
     }
     fetchChargebackStats()
-  }, [selectedPeriod, getFilterParams])
+  }, [selectedPeriod, dateMode, getFilterParams])
 
   // Check for existing EMP refresh job on mount
   useEffect(() => {
@@ -435,31 +442,76 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Second Row Time Period Selection */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
           <h2 className="text-lg font-semibold text-slate-700">Chargeback Analytics</h2>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="cb-period" className="text-sm">Filter by Month:</Label>
-            <Select
-              value={selectedPeriod}
-              onValueChange={setSelectedPeriod}
-            >
-              <SelectTrigger className="w-44 h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="24h">Last 24h</SelectItem>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-                <SelectItem value="90d">Last 90 days</SelectItem>
-                {monthOptions.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
+          <div className="flex items-center gap-4">
+            {/* Date Mode Selector */}
+            <div className="flex items-center gap-2">
+              <Label htmlFor="date-mode" className="text-sm whitespace-nowrap">Date by:</Label>
+              <Select
+                value={dateMode}
+                onValueChange={(value: DateMode) => setDateMode(value)}
+              >
+                <SelectTrigger className="w-48 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="transaction">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      <span>Transaction Date</span>
+                    </div>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  <SelectItem value="chargeback">
+                    <div className="flex items-center gap-2">
+                      <CalendarClock className="h-4 w-4" />
+                      <span>Chargeback Date</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Period Selector */}
+            <div className="flex items-center gap-2">
+              <Label htmlFor="cb-period" className="text-sm">Filter:</Label>
+              <Select
+                value={selectedPeriod}
+                onValueChange={setSelectedPeriod}
+              >
+                <SelectTrigger className="w-44 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="24h">Last 24h</SelectItem>
+                  <SelectItem value="7d">Last 7 days</SelectItem>
+                  <SelectItem value="30d">Last 30 days</SelectItem>
+                  <SelectItem value="90d">Last 90 days</SelectItem>
+                  {monthOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+        </div>
+        
+        {/* Date Mode Info Banner */}
+        <div className={`mb-4 p-3 rounded-lg text-sm ${dateMode === 'transaction' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
+          {dateMode === 'transaction' ? (
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              <span><strong>Transaction Date:</strong> Chargebacks counted by when the original transaction was created</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4" />
+              <span><strong>Chargeback Date:</strong> Chargebacks counted by when the chargeback was received</span>
+            </div>
+          )}
         </div>
 
         {/* Third Row Chargeback Ratios */}

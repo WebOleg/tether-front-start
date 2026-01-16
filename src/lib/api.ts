@@ -202,8 +202,9 @@ class ApiClient {
     return response.data
   }
 
-  async getDashboard(): Promise<DashboardData> {
-    const response = await this.request<{ data: DashboardData }>('/admin/dashboard')
+  async getDashboard(params?: { month?: number; year?: number }): Promise<DashboardData> {
+    const query = this.buildQuery(params)
+    const response = await this.request<{ data: DashboardData }>(`/admin/dashboard${query}`)
     return response.data
   }
 

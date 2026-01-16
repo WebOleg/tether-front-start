@@ -101,6 +101,14 @@ const validationStatusConfig: Record<string, { color: string; textColor: string;
     icon: <Ban className="h-5 w-5" />,
     label: 'Chargebacked'
   },
+  approved: {
+    color: 'text-green-600',
+    textColor: 'text-green-700',
+    rowBg: 'bg-green-50',
+    hoverBg: 'bg-green-100',
+    icon: <CheckCircle className="h-5 w-5" />,
+    label: 'Approved'
+  },
 }
 
 function formatDate(dateString: string): string {
@@ -124,6 +132,9 @@ function getValidationDisplayStatus(debtor: Debtor): string {
   if (debtor.latest_billing?.status === 'chargebacked') {
     return 'chargebacked'
   }
+  if (debtor.latest_billing?.status === 'approved') {
+    return 'approved'
+  }
   if (debtor.validation_errors?.some(e => e.toLowerCase().includes('encoding'))) {
     return 'error'
   }
@@ -140,11 +151,10 @@ export default function UploadDetailPage() {
   const [vopStats, setVopStats] = useState<VopStats | null>(null)
   const [billingStats, setBillingStats] = useState<BillingStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [validating, setValidating] = useState(true)
-  const [validationCompleted, setValidationCompleted] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [filtering, setFiltering] = useState(false)
   const [verifyingVop, setVerifyingVop] = useState(false)
+  const [validating, setValidating] = useState(false) // Local state for immediate UI feedback
   const [search, setSearch] = useState('')
   const [hoveredId, setHoveredId] = useState<number | null>(null)
   const [editingDebtor, setEditingDebtor] = useState<Debtor | null>(null)
@@ -158,7 +168,22 @@ export default function UploadDetailPage() {
   const [hasFetchedInitial, setHasFetchedInitial] = useState(false)
   const [VerifyVopInProgress, setVerifyVopInProgress] = useState(true)
 
-  const fetchVopStats = async () => {
+  // Show validation UI when local state OR backend reports processing
+  const isValidating = validating || stats?.is_processing
+  
+  // Derived state: validation is complete when not processing and no pending
+  const validationCompleted = stats ? !stats.is_processing && stats.pending === 0 : false
+
+  // Sync local validating state with backend
+  useEffect(() => {
+    if (stats?.is_processing) {
+      setValidating(true)
+    } else if (stats && !stats.is_processing && stats.pending === 0) {
+      setValidating(false)
+    }
+  }, [stats?.is_processing, stats?.pending])
+
+  const fetchVopStats = useCallback(async () => {
     try {
       const data = await api.getVopStats(uploadId)
       setVerifyVopInProgress(data?.is_processing ?? true)
@@ -166,7 +191,7 @@ export default function UploadDetailPage() {
     } catch (error) {
       console.error('Failed to fetch VOP stats:', error)
     }
-  }
+  }, [uploadId])
 
   const fetchBillingStats = useCallback(async () => {
     try {
@@ -183,9 +208,6 @@ export default function UploadDetailPage() {
     try {
       const statsData = await api.getUploadValidationStats(uploadId)
       setStats(statsData)
-      if(statsData.pending === 0){
-        setValidationCompleted(true)
-      }
       return statsData
     } catch (error) {
       console.error('Failed to fetch validation stats:', error)
@@ -221,19 +243,18 @@ export default function UploadDetailPage() {
         const uploadData = await api.getUpload(uploadId)
         setUpload(uploadData)
 
-        // Start async validation (returns 202 immediately)
+        // Set local validating state BEFORE starting validation
         setValidating(true)
+        
+        // Start async validation (returns 202 immediately)
         api.validateUpload(uploadId).catch(err => {
           console.error('Validation dispatch error:', err)
         })
 
-        const statsData = await api.getUploadValidationStats(uploadId)
-        setStats(statsData)
-        if(statsData.pending === 0){
-          setValidating(false)
-          setValidationCompleted(true)
-        }
+        // Small delay to allow backend to start processing
+        await new Promise(resolve => setTimeout(resolve, 500))
 
+        await fetchValidationStats()
         await fetchDebtors()
         await fetchVopStats()
         await fetchBillingStats()
@@ -249,34 +270,23 @@ export default function UploadDetailPage() {
     if (uploadId) {
       initPage()
     }
-  }, [uploadId, fetchBillingStats])
+  }, [uploadId, fetchBillingStats, fetchValidationStats, fetchDebtors, fetchVopStats])
 
-  // Poll validation stats while validating
+  // Poll validation stats while processing (uses local validating OR backend is_processing flag)
   useEffect(() => {
-    if (!validating || !uploadId) return
+    if (!isValidating || !uploadId) return
     
     const interval = setInterval(async () => {
       const newStats = await fetchValidationStats()
-      if (newStats && newStats.pending === 0) {
-        setStats(newStats)
-        fetchVopStats()
+      if (newStats && !newStats.is_processing && newStats.pending === 0) {
         setValidating(false)
-        setValidationCompleted(true)
-        // Refresh debtors list
+        fetchVopStats()
         await fetchDebtors()
       }
     }, 2000)
 
-    // Stop polling after 60 seconds
-    const timeout = setTimeout(() => {
-      setValidating(false)
-    }, 60000)
-
-    return () => {
-      clearInterval(interval)
-      clearTimeout(timeout)
-    }
-  }, [validating, uploadId, fetchValidationStats])
+    return () => clearInterval(interval)
+  }, [isValidating, uploadId, fetchValidationStats, fetchDebtors, fetchVopStats])
 
   useEffect(() => {
     if (!billingStats?.is_processing) return
@@ -293,7 +303,7 @@ export default function UploadDetailPage() {
   }, [billingStats?.is_processing, fetchBillingStats])
 
   useEffect(() => {
-    if (!uploadId || loading || !hasFetchedInitial) return  // Skip if initial fetch isn't done yet
+    if (!uploadId || loading || !hasFetchedInitial) return
 
     const fetchData = async () => {
       setTableLoading(true)
@@ -354,7 +364,6 @@ export default function UploadDetailPage() {
   }
 
   const handleSync = async () => {
-    // VOP Gate: Check on frontend first
     if (vopPending > 0) {
       toast.error(`VOP verification must be completed first. ${vopPending} debtors pending.`, {
         action: {
@@ -382,7 +391,6 @@ export default function UploadDetailPage() {
         toast.info(result.message)
       }
     } catch (error: any) {
-      // Handle VOP gate error from backend (422)
       if (error.response?.data?.data?.vop_required) {
         const vopData = error.response.data.data
         toast.error(`VOP verification required. ${vopData.vop_pending} debtors pending.`, {
@@ -472,9 +480,7 @@ export default function UploadDetailPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-slate-400 mx-auto" />
-          <p className="mt-2 text-sm text-slate-500">
-            {validating ? 'Validating records...' : 'Loading...'}
-          </p>
+          <p className="mt-2 text-sm text-slate-500">Loading...</p>
         </div>
       </div>
     )
@@ -499,8 +505,7 @@ export default function UploadDetailPage() {
   const vopTotalEligible = vopStats ? vopStats.total_eligible : 0
   const hasBillingActivity = billingStats && billingStats.total_attempts > 0
 
-  // VOP Gate: Disable sync button if VOP not completed
-  const canSync = (vopTotalEligible === 0 || vopPending === 0) && validating === false
+  const canSync = (vopTotalEligible === 0 || vopPending === 0) && !isValidating
 
   const handlePreviousPage = () => {
     if (links?.prev) {
@@ -539,7 +544,7 @@ export default function UploadDetailPage() {
             <span className="text-sm text-slate-500">
               {stats?.total || 0} records
             </span>
-            {!validationCompleted && (
+            {isValidating && (
               <Badge className="bg-blue-100 text-blue-800 gap-1">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Validating...
@@ -614,7 +619,6 @@ export default function UploadDetailPage() {
           </div>
         </div>
 
-        {/* VOP Gate Warning Banner */}
         {validationCompleted && vopPending > 0 && (stats?.ready_for_sync || 0) > 0 && (
           <div className="mx-6 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
             <ShieldCheck className="h-5 w-5 text-amber-600 flex-shrink-0" />
@@ -642,8 +646,7 @@ export default function UploadDetailPage() {
           </div>
         )}
 
-        {/* Validation Info Banner */}
-        {!validationCompleted && (
+        {isValidating && (
           <div className="mx-6 mt-4 p-3 bg-blue-100 border border-blue-300 rounded-lg">
             <div className="flex items-center gap-3">
               <Loader2 className="h-5 w-5 text-blue-700 flex-shrink-0 animate-spin" />
@@ -672,7 +675,7 @@ export default function UploadDetailPage() {
         )}
 
         {stats && (
-          <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
+          <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 gap-4">
             <Card>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2">
@@ -706,7 +709,23 @@ export default function UploadDetailPage() {
                   <div className="w-3 h-3 bg-red-600 rounded-full" />
                   <span className="text-sm text-slate-500">Chargebacked</span>
                 </div>
-                <p className="text-2xl font-semibold mt-1">{stats.chargebacked}</p>
+                <p className="text-2xl font-semibold mt-1">
+                  {stats.chargebacked}
+                  {(upload?.billed_with_emp_count ?? 0) > 0 && (
+                    <span className="text-sm text-slate-500 ml-2">
+                      ({Math.round((stats.chargebacked / (upload?.billed_with_emp_count ?? 1)) * 100)}%)
+                    </span>
+                  )}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className={(upload.bav_passed_count ?? 0) > 0 ? 'border-green-300 bg-green-50' : ''}>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-green-500 rounded-full" />
+                  <span className="text-sm text-slate-500">BAV Passed</span>
+                </div>
+                <p className="text-2xl font-semibold mt-1">{upload.bav_passed_count ?? 0}</p>
               </CardContent>
             </Card>
             <Card className={(upload.bav_excluded_count ?? 0) > 0 ? 'border-amber-300 bg-amber-50' : ''}>

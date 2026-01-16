@@ -655,7 +655,7 @@ export default function AnalyticsPage() {
                           return (
                             <TableRow key={code.chargeback_code}>
                               <TableCell className="font-mono text-sm">{code.chargeback_code}</TableCell>
-                              <TableCell className="text-sm">{rule?.description || code.chargeback_reason}</TableCell>
+                              <TableCell className="text-sm">{rule?.detail || code.chargeback_reason}</TableCell>
                               <TableCell className="text-right">{code.occurrences}</TableCell>
                               <TableCell className="text-right">{formatCurrency(code.total_amount)}</TableCell>
                             </TableRow>

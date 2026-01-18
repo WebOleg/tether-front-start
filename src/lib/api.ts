@@ -30,6 +30,8 @@ import type {
   BillingSyncResponse,
   BillingStats,
   BillingRetryResponse,
+  ChargebackCodes,
+  Chargebacks,
   BicAnalyticsStats,
 } from '@/types'
 
@@ -95,10 +97,20 @@ export interface EmpRefreshJobStatusResponse {
   }
 }
 
+export type DateMode = 'transaction' | 'chargeback'
+
+export interface StatsFilterParams {
+  period?: string
+  month?: number
+  year?: number
+  date_mode?: DateMode
+  model?: string // Merged from HEAD functionality
+}
+
 export class ApiError extends Error {
   errors: string[]
   status: number
-  
+
   constructor(message: string, errors: string[] = [], status: number = 422) {
     super(message)
     this.errors = errors
@@ -149,8 +161,8 @@ class ApiClient {
   private buildQuery(params?: object): string {
     if (!params) return ''
     const filtered = Object.entries(params)
-      .filter(([, value]) => value !== undefined && value !== null && value !== '')
-      .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+        .filter(([, value]) => value !== undefined && value !== null && value !== '')
+        .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
     return filtered.length ? `?${filtered.join('&')}` : ''
   }
 
@@ -179,9 +191,9 @@ class ApiClient {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
       throw new ApiError(
-        error.message || `API Error: ${response.status}`,
-        error.errors || [],
-        response.status
+          error.message || `API Error: ${response.status}`,
+          error.errors || [],
+          response.status
       )
     }
 
@@ -210,8 +222,9 @@ class ApiClient {
     return response.data
   }
 
-  async getDashboard(): Promise<DashboardData> {
-    const response = await this.request<{ data: DashboardData }>('/admin/dashboard')
+  async getDashboard(params?: { month?: number; year?: number }): Promise<DashboardData> {
+    const query = this.buildQuery(params)
+    const response = await this.request<{ data: DashboardData }>(`/admin/dashboard${query}`)
     return response.data
   }
 
@@ -307,9 +320,9 @@ class ApiClient {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
       throw new ApiError(
-        error.message || `Validation failed: ${response.status}`,
-        error.errors || [],
-        response.status
+          error.message || `Validation failed: ${response.status}`,
+          error.errors || [],
+          response.status
       )
     }
 
@@ -326,8 +339,8 @@ class ApiClient {
 
   async deleteUpload(id: number): Promise<UploadDelete> {
     const response = await this.request<UploadDelete>(
-      `/admin/uploads/${id}`,
-      { method: 'DELETE' }
+        `/admin/uploads/${id}`,
+        { method: 'DELETE' }
     )
     return response
   }
@@ -352,8 +365,8 @@ class ApiClient {
 
   async validateDebtor(id: number): Promise<{ validation_status: string; validation_errors: string[] | null }> {
     const response = await this.request<{ data: { validation_status: string; validation_errors: string[] | null } }>(
-      `/admin/debtors/${id}/validate`,
-      { method: 'POST' }
+        `/admin/debtors/${id}/validate`,
+        { method: 'POST' }
     )
     return response.data
   }
@@ -382,8 +395,14 @@ class ApiClient {
     return response.data
   }
 
-  async getChargebackStats(period: string = '7d', filters?: AnalyticsFilters): Promise<ChargebackStats> {
-    const query = this.buildQuery({ period, ...filters })
+  async getChargebackStats(params: StatsFilterParams = {}): Promise<ChargebackStats> {
+    const query = this.buildQuery({
+      period: params.period,
+      month: params.month,
+      year: params.year,
+      date_mode: params.date_mode || 'transaction',
+      model: params.model
+    })
     const response = await this.request<{ data: ChargebackStats }>(
         `/admin/stats/chargeback-rates${query}`
     )
@@ -398,16 +417,28 @@ class ApiClient {
     return response.data
   }
 
-  async getChargebackCodeStats(period: string = '7d', filters?: AnalyticsFilters): Promise<ChargebackCodeStats> {
-    const query = this.buildQuery({ period, ...filters })
+  async getChargebackCodeStats(params: StatsFilterParams = {}): Promise<ChargebackCodeStats> {
+    const query = this.buildQuery({
+      period: params.period,
+      month: params.month,
+      year: params.year,
+      date_mode: params.date_mode || 'transaction',
+      model: params.model
+    })
     const response = await this.request<{ data: ChargebackCodeStats }>(
         `/admin/stats/chargeback-codes${query}`
     )
     return response.data
   }
 
-  async getChargebackBankStats(period: string = '7d', filters?: AnalyticsFilters): Promise<ChargebackBankStats> {
-    const query = this.buildQuery({ period, ...filters })
+  async getChargebackBankStats(params: StatsFilterParams = {}): Promise<ChargebackBankStats> {
+    const query = this.buildQuery({
+      period: params.period,
+      month: params.month,
+      year: params.year,
+      date_mode: params.date_mode || 'transaction',
+      model: params.model
+    })
     const response = await this.request<{ data: ChargebackBankStats }>(
         `/admin/stats/chargeback-banks${query}`
     )
@@ -442,6 +473,16 @@ class ApiClient {
     return this.request<ApiResponse<VopLog[]>>(`/admin/uploads/${uploadId}/vop-logs`)
   }
 
+  async getChargebackCodes(): Promise<ChargebackCodes[]> {
+    const response = await this.request<{ data: ChargebackCodes[] }>('/admin/chargebacks/codes')
+    return response.data
+  }
+
+  async getChargebacks(params?: object): Promise<ApiResponse<Chargebacks[]>> {
+    const query = this.buildQuery(params)
+    return this.request<ApiResponse<Chargebacks[]>>(`/admin/chargebacks${query}`)
+  }
+
   async verifySingleIban(data: VopSingleVerifyRequest): Promise<VopSingleVerifyResponse> {
     return this.request<VopSingleVerifyResponse>('/admin/vop/verify-single', {
       method: 'POST',
@@ -474,14 +515,14 @@ class ApiClient {
 
   async retryBillingAttempt(attemptId: number): Promise<BillingRetryResponse> {
     return this.request<BillingRetryResponse>(
-      `/admin/billing-attempts/${attemptId}/retry`,
-      { method: 'POST' }
+        `/admin/billing-attempts/${attemptId}/retry`,
+        { method: 'POST' }
     )
   }
 
   async getReconciliationStats(): Promise<ReconciliationStats> {
     const response = await this.request<{ data: ReconciliationStats }>(
-      '/admin/reconciliation/stats'
+        '/admin/reconciliation/stats'
     )
     return response.data
   }
@@ -511,8 +552,8 @@ class ApiClient {
     }
   }> {
     return this.request(
-      `/admin/billing-attempts/${attemptId}/reconcile`,
-      { method: 'POST' }
+        `/admin/billing-attempts/${attemptId}/reconcile`,
+        { method: 'POST' }
     )
   }
 
@@ -526,8 +567,8 @@ class ApiClient {
     }
   }> {
     return this.request(
-      `/admin/uploads/${uploadId}/reconcile`,
-      { method: 'POST' }
+        `/admin/uploads/${uploadId}/reconcile`,
+        { method: 'POST' }
     )
   }
 

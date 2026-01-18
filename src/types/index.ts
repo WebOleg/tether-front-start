@@ -90,7 +90,10 @@ export interface Upload {
   skipped?: SkippedCounts | null
   skipped_rows?: SkippedRow[] | null
   bav_excluded_count?: number
+  bav_passed_count?: number
   bav_verified_count?: number
+  billed_with_emp_count?: number
+  chargeback_count?: number
 }
 
 export type UploadStatus = 'pending' | 'processing' | 'completed' | 'failed'
@@ -161,7 +164,7 @@ export interface Debtor {
   debtor_profile?: DebtorProfile
 }
 
-export type DebtorStatus = 'pending' | 'processing' | 'recovered' | 'failed'
+export type DebtorStatus = 'uploaded' | 'pending' | 'processing' | 'recovered' | 'failed'
 export type ValidationStatus = 'pending' | 'valid' | 'invalid'
 export type RiskClass = 'low' | 'medium' | 'high'
 
@@ -183,8 +186,8 @@ export interface ValidationStats {
   ready_for_sync: number
   skipped?: SkippedCounts | null
   model_counts?: ModelCounts
+  is_processing: boolean
 }
-
 export type NameMatch = 'yes' | 'partial' | 'no' | 'unavailable' | 'error'
 
 export interface VopLog {
@@ -425,7 +428,7 @@ export interface ChargebackBankDetail {
   chargebacks: number;
   cb_rate: number;
   alert: boolean;
-} 
+}
 
 export interface ChargebackBankTotal {
   total: number;
@@ -441,6 +444,8 @@ export interface ChargebackBankStats {
   banks: ChargebackBankDetail[];
   totals: ChargebackBankTotal;
 }
+
+export type DateMode = 'transaction' | 'chargeback'
 
 // ==========================================================================
 // VOP Verification Types
@@ -522,6 +527,26 @@ export interface BillingRetryResponse {
     id: number
     status: string
     can_retry: boolean
+  }
+}
+
+export type ChargebackCodes = string
+
+export interface Chargebacks {
+  id: number
+  error_code: string | null
+  error_message: string | null
+  amount: number
+  currency: string
+  bank_name: string | null
+  bank_country: string | null
+  processed_at: string
+  debtor: {
+    id: number
+    first_name: string
+    last_name: string | null
+    email: string
+    iban_masked: string
   }
 }
 

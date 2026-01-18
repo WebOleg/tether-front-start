@@ -8,11 +8,12 @@ import { useEffect, useState } from 'react'
 import { Header } from '@/components/layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { api } from '@/lib/api'
-import { 
-  Upload, 
-  Users, 
-  ShieldCheck, 
+import {
+  Upload,
+  Users,
+  ShieldCheck,
   CreditCard,
   TrendingUp,
   CheckCircle,
@@ -64,15 +65,43 @@ const statusIcons: Record<string, React.ReactNode> = {
   failed: <AlertCircle className="h-4 w-4 text-red-600" />,
 }
 
+// Generate months from November 2025 to current date
+function generateMonthOptions() {
+  const options: { value: string; label: string; month: number; year: number }[] = []
+  const startDate = new Date(2025, 10, 1) // November 2025 (month is 0-indexed)
+  const endDate = new Date()
+
+  let current = new Date(startDate)
+  while (current <= endDate) {
+    const month = current.getMonth() + 1
+    const year = current.getFullYear()
+    const label = current.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    options.push({ value: `${year}-${month}`, label, month, year })
+    current.setMonth(current.getMonth() + 1)
+  }
+
+  return options.reverse() // Most recent first
+}
+
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('all')
+  const monthOptions = generateMonthOptions()
 
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const dashboard = await api.getDashboard()
+        const params: { month?: number; year?: number } = {}
+
+        if (selectedPeriod !== 'all') {
+          const [year, month] = selectedPeriod.split('-').map(Number)
+          params.month = month
+          params.year = year
+        }
+
+        const dashboard = await api.getDashboard(params)
         setData(dashboard)
       } catch (err) {
         console.error('Failed to fetch dashboard:', err)
@@ -83,7 +112,7 @@ export default function AdminDashboard() {
     }
 
     fetchDashboard()
-  }, [])
+  }, [selectedPeriod])
 
   if (loading) {
     return (
@@ -159,14 +188,15 @@ export default function AdminDashboard() {
 
   const financialCards = [
     {
-      title: 'Total Debt',
+      title: 'Total Billed (EMP)',
       value: formatCurrency(data.debtors.total_amount),
       icon: TrendingUp,
       color: 'text-slate-600',
     },
     {
-      title: 'Recovered',
+      title: 'Net Recovered',
       value: formatCurrency(data.debtors.recovered_amount),
+      subtitle: `${data.debtors.recovery_rate}% recovery rate`,
       icon: CheckCircle,
       color: 'text-green-600',
     },
@@ -189,6 +219,26 @@ export default function AdminDashboard() {
     <>
       <Header title="Dashboard" description="Overview of your debt recovery operations" />
       <div className="p-6 space-y-6">
+        {/* Month Filter */}
+        <div className="flex items-center gap-4">
+          <label htmlFor="month-filter" className="text-sm font-medium text-slate-700">
+            Filter by Month:
+          </label>
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-[240px]" id="month-filter">
+              <SelectValue placeholder="All Time" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Time</SelectItem>
+              {monthOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* KPI Cards */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {kpiCards.map((card) => (

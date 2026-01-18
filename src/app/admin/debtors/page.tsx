@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/tooltip"
 import { api } from '@/lib/api'
 import type { Debtor, DebtorStatus, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
-import { Pagination, PaginationMeta } from '@/components/ui/pagination'
+import { PaginationMeta } from '@/components/ui/pagination'
 import {
   CheckCircle2,
   XCircle,
@@ -66,6 +66,7 @@ import {
 // --- HELPERS ---
 
 const statusColors: Record<DebtorStatus, string> = {
+  uploaded: 'bg-slate-100 text-slate-800',
   pending: 'bg-yellow-100 text-yellow-800',
   processing: 'bg-blue-100 text-blue-800',
   recovered: 'bg-green-100 text-green-800',
@@ -84,7 +85,7 @@ const modelRowStyles: Record<string, string> = {
   legacy: 'bg-white hover:bg-slate-50',
 }
 
-const statusRowStyles: Record<DebtorStatus, string> = {
+const statusRowStyles: Record<DebtorStatus | string, string> = {
   pending: 'bg-yellow-50/60 hover:bg-yellow-100/60',
   processing: 'bg-blue-50/60 hover:bg-blue-100/60',
   recovered: 'bg-green-50/60 hover:bg-green-100/60',
@@ -156,7 +157,6 @@ export default function DebtorsPage() {
   const [loading, setLoading] = useState(true)
   const [meta, setMeta] = useState<PaginationMetaType | null>(null)
   const [links, setLinks] = useState<PaginationLinks | null>(null)
-  const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
 
   // Local state for Search Input
   const [searchInput, setSearchInput] = useState(currentSearch)
@@ -227,10 +227,6 @@ export default function DebtorsPage() {
       setDebtors(response.data)
       setMeta(response.meta || null)
       setLinks(response.links || null)
-
-      if ('links' in response.meta!) {
-        setPaginationLinks((response.meta as PaginationMetaType & {links? : PaginationLink[]}).links || [])
-      }
     } catch (error) {
       console.error('Failed to fetch debtors:', error)
     } finally {
@@ -243,9 +239,6 @@ export default function DebtorsPage() {
   }, [fetchDebtors])
 
   // Handlers
-  const handlePageClick = (page: number) => updateUrl({ page })
-  const handlePreviousPage = () => { if (links?.prev) updateUrl({ page: currentPage - 1 }) }
-  const handleNextPage = () => { if (links?.next) updateUrl({ page: currentPage + 1 }) }
   const handleStatusFilterChange = (status: string) => updateUrl({ status })
   const handleModelFilterChange = (model: string) => updateUrl({ model })
 
@@ -390,6 +383,7 @@ export default function DebtorsPage() {
                   <TableHead>Country</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Bank Name</TableHead>
+                  <TableHead>Bank Country</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Risk</TableHead>
                   <TableHead className="w-[100px]"></TableHead>
@@ -398,13 +392,13 @@ export default function DebtorsPage() {
               <TableBody>
                 {loading ? (
                     <TableRow>
-                      <TableCell colSpan={13} className="text-center py-8">
+                      <TableCell colSpan={14} className="text-center py-8">
                         Loading...
                       </TableCell>
                     </TableRow>
                 ) : debtors.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={13} className="text-center py-8">
+                      <TableCell colSpan={14} className="text-center py-8">
                         No debtors found
                       </TableCell>
                     </TableRow>
@@ -527,6 +521,7 @@ export default function DebtorsPage() {
                               {formatCurrency(debtor.amount, debtor.currency)}
                             </TableCell>
                             <TableCell>{debtor.bank_name_reference}</TableCell>
+                            <TableCell>{debtor.bank_country_iso_reference}</TableCell>
                             <TableCell>
                               <Badge className={statusColors[debtor.status]}>
                                 {debtor.status}

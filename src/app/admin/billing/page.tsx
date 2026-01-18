@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Header } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
@@ -115,7 +115,7 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-export default function BillingPage() {
+function BillingContent() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -453,5 +453,20 @@ export default function BillingPage() {
 
         </div>
       </>
+  )
+}
+
+export default function BillingPage() {
+  return (
+      <Suspense fallback={
+        <div className="p-6">
+          <Header title="Billing History" description="Loading..." />
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
+          </div>
+        </div>
+      }>
+        <BillingContent />
+      </Suspense>
   )
 }

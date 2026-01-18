@@ -11,6 +11,14 @@ import { Header } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -32,6 +40,10 @@ import {
   FileSpreadsheet,
   Ban,
   Eye,
+  Settings2,
+  Zap,
+  RotateCcw,
+  Archive,
   Trash2
  } from 'lucide-react'
 import type { Upload, SkippedCounts, PaginationLinks, PaginationLink, PaginationMeta as PaginationMetaType } from '@/types'
@@ -110,6 +122,7 @@ export default function UploadsPage() {
   const [uploads, setUploads] = useState<UploadWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const [file, setFile] = useState<File | null>(null)
+  const [billingModel, setBillingModel] = useState<string>('legacy')
   const [isUploading, setIsUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<UploadStatusState | null>(null)
   const [activeUploadId, setActiveUploadId] = useState<number | null>(null)
@@ -267,7 +280,7 @@ export default function UploadsPage() {
     completedUploadsRef.current.clear()
 
     try {
-      const result = await api.uploadFile(file)
+      const result = await api.uploadFile(file, billingModel)
       setActiveUploadId(result.upload.id)
 
       if (result.skipped && result.skipped.total > 0) {
@@ -373,60 +386,121 @@ export default function UploadsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div
-                ref={dropZoneRef}
-                onClick={() => fileInputRef.current?.click()}
-                onDragEnter={handleDragEnter}
-                onDragLeave={handleDragLeave}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                className={`flex flex-col items-center justify-center gap-4 p-8 border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
-                  isDragActive
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100'
-                }`}
-              >
-                <FileUp className={`h-8 w-8 ${isDragActive ? 'text-blue-500' : 'text-slate-400'}`} />
-                <div className="text-center">
-                  <p className={`font-medium ${isDragActive ? 'text-blue-700' : 'text-slate-700'}`}>
-                    {isDragActive ? 'Drop your file here' : 'Drag and drop your CSV, TXT or XLSX file here'}
+
+              {/* Configuration Bar */}
+              <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between p-4 rounded-lg border bg-slate-50/50">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <Settings2 className="h-4 w-4 text-slate-500" />
+                    <Label htmlFor="billing-model" className="text-base font-medium text-slate-900">
+                      Configuration
+                    </Label>
+                  </div>
+                  <p className="text-sm text-slate-500">
+                    Select the billing strategy (model) to apply
                   </p>
-                  <p className="text-sm text-slate-500 mt-1">or click to select</p>
+                </div>
+
+                <div className="w-full sm:w-[240px]">
+                  <Select
+                      value={billingModel}
+                      onValueChange={setBillingModel}
+                      disabled={isUploading}
+                  >
+                    <SelectTrigger id="billing-model" className="bg-white">
+                      <SelectValue placeholder="Select model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="legacy">
+                        <div className="flex items-center gap-2">
+                          <Archive className="h-4 w-4 text-slate-500" />
+                          <span>Legacy</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="flywheel">
+                        <div className="flex items-center gap-2">
+                          <Zap className="h-4 w-4 text-blue-600" />
+                          <span>Flywheel</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="recovery">
+                        <div className="flex items-center gap-2">
+                          <RotateCcw className="h-4 w-4 text-purple-600" />
+                          <span>Recovery</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Dropzone */}
+              <div
+                  ref={dropZoneRef}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  className={`flex flex-col items-center justify-center gap-4 p-10 border-2 border-dashed rounded-lg transition-all duration-200 cursor-pointer ${
+                      isDragActive
+                          ? 'border-blue-500 bg-blue-50/50 scale-[0.99]'
+                          : 'border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-100/50'
+                  }`}
+              >
+                <div className={`p-4 rounded-full ${isDragActive ? 'bg-blue-100' : 'bg-white shadow-sm ring-1 ring-slate-200'}`}>
+                  <FileUp className={`h-8 w-8 ${isDragActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                </div>
+
+                <div className="text-center space-y-1">
+                  <p className={`font-medium text-lg ${isDragActive ? 'text-blue-700' : 'text-slate-700'}`}>
+                    {isDragActive ? 'Drop your file here' : 'Click to upload or drag and drop'}
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    CSV, TXT or XLSX (max 50MB)
+                  </p>
                 </div>
 
                 <Input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,.txt,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  disabled={isUploading}
-                />
-                </div>
-                {file && !uploadStatus && !activeUploadId && (
-                <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="text-sm text-green-700">
-                    <p className="font-medium">{file.name}</p>
-                    <p className="text-xs">{formatFileSize(file.size)}</p>
-                  </div>
-                  <Button
-                    type="submit"
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,.txt,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                    onChange={handleFileChange}
+                    className="hidden"
                     disabled={isUploading}
-                    className="gap-2"
-                  >
-                    {isUploading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <LucideUpload className="h-4 w-4" />
-                        Upload
-                      </>
-                    )}
-                  </Button>
-                </div>
+                />
+              </div>
+
+              {/* File Selected State */}
+              {file && !uploadStatus && !activeUploadId && (
+                  <div className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg shadow-sm animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-100 rounded-md">
+                        <FileSpreadsheet className="h-5 w-5 text-green-700" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-900">{file.name}</p>
+                        <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
+                      </div>
+                    </div>
+                    <Button
+                        type="submit"
+                        disabled={isUploading}
+                        className="gap-2 min-w-[120px]"
+                    >
+                      {isUploading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Uploading...
+                          </>
+                      ) : (
+                          <>
+                            <LucideUpload className="h-4 w-4" />
+                            Start Upload
+                          </>
+                      )}
+                    </Button>
+                  </div>
               )}
             </form>
 

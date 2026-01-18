@@ -101,6 +101,23 @@ export interface UploadDelete {
 }
 
 export type VopStatus = 'pending' | 'verified' | 'error'
+export type BillingModel = 'legacy' | 'flywheel' | 'recovery'
+
+
+export interface DebtorProfile {
+  id: number
+  billing_model: BillingModel
+  is_active: boolean
+  iban_masked: string
+  billing_amount: string
+  currency: string
+  last_billed_at: string | null
+  last_success_at: string | null
+  next_bill_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 
 export interface Debtor {
   id: number
@@ -141,11 +158,20 @@ export interface Debtor {
   upload?: Upload
   latest_vop?: VopLog
   latest_billing?: BillingAttempt
+  debtor_profile?: DebtorProfile
 }
 
 export type DebtorStatus = 'pending' | 'processing' | 'recovered' | 'failed'
 export type ValidationStatus = 'pending' | 'valid' | 'invalid'
 export type RiskClass = 'low' | 'medium' | 'high'
+
+
+export interface ModelCounts {
+  all: number
+  legacy: number
+  flywheel: number
+  recovery: number
+}
 
 export interface ValidationStats {
   total: number
@@ -156,6 +182,7 @@ export interface ValidationStats {
   chargebacked: number
   ready_for_sync: number
   skipped?: SkippedCounts | null
+  model_counts?: ModelCounts
 }
 
 export type NameMatch = 'yes' | 'partial' | 'no' | 'unavailable' | 'error'
@@ -234,6 +261,7 @@ export interface DebtorFilters {
   search?: string
   page?: number
   per_page?: number
+  debtor_type?: 'legacy' | 'flywheel' | 'recovery'
 }
 
 export interface VopLogFilters {

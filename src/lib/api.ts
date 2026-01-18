@@ -107,6 +107,16 @@ export class ApiError extends Error {
   }
 }
 
+export type DebtorType = 'legacy' | 'flywheel' | 'recovery'
+
+export type UploadScopedFilters = {
+  debtor_type?: DebtorType
+}
+
+export type AnalyticsFilters = {
+  model?: string
+}
+
 class ApiClient {
   private token: string | null = null
 
@@ -205,10 +215,11 @@ class ApiClient {
     return response.data
   }
 
-  async uploadFile(file: File): Promise<UploadResult> {
+  async uploadFile(file: File, billingModel: string = 'legacy'): Promise<UploadResult> {
     const token = this.getToken()
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('billing_model', billingModel)
 
     const headers: HeadersInit = { 'Accept': 'application/json' }
     if (token) {
@@ -237,9 +248,9 @@ class ApiClient {
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
       throw new ApiError(
-        error.message || `Upload failed: ${response.status}`,
-        error.errors || [],
-        response.status
+          error.message || `Upload failed: ${response.status}`,
+          error.errors || [],
+          response.status
       )
     }
 
@@ -305,9 +316,10 @@ class ApiClient {
     return response.json()
   }
 
-  async getUploadValidationStats(uploadId: number): Promise<ValidationStats> {
+  async getUploadValidationStats(uploadId: number, filters?: UploadScopedFilters): Promise<ValidationStats> {
+    const query = this.buildQuery(filters)
     const response = await this.request<{ data: ValidationStats }>(
-      `/admin/uploads/${uploadId}/validation-stats`
+        `/admin/uploads/${uploadId}/validation-stats${query}`
     )
     return response.data
   }
@@ -370,46 +382,59 @@ class ApiClient {
     return response.data
   }
 
-  async getChargebackStats(period: string = '7d'): Promise<ChargebackStats> {
+  async getChargebackStats(period: string = '7d', filters?: AnalyticsFilters): Promise<ChargebackStats> {
+    const query = this.buildQuery({ period, ...filters })
     const response = await this.request<{ data: ChargebackStats }>(
-      `/admin/stats/chargeback-rates?period=${period}`
+        `/admin/stats/chargeback-rates${query}`
     )
     return response.data
   }
 
-  async filterChargebacks(uploadId: number): Promise<{ removed: number }> {
+  async filterChargebacks(uploadId: number, filters?: UploadScopedFilters): Promise<{ removed: number }> {
     const response = await this.request<{ data: { removed: number } }>(
-      `/admin/uploads/${uploadId}/filter-chargebacks`,
-      { method: 'POST' }
+        `/admin/uploads/${uploadId}/filter-chargebacks`,
+        { method: 'POST', body: JSON.stringify(filters || {}) }
     )
     return response.data
   }
 
-  async getChargebackCodeStats(period: string = '7d'): Promise<ChargebackCodeStats> {
+  async getChargebackCodeStats(period: string = '7d', filters?: AnalyticsFilters): Promise<ChargebackCodeStats> {
+    const query = this.buildQuery({ period, ...filters })
     const response = await this.request<{ data: ChargebackCodeStats }>(
-      `/admin/stats/chargeback-codes?period=${period}`
+        `/admin/stats/chargeback-codes${query}`
     )
     return response.data
   }
 
-  async getChargebackBankStats(period: string = '7d'): Promise<ChargebackBankStats> {
+  async getChargebackBankStats(period: string = '7d', filters?: AnalyticsFilters): Promise<ChargebackBankStats> {
+    const query = this.buildQuery({ period, ...filters })
     const response = await this.request<{ data: ChargebackBankStats }>(
-      `/admin/stats/chargeback-banks?period=${period}`
+        `/admin/stats/chargeback-banks${query}`
     )
     return response.data
   }
 
-  async getVopStats(uploadId: number): Promise<VopStats> {
+  async getVopStats(uploadId: number, filters?: UploadScopedFilters): Promise<VopStats> {
+    const query = this.buildQuery(filters)
     const response = await this.request<{ data: VopStats }>(
-      `/admin/uploads/${uploadId}/vop-stats`
+        `/admin/uploads/${uploadId}/vop-stats${query}`
     )
     return response.data
   }
 
-  async verifyVop(uploadId: number, force: boolean = false): Promise<VopVerifyResponse> {
+  async verifyVop(
+      uploadId: number,
+      options?: { force?: boolean; debtor_type?: DebtorType }
+  ): Promise<VopVerifyResponse> {
     return this.request<VopVerifyResponse>(
-      `/admin/uploads/${uploadId}/verify-vop`,
-      { method: 'POST', body: JSON.stringify({ force }) }
+        `/admin/uploads/${uploadId}/verify-vop`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            force: options?.force ?? false,
+            debtor_type: options?.debtor_type,
+          }),
+        }
     )
   }
 
@@ -424,16 +449,25 @@ class ApiClient {
     })
   }
 
-  async syncToGateway(uploadId: number): Promise<BillingSyncResponse> {
+  async syncToGateway(
+      uploadId: number,
+      options?: { debtor_type?: DebtorType }
+  ): Promise<BillingSyncResponse> {
     return this.request<BillingSyncResponse>(
-      `/admin/uploads/${uploadId}/sync`,
-      { method: 'POST' }
+        `/admin/uploads/${uploadId}/sync`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            debtor_type: options?.debtor_type,
+          }),
+        }
     )
   }
 
-  async getBillingStats(uploadId: number): Promise<BillingStats> {
+  async getBillingStats(uploadId: number, filters?: UploadScopedFilters): Promise<BillingStats> {
+    const query = this.buildQuery(filters)
     const response = await this.request<{ data: BillingStats }>(
-      `/admin/uploads/${uploadId}/billing-stats`
+        `/admin/uploads/${uploadId}/billing-stats${query}`
     )
     return response.data
   }
@@ -452,16 +486,17 @@ class ApiClient {
     return response.data
   }
 
-  async triggerBulkReconciliation(params?: { 
+  async triggerBulkReconciliation(params?: {
     max_age_hours?: number
-    limit?: number 
+    limit?: number
+    model?: string
   }): Promise<BulkReconciliationResponse> {
     return this.request<BulkReconciliationResponse>(
-      '/admin/reconciliation/bulk',
-      { 
-        method: 'POST', 
-        body: JSON.stringify(params || {}) 
-      }
+        '/admin/reconciliation/bulk',
+        {
+          method: 'POST',
+          body: JSON.stringify(params || {})
+        }
     )
   }
 
@@ -512,20 +547,23 @@ class ApiClient {
   }
 
   // BIC Analytics
-  async getBicAnalytics(period: string = '30d'): Promise<BicAnalyticsStats> {
+  async getBicAnalytics(period: string = '30d', filters?: AnalyticsFilters): Promise<BicAnalyticsStats> {
+    const query = this.buildQuery({ period, ...filters })
     const response = await this.request<{ data: BicAnalyticsStats }>(
-      `/admin/analytics/bic?period=${period}`
+        `/admin/analytics/bic${query}`
     )
     return response.data
   }
 
-  async getBicAnalyticsExport(period: string = '30d'): Promise<Blob> {
+  async getBicAnalyticsExport(period: string = '30d', filters?: AnalyticsFilters): Promise<Blob> {
     const token = this.getToken()
     const headers: HeadersInit = { 'Accept': 'text/csv' }
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
-    const response = await fetch(`${API_BASE_URL}/admin/analytics/bic/export?period=${period}`, { headers })
+
+    const query = this.buildQuery({ period, ...filters })
+    const response = await fetch(`${API_BASE_URL}/admin/analytics/bic/export${query}`, { headers })
     return response.blob()
   }
 }

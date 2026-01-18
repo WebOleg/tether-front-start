@@ -4,7 +4,7 @@
 
 'use client'
 
-import { useEffect, useState, Fragment, useCallback } from 'react'
+import { useEffect, useState, Fragment, useCallback, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -48,10 +48,16 @@ import {
   ShieldCheck,
   CreditCard,
   Send,
+  Layers,
+  Zap,
+  RotateCcw,
+  Archive
 } from 'lucide-react'
 import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { Progress } from '@/components/ui/progress'
+
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const uploadStatusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -103,6 +109,8 @@ const validationStatusConfig: Record<string, { color: string; textColor: string;
   },
 }
 
+type DebtorType = 'all' | 'legacy' | 'flywheel' | 'recovery'
+
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-GB', {
     day: '2-digit',
@@ -129,6 +137,26 @@ function getValidationDisplayStatus(debtor: Debtor): string {
   }
   return debtor.validation_status
 }
+
+function ModelBadge({ model }: { model?: string | null }) {
+  const normalized = (model || 'legacy').toLowerCase()
+
+  const config: Record<string, string> = {
+    flywheel: 'border-blue-300 text-blue-700 bg-blue-50',
+    recovery: 'border-purple-300 text-purple-700 bg-purple-50',
+    legacy: 'border-slate-300 text-slate-700 bg-slate-50',
+  }
+
+  return (
+      <Badge
+          variant="outline"
+          className={`capitalize ${config[normalized] ?? config.legacy}`}
+      >
+        {normalized}
+      </Badge>
+  )
+}
+
 
 export default function UploadDetailPage() {
   const params = useParams()
@@ -157,10 +185,24 @@ export default function UploadDetailPage() {
   const [tableLoading, setTableLoading] = useState(false)
   const [hasFetchedInitial, setHasFetchedInitial] = useState(false)
   const [VerifyVopInProgress, setVerifyVopInProgress] = useState(true)
+  const [debtorType, setDebtorType] = useState<DebtorType>('all')
 
-  const fetchVopStats = async () => {
+
+  const defaultCounts = { all: 0, flywheel: 0, recovery: 0, legacy: 0 }
+  const modelCounts = stats?.model_counts || defaultCounts
+
+  const debtorTypeRef = useRef(debtorType)
+  useEffect(() => {
+    debtorTypeRef.current = debtorType
+  }, [debtorType])
+
+  const fetchVopStats = async (typeOverride?: DebtorType) => {
     try {
-      const data = await api.getVopStats(uploadId)
+      const currentType = typeOverride ?? debtorTypeRef.current
+      const data = await api.getVopStats(
+          uploadId,
+          currentType !== 'all' ? { debtor_type: currentType } : undefined
+      )
       setVerifyVopInProgress(data?.is_processing ?? true)
       setVopStats(data)
     } catch (error) {
@@ -168,9 +210,15 @@ export default function UploadDetailPage() {
     }
   }
 
-  const fetchBillingStats = useCallback(async () => {
+  const fetchBillingStats = useCallback(async (typeOverride?: DebtorType) => {
     try {
-      const data = await api.getBillingStats(uploadId)
+      // Priority: 1. Passed argument, 2. Current Ref value
+      const currentType = typeOverride ?? debtorTypeRef.current
+
+      const data = await api.getBillingStats(
+          uploadId,
+          currentType !== 'all' ? { debtor_type: currentType } : undefined
+      )
       setBillingStats(data)
       return data
     } catch (error) {
@@ -179,9 +227,15 @@ export default function UploadDetailPage() {
     }
   }, [uploadId])
 
-  const fetchValidationStats = useCallback(async () => {
+  const fetchValidationStats = useCallback(async (typeOverride?: DebtorType) => {
+    const currentType = typeOverride ?? debtorTypeRef.current
+
     try {
-      const statsData = await api.getUploadValidationStats(uploadId)
+      const statsData = await api.getUploadValidationStats(
+          uploadId,
+          currentType !== 'all' ? { debtor_type: currentType } : undefined
+      )
+
       setStats(statsData)
       if(statsData.pending === 0){
         setValidationCompleted(true)
@@ -195,11 +249,12 @@ export default function UploadDetailPage() {
 
   const fetchDebtors = useCallback(async (pageNum?: number, searchQuery?: string) => {
     try {
-      const debtorsResponse = await api.getUploadDebtors(uploadId, {
+      const debtorsResponse = await api.getUploadDebtors(uploadId, withTypeParam({
         page: pageNum || currentPage,
         per_page: 100,
-        search: searchQuery !== undefined ? searchQuery : search || undefined
-      })
+        search: searchQuery !== undefined ? searchQuery : search || undefined,
+      }))
+
       setDebtors(debtorsResponse.data)
       setMeta(debtorsResponse.meta || null)
       setLinks(debtorsResponse.links || null)
@@ -212,7 +267,18 @@ export default function UploadDetailPage() {
       console.error('Failed to fetch debtors:', error)
       return null
     }
-  }, [uploadId, currentPage, search])
+  }, [uploadId, currentPage, search, debtorType])
+
+
+  const withTypeParam = <T extends Record<string, any>>(params: T) => ({
+    ...params,
+    ...(debtorTypeRef.current !== 'all' ? { debtor_type: debtorTypeRef.current } : {}),
+  })
+
+  const handleTypeChange = (value: string) => {
+    setDebtorType(value as DebtorType)
+    setCurrentPage(1)
+  }
 
   useEffect(() => {
     const initPage = async () => {
@@ -221,12 +287,13 @@ export default function UploadDetailPage() {
         const uploadData = await api.getUpload(uploadId)
         setUpload(uploadData)
 
-        // Start async validation (returns 202 immediately)
+        // Only start validation on FIRST load
         setValidating(true)
         api.validateUpload(uploadId).catch(err => {
           console.error('Validation dispatch error:', err)
         })
 
+        // Fetch initial global stats (no filters needed for init check)
         const statsData = await api.getUploadValidationStats(uploadId)
         setStats(statsData)
         if(statsData.pending === 0){
@@ -234,22 +301,30 @@ export default function UploadDetailPage() {
           setValidationCompleted(true)
         }
 
-        await fetchDebtors()
-        await fetchVopStats()
-        await fetchBillingStats()
+        // Fetch VOP Stats (defaults to 'all' on init)
+        const vopData = await api.getVopStats(uploadId)
+        setVopStats(vopData)
+        setVerifyVopInProgress(vopData?.is_processing ?? false)
+
+        // Fetch Billing Stats
+        const billingData = await api.getBillingStats(uploadId)
+        setBillingStats(billingData)
+
+        // Mark initial fetch as done so the other effects can take over
+        setHasFetchedInitial(true)
       } catch (error) {
         console.error('Failed to initialize:', error)
         toast.error('Failed to load upload')
       } finally {
         setLoading(false)
-        setHasFetchedInitial(true)
       }
     }
 
     if (uploadId) {
       initPage()
     }
-  }, [uploadId, fetchBillingStats])
+
+  }, [uploadId])
 
   // Poll validation stats while validating
   useEffect(() => {
@@ -298,11 +373,14 @@ export default function UploadDetailPage() {
     const fetchData = async () => {
       setTableLoading(true)
       try {
-        const debtorsResponse = await api.getUploadDebtors(uploadId, {
-          page: currentPage,
-          per_page: 100,
-          search: search || undefined
-        })
+        const debtorsResponse = await api.getUploadDebtors(
+            uploadId,
+            withTypeParam({
+              page: currentPage,
+              per_page: 100,
+              search: search || undefined,
+            })
+        )
         setDebtors(debtorsResponse.data)
         setMeta(debtorsResponse.meta || null)
         setLinks(debtorsResponse.links || null)
@@ -324,6 +402,31 @@ export default function UploadDetailPage() {
     return () => clearTimeout(timer)
   }, [uploadId, currentPage, search, loading, hasFetchedInitial])
 
+
+  useEffect(() => {
+    if (!uploadId || loading || !hasFetchedInitial) return
+
+    const run = async () => {
+      setTableLoading(true)
+      try {
+        await Promise.all([
+          fetchDebtors(1),
+          fetchValidationStats(debtorType),
+          // Pass debtorType here so VopStats gets the correct tab immediately
+          fetchVopStats(debtorType),
+          // CHANGE HERE: Pass debtorType explicitly
+          fetchBillingStats(debtorType),
+        ])
+      } finally {
+        setTableLoading(false)
+      }
+    }
+
+    run()
+  }, [debtorType, fetchValidationStats, fetchBillingStats])
+
+
+
   const handleVerifyVop = async () => {
     fetchVopStats()
     if(VerifyVopInProgress === true){
@@ -333,7 +436,7 @@ export default function UploadDetailPage() {
 
     setVerifyingVop(true)
     try {
-      await api.verifyVop(uploadId)
+      await api.verifyVop(uploadId, debtorType !== 'all' ? { debtor_type: debtorType } : undefined)
       toast.success('VOP verification started. This may take a few minutes.')
 
       const pollInterval = setInterval(async () => {
@@ -371,7 +474,7 @@ export default function UploadDetailPage() {
 
     setSyncing(true)
     try {
-      const result = await api.syncToGateway(uploadId)
+      const result = await api.syncToGateway(uploadId, debtorType !== 'all' ? { debtor_type: debtorType } : undefined)
 
       if (result.data.duplicate) {
         toast.warning('Billing already in progress for this upload')
@@ -524,6 +627,60 @@ export default function UploadDetailPage() {
         title={upload.original_filename}
         description={`Uploaded ${formatDate(upload.created_at)}`}
       />
+
+      <div className="px-6 pt-4">
+        <Tabs value={debtorType} onValueChange={handleTypeChange} className="w-full">
+          <TabsList className="w-full h-auto p-1 bg-slate-100/80 border border-slate-200 grid grid-cols-4 gap-2">
+
+            <TabsTrigger
+                value="all"
+                className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all"
+            >
+              <Layers className="h-4 w-4" />
+              <span className="font-medium">All Records</span>
+              <Badge variant="secondary" className="ml-1 bg-slate-200 text-slate-700 group-data-[state=active]:bg-blue-100 group-data-[state=active]:text-blue-700">
+                {modelCounts.all}
+              </Badge>
+            </TabsTrigger>
+
+            <TabsTrigger
+                value="flywheel"
+                className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all"
+            >
+              <Zap className="h-4 w-4" />
+              <span className="font-medium">Flywheel</span>
+              <Badge variant="secondary" className="ml-1 bg-slate-200 text-slate-700">
+                {modelCounts.flywheel}
+              </Badge>
+            </TabsTrigger>
+
+            <TabsTrigger
+                value="recovery"
+                className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-purple-700 data-[state=active]:shadow-sm transition-all"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <span className="font-medium">Recovery</span>
+              <Badge variant="secondary" className="ml-1 bg-slate-200 text-slate-700">
+                {modelCounts.recovery}
+              </Badge>
+            </TabsTrigger>
+
+            <TabsTrigger
+                value="legacy"
+                className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all"
+            >
+              <Archive className="h-4 w-4" />
+              <span className="font-medium">Legacy</span>
+              <Badge variant="secondary" className="ml-1 bg-slate-200 text-slate-700">
+                {modelCounts.legacy}
+              </Badge>
+            </TabsTrigger>
+
+          </TabsList>
+        </Tabs>
+      </div>
+
+
       <div className="">
         <div className="px-6 pt-4 flex flex-col sm:flex-row justify-between gap-4">
           <div className="flex items-center gap-4 flex-wrap">
@@ -852,6 +1009,7 @@ export default function UploadDetailPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-28">Actions</TableHead>
+                      <TableHead className="w-28">Model</TableHead>
                       {headers.map((h, idx) => (
                         <TableHead key={`header-${idx}-${h}`} className="whitespace-nowrap">{h}</TableHead>
                       ))}
@@ -860,14 +1018,14 @@ export default function UploadDetailPage() {
                   <TableBody>
                     {tableLoading ? (
                       <TableRow>
-                        <TableCell colSpan={headers.length + 1} className="text-center py-8">
+                        <TableCell colSpan={headers.length + 2} className="text-center py-8">
                           <Loader2 className="h-5 w-5 animate-spin mx-auto text-slate-400" />
                           <p className="mt-2 text-sm text-slate-500">Loading...</p>
                         </TableCell>
                       </TableRow>
                     ) : debtors.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={headers.length + 1} className="text-center py-8 text-slate-500">
+                        <TableCell colSpan={headers.length + 2} className="text-center py-8 text-slate-500">
                           No debtors found
                         </TableCell>
                       </TableRow>
@@ -911,6 +1069,11 @@ export default function UploadDetailPage() {
                                   </Button>
                                 </div>
                               </TableCell>
+
+                              <TableCell>
+                                <ModelBadge model={debtor.debtor_profile?.billing_model} />
+                              </TableCell>
+
                               {headers.map((h, idx) => (
                                 <TableCell key={`cell-${debtor.id}-${idx}-${h}`} className="whitespace-nowrap max-w-[200px] truncate">
                                   {rawData[h] || '-'}
@@ -923,7 +1086,7 @@ export default function UploadDetailPage() {
                                 onMouseEnter={() => setHoveredId(debtor.id)}
                                 onMouseLeave={() => setHoveredId(null)}
                               >
-                                <TableCell colSpan={headers.length + 1} className="pt-0 pb-3">
+                                <TableCell colSpan={headers.length + 2} className="pt-0 pb-3">
                                   <div className={`flex items-start gap-2 text-sm ${statusConfig.textColor}`}>
                                     {isChargebacked ? (
                                       <>

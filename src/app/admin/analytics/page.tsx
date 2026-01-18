@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
-import { 
+import {
   RefreshCw,
   AlertTriangle,
   Download,
@@ -34,12 +34,16 @@ import {
   PieChart,
   Building2,
   CheckCircle,
-  XCircle,
   CreditCard,
+  Layers,
+  Zap,
+  RotateCcw,
+  Archive
 } from 'lucide-react'
 import type { ChargebackStats, ChargebackCodeStats, ChargebackBankStats, BicAnalyticsStats } from '@/types'
 import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface EmpRefreshStats {
   inserted: number
@@ -71,18 +75,18 @@ export default function AnalyticsPage() {
   const [cbCodeStats, setCbCodeStats] = useState<ChargebackCodeStats | null>(null)
   const [cbBankStats, setCbBankStats] = useState<ChargebackBankStats | null>(null)
   const [bicStats, setBicStats] = useState<BicAnalyticsStats | null>(null)
+
   const [cbPeriod, setCbPeriod] = useState('7d')
   const [bicPeriod, setBicPeriod] = useState('30d')
-  const [cbCodePeriod, setCbCodePeriod] = useState('7d')
-  const [cbBankPeriod, setCbBankPeriod] = useState('7d')
+
+  const [activeModel, setActiveModel] = useState<string>('all')
+
   const [loading, setLoading] = useState(true)
   const [bicLoading, setBicLoading] = useState(false)
-  
-  // Reconciliation state
+
   const [reconciling, setReconciling] = useState(false)
   const [reconcileResult, setReconcileResult] = useState<{ message: string; success: boolean } | null>(null)
 
-  // EMP Refresh state
   const [empRefreshing, setEmpRefreshing] = useState(false)
   const [empJobId, setEmpJobId] = useState<string | null>(null)
   const [empProgress, setEmpProgress] = useState(0)
@@ -98,9 +102,12 @@ export default function AnalyticsPage() {
   useEffect(() => {
     const fetchChargebackStats = async () => {
       try {
-        const stats = await api.getChargebackStats(cbPeriod)
-        const codeStats = await api.getChargebackCodeStats(cbPeriod)
-        const bankStats = await api.getChargebackBankStats(cbPeriod)
+        const modelParam = activeModel !== 'all' ? { model: activeModel } : undefined
+
+        const stats = await api.getChargebackStats(cbPeriod, modelParam)
+        const codeStats = await api.getChargebackCodeStats(cbPeriod, modelParam)
+        const bankStats = await api.getChargebackBankStats(cbPeriod, modelParam)
+
         setCbCodeStats(codeStats)
         setCbBankStats(bankStats)
         setCbStats(stats)
@@ -110,14 +117,14 @@ export default function AnalyticsPage() {
       }
     }
     fetchChargebackStats()
-  }, [cbPeriod])
+  }, [cbPeriod, activeModel])
 
-  // Fetch BIC Analytics
   useEffect(() => {
     const fetchBicStats = async () => {
       setBicLoading(true)
       try {
-        const stats = await api.getBicAnalytics(bicPeriod)
+        const modelParam = activeModel !== 'all' ? { model: activeModel } : undefined
+        const stats = await api.getBicAnalytics(bicPeriod, modelParam)
         setBicStats(stats)
       } catch (err) {
         console.error('Failed to fetch BIC analytics:', err)
@@ -126,9 +133,8 @@ export default function AnalyticsPage() {
       }
     }
     fetchBicStats()
-  }, [bicPeriod])
+  }, [bicPeriod, activeModel])
 
-  // Check for existing EMP refresh job on mount
   useEffect(() => {
     const checkExistingJob = async () => {
       try {
@@ -146,7 +152,6 @@ export default function AnalyticsPage() {
     checkExistingJob()
   }, [])
 
-  // Poll for EMP refresh progress
   const pollEmpProgress = useCallback(async (jobId: string) => {
     try {
       const status = await api.getEmpRefreshJobStatus(jobId)
@@ -201,8 +206,9 @@ export default function AnalyticsPage() {
       const result = await api.triggerBulkReconciliation({
         max_age_hours: 720,
         limit: 5000,
+        model: activeModel !== 'all' ? activeModel : undefined
       })
-      
+
       if (result.data.queued) {
         setReconcileResult({
           message: `Queued ${result.data.to_process} transactions for reconciliation`,
@@ -238,7 +244,7 @@ export default function AnalyticsPage() {
 
     try {
       const result = await api.triggerEmpRefresh(empFromDate, empToDate)
-      
+
       if (result.data.queued) {
         setEmpJobId(result.data.job_id)
         setEmpResult({
@@ -264,14 +270,21 @@ export default function AnalyticsPage() {
 
   const handleBicExport = async () => {
     try {
-      const blob = await api.getBicAnalyticsExport(bicPeriod)
-      const url = window.URL.createObjectURL(blob)
+      const modelParam = activeModel !== 'all' ? { model: activeModel } : undefined
+      const blob = await api.getBicAnalyticsExport(bicPeriod, modelParam)
+
+      // FIXED: Use global URL instead of window.URL
+      const url = URL.createObjectURL(blob)
+
       const a = document.createElement('a')
       a.href = url
-      a.download = `bic-analytics-${bicPeriod}.csv`
+      a.download = `bic-analytics-${bicPeriod}-${activeModel}.csv`
       document.body.appendChild(a)
       a.click()
-      window.URL.revokeObjectURL(url)
+
+      // FIXED: Use global URL instead of window.URL
+      URL.revokeObjectURL(url)
+
       document.body.removeChild(a)
       toast.success('BIC Analytics exported')
     } catch (err) {
@@ -283,540 +296,564 @@ export default function AnalyticsPage() {
   const hasAlert = cbStats?.countries?.some(c => c.alert) || false
   const totalCbRateApproved = cbStats?.totals?.cb_rate_approved || 0
   const totalCbRateAll = cbStats?.totals?.cb_rate_total || 0
-  const totalCbAlertAmountApproved = cbStats?.totals?.cb_alert_amount_approved || false
   const totalCbRateAmountApproved = cbStats?.totals?.cb_rate_amount_approved || 0
   const hasBankAlert = cbBankStats?.totals?.alert || false
   const hasBicAlert = bicStats?.totals?.high_risk_bics ? bicStats.totals.high_risk_bics > 0 : false
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Header title="Analytics" description="Chargeback rates and transaction analysis" />
-      <main className="container mx-auto px-6 py-8">
+      <div className="min-h-screen bg-slate-50">
+        <Header title="Analytics" description="Chargeback rates and transaction analysis" />
+        <main className="container mx-auto px-6 py-8">
 
-        {/* Top Row - Gatewaysync and EMP refresh */}
-        <div className="grid gap-6 md:grid-cols-3 mb-8 items-start">
-          {/* Gateway Sync */}
-          <Card className={`${reconciling ? "border-indigo-200 bg-indigo-50/50" : ""} md:col-span-1 gap-1 pb-9`}>
-            <CardHeader className="pb-1">
-              <div className="flex items-center gap-2">
-                <RefreshCw className="h-5 w-5 text-indigo-600" />
-                <CardTitle className="text-sm font-medium text-slate-700">
-                  Gateway Sync
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="py-0">
-              <p className="text-xs text-slate-500 mb-1">Sync transaction statuses from EMP (last 30 days)</p>
-              <Button 
-                onClick={handleReconcile} 
-                disabled={reconciling}
-                variant="outline"
-                size="sm"
-                className="w-full border-indigo-300 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800"
-              >
-                {reconciling ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Syncing...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2" /> Reconcile
-                  </>
-                )}
-              </Button>
-              {reconcileResult && (
-                <p className={`text-sm mt-2 ${reconcileResult.success ? 'text-green-600' : 'text-amber-600'}`}>
-                  {reconcileResult.success ? (
-                    <span className="flex items-center gap-1">
-                      <CheckCircle className="h-4 w-4" />
-                      {reconcileResult.message}
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1">
-                      <AlertTriangle className="h-4 w-4" />
-                      {reconcileResult.message}
-                    </span>
-                  )}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          {/* Model Tabs */}
+          <div className="mb-8">
+            <Tabs value={activeModel} onValueChange={setActiveModel} className="w-full">
+              <TabsList className="w-full h-auto p-1 bg-slate-100/80 border border-slate-200 grid grid-cols-4 gap-2">
+                <TabsTrigger
+                    value="all"
+                    className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all"
+                >
+                  <Layers className="h-4 w-4" />
+                  <span className="font-medium">All Records</span>
+                </TabsTrigger>
 
-          {/* EMP Refresh */}
-          <Card className={`${empRefreshing ? "border-indigo-200 bg-indigo-50/50" : ""} md:col-span-2 gap-1`}>
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <Download className="h-5 w-5 text-indigo-600" />
-                <CardTitle className="text-sm font-medium text-slate-700">
-                  EMP Refresh <span className="text-xs">(Fetch transactions from gateway)</span>
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-3 gap-2 mb-3 sm:grid-cols-1">
-                <div>
-                  <Label className="text-xs">From</Label>
-                  <Input
-                    type="date"
-                    value={empFromDate}
-                    onChange={(e) => setEmpFromDate(e.target.value)}
-                    className="h-8 text-xs"
-                    disabled={empRefreshing}
-                  />
+                <TabsTrigger
+                    value="flywheel"
+                    className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all"
+                >
+                  <Zap className="h-4 w-4" />
+                  <span className="font-medium">Flywheel</span>
+                </TabsTrigger>
+
+                <TabsTrigger
+                    value="recovery"
+                    className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-purple-700 data-[state=active]:shadow-sm transition-all"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span className="font-medium">Recovery</span>
+                </TabsTrigger>
+
+                <TabsTrigger
+                    value="legacy"
+                    className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all"
+                >
+                  <Archive className="h-4 w-4" />
+                  <span className="font-medium">Legacy</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          {/* Rest of the UI (same as before) */}
+          <div className="grid gap-6 md:grid-cols-3 mb-8 items-start">
+            <Card className={`${reconciling ? "border-indigo-200 bg-indigo-50/50" : ""} md:col-span-1 gap-1 pb-9`}>
+              <CardHeader className="pb-1">
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-5 w-5 text-indigo-600" />
+                  <CardTitle className="text-sm font-medium text-slate-700">
+                    Gateway Sync
+                  </CardTitle>
                 </div>
-                <div>
-                  <Label className="text-xs">To</Label>
-                  <Input
-                    type="date"
-                    value={empToDate}
-                    onChange={(e) => setEmpToDate(e.target.value)}
-                    className="h-8 text-xs"
-                    disabled={empRefreshing}
-                  />
-                </div>
-                <div className="md:mt-4">
-                  <Button 
-                    onClick={handleEmpRefresh} 
-                    disabled={empRefreshing}
+              </CardHeader>
+              <CardContent className="py-0">
+                <p className="text-xs text-slate-500 mb-1">Sync transaction statuses from EMP (last 30 days)</p>
+                <Button
+                    onClick={handleReconcile}
+                    disabled={reconciling}
                     variant="outline"
                     size="sm"
                     className="w-full border-indigo-300 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800"
-                  >
-                    {empRefreshing ? (
+                >
+                  {reconciling ? (
                       <>
                         <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                        {empProgress}%
+                        Syncing...
                       </>
-                    ) : (
+                  ) : (
                       <>
-                        <Download className="h-4 w-4 mr-2" />
-                        Refresh from EMP
+                        <RefreshCw className="h-4 w-4 mr-2" /> Reconcile
                       </>
-                    )}
-                  </Button>
+                  )}
+                </Button>
+                {reconcileResult && (
+                    <p className={`text-sm mt-2 ${reconcileResult.success ? 'text-green-600' : 'text-amber-600'}`}>
+                      {reconcileResult.success ? (
+                          <span className="flex items-center gap-1">
+                      <CheckCircle className="h-4 w-4" />
+                            {reconcileResult.message}
+                    </span>
+                      ) : (
+                          <span className="flex items-center gap-1">
+                      <AlertTriangle className="h-4 w-4" />
+                            {reconcileResult.message}
+                    </span>
+                      )}
+                    </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className={`${empRefreshing ? "border-indigo-200 bg-indigo-50/50" : ""} md:col-span-2 gap-1`}>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Download className="h-5 w-5 text-indigo-600" />
+                  <CardTitle className="text-sm font-medium text-slate-700">
+                    EMP Refresh <span className="text-xs">(Fetch transactions from gateway)</span>
+                  </CardTitle>
                 </div>
-              </div>
-              {empRefreshing && empStats && (
-                <div className="mt-2">
-                  <Progress value={empProgress} className="h-2 [&>div]:bg-blue-500" />
-                  <div className="flex justify-between text-xs text-slate-500 mt-1">
-                    <span className="text-green-600">+{empStats.inserted} new</span>
-                    <span className="text-blue-600">↻{empStats.updated} upd</span>
-                    <span className="text-slate-400">={empStats.unchanged || 0}</span>
-                    {empStats.errors > 0 && <span className="text-red-500">✗{empStats.errors}</span>}
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-3 gap-2 mb-3 sm:grid-cols-1">
+                  <div>
+                    <Label className="text-xs">From</Label>
+                    <Input
+                        type="date"
+                        value={empFromDate}
+                        onChange={(e) => setEmpFromDate(e.target.value)}
+                        className="h-8 text-xs"
+                        disabled={empRefreshing}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">To</Label>
+                    <Input
+                        type="date"
+                        value={empToDate}
+                        onChange={(e) => setEmpToDate(e.target.value)}
+                        className="h-8 text-xs"
+                        disabled={empRefreshing}
+                    />
+                  </div>
+                  <div className="md:mt-4">
+                    <Button
+                        onClick={handleEmpRefresh}
+                        disabled={empRefreshing}
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-indigo-300 text-indigo-700 hover:bg-indigo-100 hover:text-indigo-800"
+                    >
+                      {empRefreshing ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            {empProgress}%
+                          </>
+                      ) : (
+                          <>
+                            <Download className="h-4 w-4 mr-2" />
+                            Refresh from EMP
+                          </>
+                      )}
+                    </Button>
                   </div>
                 </div>
-              )}
-              {empResult && !empRefreshing && (
-                <div className={`flex items-center gap-1 text-sm mt-1 ${empResult.success ? 'text-green-600' : 'text-amber-600'}`}>
-                  {empResult.success ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-                  {empResult.message}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Second Row Time Period Selection */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-700">Chargeback Analytics</h2>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="cb-period" className="text-sm">Period:</Label>
-            <Select
-              value={cbPeriod}
-              onValueChange={setCbPeriod}
-            >
-              <SelectTrigger className="w-32 h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="24h">Last 24h</SelectItem>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-                <SelectItem value="90d">Last 90 days</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Third Row Chargeback Ratios */}
-        <div className="grid gap-6 md:grid-cols-3 mb-8">
-          {/* Chargeback / Approved Ratio */}
-          <Card className={totalCbRateApproved < 20 ? 'border-green-300' : totalCbRateApproved < 25 ? 'border-amber-300' : 'border-red-300'}>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-slate-500">
-                  CB Rate (vs Approved)
-                </CardTitle>
-                {totalCbRateApproved >= 25 && (
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                {empRefreshing && empStats && (
+                    <div className="mt-2">
+                      <Progress value={empProgress} className="h-2 [&>div]:bg-blue-500" />
+                      <div className="flex justify-between text-xs text-slate-500 mt-1">
+                        <span className="text-green-600">+{empStats.inserted} new</span>
+                        <span className="text-blue-600">↻{empStats.updated} upd</span>
+                        <span className="text-slate-400">={empStats.unchanged || 0}</span>
+                        {empStats.errors > 0 && <span className="text-red-500">✗{empStats.errors}</span>}
+                      </div>
+                    </div>
                 )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-baseline gap-2">
+                {empResult && !empRefreshing && (
+                    <div className={`flex items-center gap-1 text-sm mt-1 ${empResult.success ? 'text-green-600' : 'text-amber-600'}`}>
+                      {empResult.success ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                      {empResult.message}
+                    </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-700">
+              Chargeback Analytics {activeModel !== 'all' && <Badge variant="outline" className="ml-2 capitalize">{activeModel}</Badge>}
+            </h2>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="cb-period" className="text-sm">Period:</Label>
+              <Select
+                  value={cbPeriod}
+                  onValueChange={setCbPeriod}
+              >
+                <SelectTrigger className="w-32 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="24h">Last 24h</SelectItem>
+                  <SelectItem value="7d">Last 7 days</SelectItem>
+                  <SelectItem value="30d">Last 30 days</SelectItem>
+                  <SelectItem value="90d">Last 90 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3 mb-8">
+            <Card className={totalCbRateApproved < 20 ? 'border-green-300' : totalCbRateApproved < 25 ? 'border-amber-300' : 'border-red-300'}>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium text-slate-500">
+                    CB Rate (vs Approved)
+                  </CardTitle>
+                  {totalCbRateApproved >= 25 && (
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline gap-2">
                 <span className={`text-3xl font-bold ${totalCbRateApproved < 20 ? 'text-green-600' : totalCbRateApproved < 25 ? 'text-amber-600' : 'text-red-600'}`}>
                   {formatPercent(totalCbRateApproved)}
                 </span>
-                <span className="text-sm text-slate-500">chargebacks / approved</span>
-              </div>
-              <Progress 
-                value={totalCbRateApproved} 
-                className={`mt-2 h-2 ${totalCbRateApproved < 20 ? '[&>div]:bg-green-500' : totalCbRateApproved < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
-              />
-              <p className="text-xs text-slate-400 mt-1">Includes approved transactions</p>
-            </CardContent>
-          </Card>
+                  <span className="text-sm text-slate-500">chargebacks / approved</span>
+                </div>
+                <Progress
+                    value={totalCbRateApproved}
+                    className={`mt-2 h-2 ${totalCbRateApproved < 20 ? '[&>div]:bg-green-500' : totalCbRateApproved < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
+                />
+                <p className="text-xs text-slate-400 mt-1">Includes approved transactions</p>
+              </CardContent>
+            </Card>
 
-          {/* Chargeback / All transactions Amount Ratio */}
-          <Card className={totalCbRateAmountApproved < 20 ? 'border-green-300' : totalCbRateAmountApproved < 25 ? 'border-amber-300' : 'border-red-300'}>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-slate-500">
-                  CB Rate (vs Approved Amount)
-                </CardTitle>
-                {totalCbRateAmountApproved >= 25 && (
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-baseline gap-2">
+            <Card className={totalCbRateAmountApproved < 20 ? 'border-green-300' : totalCbRateAmountApproved < 25 ? 'border-amber-300' : 'border-red-300'}>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium text-slate-500">
+                    CB Rate (vs Approved Amount)
+                  </CardTitle>
+                  {totalCbRateAmountApproved >= 25 && (
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline gap-2">
                 <span className={`text-3xl font-bold ${totalCbRateAmountApproved < 20 ? 'text-green-600' : totalCbRateAmountApproved < 25 ? 'text-amber-600' : 'text-red-600'}`}>
                   {formatPercent(totalCbRateAmountApproved)}
                 </span>
-                <span className="text-sm text-slate-500">chargeback amount / approved amount</span>
-              </div>
-              <Progress 
-                value={cbStats ? totalCbRateAmountApproved : 0}
-                max={cbStats ? cbStats.threshold : 100}
-                className={`mt-2 h-2 ${totalCbRateAmountApproved < 20 ? '[&>div]:bg-green-500' : totalCbRateAmountApproved < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
-              />
-              <p className="text-xs text-slate-400 mt-1">Includes approved transactions amount</p>
-            </CardContent>
-          </Card>
+                  <span className="text-sm text-slate-500">chargeback amount / approved amount</span>
+                </div>
+                <Progress
+                    value={cbStats ? totalCbRateAmountApproved : 0}
+                    max={cbStats ? cbStats.threshold : 100}
+                    className={`mt-2 h-2 ${totalCbRateAmountApproved < 20 ? '[&>div]:bg-green-500' : totalCbRateAmountApproved < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
+                />
+                <p className="text-xs text-slate-400 mt-1">Includes approved transactions amount</p>
+              </CardContent>
+            </Card>
 
-          {/* Chargeback / All Transactions Ratio */}
-          <Card className={totalCbRateAll < 20 ? 'border-green-300' : totalCbRateAll < 25 ? 'border-amber-300' : 'border-red-300'}>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium text-slate-500">
-                  CB Rate (vs All)
-                </CardTitle>
-                {totalCbRateAll >= 25 && (
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-baseline gap-2">
+            <Card className={totalCbRateAll < 20 ? 'border-green-300' : totalCbRateAll < 25 ? 'border-amber-300' : 'border-red-300'}>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium text-slate-500">
+                    CB Rate (vs All)
+                  </CardTitle>
+                  {totalCbRateAll >= 25 && (
+                      <AlertTriangle className="h-4 w-4 text-red-500" />
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline gap-2">
                 <span className={`text-3xl font-bold ${totalCbRateAll < 20 ? 'text-green-600' : totalCbRateAll < 25 ? 'text-amber-600' : 'text-red-600'}`}>
                   {formatPercent(totalCbRateAll)}
                 </span>
-                <span className="text-sm text-slate-500">chargebacks / total</span>
-              </div>
-              <Progress 
-                value={Math.min(totalCbRateAll, 5) * 20} 
-                className={`mt-2 h-2 ${totalCbRateAll < 20 ? '[&>div]:bg-green-500' : totalCbRateAll < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
-              />
-              <p className="text-xs text-slate-400 mt-1">Includes all transactions</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Chargeback Rates by Country */}
-        <Card className={`mb-8 ${hasAlert ? 'border-red-300' : ''}`}>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-slate-500" />
-                <CardTitle className="text-lg">Chargeback Rates by Country</CardTitle>
-                {hasAlert && (
-                  <AlertTriangle className="h-5 w-5 text-red-500" />
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {cbStats && cbStats.countries && cbStats.countries.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Country</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Approved</TableHead>
-                    <TableHead className="text-right">Chargebacks</TableHead>
-                    <TableHead className="text-right">CB Amount</TableHead>
-                    <TableHead className="text-right">CB Rate</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {cbStats.countries.map((country) => (
-                    <TableRow key={country.country} className={country.alert ? 'bg-red-50' : ''}>
-                      <TableCell className="font-medium">
-                        {country.country}
-                        {country.alert && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2 -translate-y-0.5" />}
-                      </TableCell>
-                      <TableCell className="text-right">{country.total}</TableCell>
-                      <TableCell className="text-right">{country.approved}</TableCell>
-                      <TableCell className="text-right">{country.chargebacks}</TableCell>
-                      <TableCell className="text-right">{formatCurrency((country as any).chargeback_amount || 0)}</TableCell>
-                      <TableCell className={`text-right font-medium ${country.alert ? 'text-red-600' : ''}`}>
-                        {formatPercent(country.cb_rate_approved)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {/* Total Row */}
-                  <TableRow className="bg-slate-100 font-semibold border-t-2">
-                    <TableCell>Total</TableCell>
-                    <TableCell className="text-right">{cbStats.totals.total}</TableCell>
-                    <TableCell className="text-right">{cbStats.totals.approved}</TableCell>
-                    <TableCell className="text-right">{cbStats.totals.chargebacks}</TableCell>
-                    <TableCell className="text-right">{formatCurrency((cbStats.totals as any).chargeback_amount || 0)}</TableCell>
-                    <TableCell className={`text-right ${cbStats.totals.alert ? 'text-red-600' : ''}`}>
-                      {formatPercent(cbStats.totals.cb_rate_approved)}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            ) : (
-              <p className="text-slate-500 text-center py-4">No chargeback data available</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Two Column Layout for Codes and Banks */}
-        <div className="grid gap-6 md:grid-cols-2 mb-8">
-          {/* Chargeback Codes */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <PieChart className="h-5 w-5 text-slate-500" />
-                  <CardTitle className="text-lg">By Reason Code</CardTitle>
+                  <span className="text-sm text-slate-500">chargebacks / total</span>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {cbCodeStats && cbCodeStats.codes && cbCodeStats.codes.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead className="text-right">Count</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cbCodeStats.codes.map((code) => (
-                      <TableRow key={code.chargeback_code}>
-                        <TableCell className="font-mono text-sm">{code.chargeback_code}</TableCell>
-                        <TableCell className="text-sm">{code.chargeback_reason}</TableCell>
-                        <TableCell className="text-right">{code.occurrences}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(code.total_amount)}</TableCell>
-                      </TableRow>
-                    ))}
-                    {/* Total Row */}
-                    <TableRow className="bg-slate-100 font-semibold border-t-2">
-                      <TableCell colSpan={2}>Total</TableCell>
-                      <TableCell className="text-right">{cbCodeStats.totals.occurrences}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(cbCodeStats.totals.total_amount)}</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-slate-500 text-center py-4">No chargeback codes recorded</p>
-              )}
-            </CardContent>
-          </Card>
+                <Progress
+                    value={Math.min(totalCbRateAll, 5) * 20}
+                    className={`mt-2 h-2 ${totalCbRateAll < 20 ? '[&>div]:bg-green-500' : totalCbRateAll < 25 ? '[&>div]:bg-amber-500' : '[&>div]:bg-red-500'}`}
+                />
+                <p className="text-xs text-slate-400 mt-1">Includes all transactions</p>
+              </CardContent>
+            </Card>
+          </div>
 
-          {/* Chargeback by Bank */}
-          <Card className={`${hasBankAlert ? "border-red-300" : ""}`}>
+          <Card className={`mb-8 ${hasAlert ? 'border-red-300' : ''}`}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-slate-500" />
-                  <CardTitle className="text-lg">By Bank</CardTitle>
-                  {hasBankAlert && (
-                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                  <BarChart3 className="h-5 w-5 text-slate-500" />
+                  <CardTitle className="text-lg">Chargeback Rates by Country</CardTitle>
+                  {hasAlert && (
+                      <AlertTriangle className="h-5 w-5 text-red-500" />
                   )}
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              {cbBankStats && cbBankStats.banks && cbBankStats.banks.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Bank</TableHead>
-                      <TableHead className="text-right">Chargebacks</TableHead>
-                      <TableHead className="text-right">CB Amount</TableHead>
-                      <TableHead className="text-right">CB Rate</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cbBankStats.banks.map((bank) => (
-                      <TableRow key={bank.bank_name} className={`${bank.alert ? "bg-red-50" : ""}`}>
-                        <TableCell className="font-medium">{bank.bank_name}</TableCell>
-                        <TableCell className="text-right">{bank.chargebacks}</TableCell>
-                        <TableCell className="text-right">{formatCurrency((bank as any).chargeback_amount)}</TableCell>
-                        <TableCell className={`text-right font-medium ${bank.alert ? 'text-red-600' : ''}`}>
-                          {formatPercent(bank.cb_rate)}
+              {cbStats && cbStats.countries && cbStats.countries.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Country</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead className="text-right">Approved</TableHead>
+                        <TableHead className="text-right">Chargebacks</TableHead>
+                        <TableHead className="text-right">CB Amount</TableHead>
+                        <TableHead className="text-right">CB Rate</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {cbStats.countries.map((country) => (
+                          <TableRow key={country.country} className={country.alert ? 'bg-red-50' : ''}>
+                            <TableCell className="font-medium">
+                              {country.country}
+                              {country.alert && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2 -translate-y-0.5" />}
+                            </TableCell>
+                            <TableCell className="text-right">{country.total}</TableCell>
+                            <TableCell className="text-right">{country.approved}</TableCell>
+                            <TableCell className="text-right">{country.chargebacks}</TableCell>
+                            <TableCell className="text-right">{formatCurrency((country as any).chargeback_amount || 0)}</TableCell>
+                            <TableCell className={`text-right font-medium ${country.alert ? 'text-red-600' : ''}`}>
+                              {formatPercent(country.cb_rate_approved)}
+                            </TableCell>
+                          </TableRow>
+                      ))}
+                      <TableRow className="bg-slate-100 font-semibold border-t-2">
+                        <TableCell>Total</TableCell>
+                        <TableCell className="text-right">{cbStats.totals.total}</TableCell>
+                        <TableCell className="text-right">{cbStats.totals.approved}</TableCell>
+                        <TableCell className="text-right">{cbStats.totals.chargebacks}</TableCell>
+                        <TableCell className="text-right">{formatCurrency((cbStats.totals as any).chargeback_amount || 0)}</TableCell>
+                        <TableCell className={`text-right ${cbStats.totals.alert ? 'text-red-600' : ''}`}>
+                          {formatPercent(cbStats.totals.cb_rate_approved)}
                         </TableCell>
                       </TableRow>
-                    ))}
-                    {/* Total Row */}
-                    <TableRow className={`${hasBankAlert ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
-                      <TableCell>Total</TableCell>
-                      <TableCell className="text-right">{cbBankStats.totals.chargebacks}</TableCell>
-                      <TableCell className="text-right">{formatCurrency((cbBankStats.totals as any).chargeback_amount || cbBankStats.totals.total_amount)}</TableCell>
-                      <TableCell className={`text-right ${hasBankAlert ? 'text-red-600' : ''}`}>
-                        {formatPercent((cbBankStats.totals as any).cb_rate || (cbBankStats.totals as any).total_cb_rate || 0)}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
+                    </TableBody>
+                  </Table>
               ) : (
-                <p className="text-slate-500 text-center py-4">No bank data available</p>
+                  <p className="text-slate-500 text-center py-4">No chargeback data available</p>
               )}
             </CardContent>
           </Card>
-        </div>
 
-        {/* BIC Analytics Section */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-700">BIC Analytics</h2>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="bic-period" className="text-sm">Period:</Label>
-            <Select
-              value={bicPeriod}
-              onValueChange={setBicPeriod}
-            >
-              <SelectTrigger className="w-32 h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-                <SelectItem value="60d">Last 60 days</SelectItem>
-                <SelectItem value="90d">Last 90 days</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              onClick={handleBicExport}
-              variant="outline"
-              size="sm"
-              className="h-8"
-            >
-              <Download className="h-4 w-4 mr-1" />
-              Export
-            </Button>
-          </div>
-        </div>
-
-        {/* BIC Summary Cards */}
-        {bicStats && (
-          <div className="grid gap-4 md:grid-cols-4 mb-6">
+          <div className="grid gap-6 md:grid-cols-2 mb-8">
             <Card>
-              <CardContent className="pt-4">
-                <div className="text-sm text-slate-500">Total BICs</div>
-                <div className="text-2xl font-bold">{bicStats.totals.total_bics}</div>
-              </CardContent>
-            </Card>
-            <Card className={hasBicAlert ? 'border-red-300' : ''}>
-              <CardContent className="pt-4">
-                <div className="text-sm text-slate-500 flex items-center gap-1">
-                  High Risk BICs
-                  {hasBicAlert && <AlertTriangle className="h-4 w-4 text-red-500" />}
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <PieChart className="h-5 w-5 text-slate-500" />
+                    <CardTitle className="text-lg">By Reason Code</CardTitle>
+                  </div>
                 </div>
-                <div className={`text-2xl font-bold ${hasBicAlert ? 'text-red-600' : ''}`}>
-                  {bicStats.totals.high_risk_bics}
+              </CardHeader>
+              <CardContent>
+                {cbCodeStats && cbCodeStats.codes && cbCodeStats.codes.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Code</TableHead>
+                          <TableHead>Reason</TableHead>
+                          <TableHead className="text-right">Count</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {cbCodeStats.codes.map((code) => (
+                            <TableRow key={code.chargeback_code}>
+                              <TableCell className="font-mono text-sm">{code.chargeback_code}</TableCell>
+                              <TableCell className="text-sm">{code.chargeback_reason}</TableCell>
+                              <TableCell className="text-right">{code.occurrences}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(code.total_amount)}</TableCell>
+                            </TableRow>
+                        ))}
+                        <TableRow className="bg-slate-100 font-semibold border-t-2">
+                          <TableCell colSpan={2}>Total</TableCell>
+                          <TableCell className="text-right">{cbCodeStats.totals.occurrences}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(cbCodeStats.totals.total_amount)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                ) : (
+                    <p className="text-slate-500 text-center py-4">No chargeback codes recorded</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className={`${hasBankAlert ? "border-red-300" : ""}`}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-slate-500" />
+                    <CardTitle className="text-lg">By Bank</CardTitle>
+                    {hasBankAlert && (
+                        <AlertTriangle className="h-5 w-5 text-red-500" />
+                    )}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-sm text-slate-500">Total Transactions</div>
-                <div className="text-2xl font-bold">{bicStats.totals.total_transactions.toLocaleString()}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-sm text-slate-500">Overall CB Rate</div>
-                <div className="text-2xl font-bold">{formatPercent(bicStats.totals.overall_cb_rate)}</div>
+              </CardHeader>
+              <CardContent>
+                {cbBankStats && cbBankStats.banks && cbBankStats.banks.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Bank</TableHead>
+                          <TableHead className="text-right">Chargebacks</TableHead>
+                          <TableHead className="text-right">CB Amount</TableHead>
+                          <TableHead className="text-right">CB Rate</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {cbBankStats.banks.map((bank) => (
+                            <TableRow key={bank.bank_name} className={`${bank.alert ? "bg-red-50" : ""}`}>
+                              <TableCell className="font-medium">{bank.bank_name}</TableCell>
+                              <TableCell className="text-right">{bank.chargebacks}</TableCell>
+                              <TableCell className="text-right">{formatCurrency((bank as any).chargeback_amount)}</TableCell>
+                              <TableCell className={`text-right font-medium ${bank.alert ? 'text-red-600' : ''}`}>
+                                {formatPercent(bank.cb_rate)}
+                              </TableCell>
+                            </TableRow>
+                        ))}
+                        <TableRow className={`${hasBankAlert ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
+                          <TableCell>Total</TableCell>
+                          <TableCell className="text-right">{cbBankStats.totals.chargebacks}</TableCell>
+                          <TableCell className="text-right">{formatCurrency((cbBankStats.totals as any).chargeback_amount || cbBankStats.totals.total_amount)}</TableCell>
+                          <TableCell className={`text-right ${hasBankAlert ? 'text-red-600' : ''}`}>
+                            {formatPercent((cbBankStats.totals as any).cb_rate || (cbBankStats.totals as any).total_cb_rate || 0)}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                ) : (
+                    <p className="text-slate-500 text-center py-4">No bank data available</p>
+                )}
               </CardContent>
             </Card>
           </div>
-        )}
 
-        {/* BIC Table */}
-        <Card className={`${hasBicAlert ? "border-red-300" : ""}`}>
-          <CardHeader>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-700">
+              BIC Analytics {activeModel !== 'all' && <Badge variant="outline" className="ml-2 capitalize">{activeModel}</Badge>}
+            </h2>
             <div className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-slate-500" />
-              <CardTitle className="text-lg">Transactions by BIC</CardTitle>
-              {hasBicAlert && <AlertTriangle className="h-5 w-5 text-red-500" />}
+              <Label htmlFor="bic-period" className="text-sm">Period:</Label>
+              <Select
+                  value={bicPeriod}
+                  onValueChange={setBicPeriod}
+              >
+                <SelectTrigger className="w-32 h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7d">Last 7 days</SelectItem>
+                  <SelectItem value="30d">Last 30 days</SelectItem>
+                  <SelectItem value="60d">Last 60 days</SelectItem>
+                  <SelectItem value="90d">Last 90 days</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                  onClick={handleBicExport}
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Export
+              </Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            {bicLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <RefreshCw className="h-6 w-6 animate-spin text-slate-400" />
+          </div>
+
+          {bicStats && (
+              <div className="grid gap-4 md:grid-cols-4 mb-6">
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-slate-500">Total BICs</div>
+                    <div className="text-2xl font-bold">{bicStats.totals.total_bics}</div>
+                  </CardContent>
+                </Card>
+                <Card className={hasBicAlert ? 'border-red-300' : ''}>
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-slate-500 flex items-center gap-1">
+                      High Risk BICs
+                      {hasBicAlert && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                    </div>
+                    <div className={`text-2xl font-bold ${hasBicAlert ? 'text-red-600' : ''}`}>
+                      {bicStats.totals.high_risk_bics}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-slate-500">Total Transactions</div>
+                    <div className="text-2xl font-bold">{bicStats.totals.total_transactions.toLocaleString()}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-slate-500">Overall CB Rate</div>
+                    <div className="text-2xl font-bold">{formatPercent(bicStats.totals.overall_cb_rate)}</div>
+                  </CardContent>
+                </Card>
               </div>
-            ) : bicStats && bicStats.bics && bicStats.bics.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>BIC</TableHead>
-                    <TableHead>Country</TableHead>
-                    <TableHead className="text-right">Total TX</TableHead>
-                    <TableHead className="text-right">Approved</TableHead>
-                    <TableHead className="text-right">Declined</TableHead>
-                    <TableHead className="text-right">Chargebacks</TableHead>
-                    <TableHead className="text-right">Volume €</TableHead>
-                    <TableHead className="text-right">CB Rate</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {bicStats.bics.map((bic) => (
-                    <TableRow key={bic.bic} className={bic.is_high_risk ? 'bg-red-50' : ''}>
-                      <TableCell className="font-mono text-sm">
-                        {bic.bic}
-                        {bic.is_high_risk && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2" />}
-                      </TableCell>
-                      <TableCell>{bic.bank_country}</TableCell>
-                      <TableCell className="text-right">{bic.total_transactions}</TableCell>
-                      <TableCell className="text-right text-green-600">{bic.approved_count}</TableCell>
-                      <TableCell className="text-right text-amber-600">{bic.declined_count}</TableCell>
-                      <TableCell className="text-right text-red-600">{bic.chargeback_count}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(bic.total_volume)}</TableCell>
-                      <TableCell className={`text-right font-medium ${bic.is_high_risk ? 'text-red-600' : ''}`}>
-                        {formatPercent(bic.cb_rate_count)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {/* Total Row */}
-                  <TableRow className={`${hasBicAlert ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
-                    <TableCell colSpan={2}>Total ({bicStats.totals.total_bics} BICs)</TableCell>
-                    <TableCell className="text-right">{bicStats.totals.total_transactions}</TableCell>
-                    <TableCell className="text-right">-</TableCell>
-                    <TableCell className="text-right">-</TableCell>
-                    <TableCell className="text-right">{bicStats.totals.total_chargebacks}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(bicStats.totals.total_volume)}</TableCell>
-                    <TableCell className={`text-right ${hasBicAlert ? 'text-red-600' : ''}`}>
-                      {formatPercent(bicStats.totals.overall_cb_rate)}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            ) : (
-              <p className="text-slate-500 text-center py-4">No BIC data available</p>
-            )}
-          </CardContent>
-        </Card>
-      </main>
-    </div>
+          )}
+
+          <Card className={`${hasBicAlert ? "border-red-300" : ""}`}>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-slate-500" />
+                <CardTitle className="text-lg">Transactions by BIC</CardTitle>
+                {hasBicAlert && <AlertTriangle className="h-5 w-5 text-red-500" />}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {bicLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin text-slate-400" />
+                  </div>
+              ) : bicStats && bicStats.bics && bicStats.bics.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>BIC</TableHead>
+                        <TableHead>Country</TableHead>
+                        <TableHead className="text-right">Total TX</TableHead>
+                        <TableHead className="text-right">Approved</TableHead>
+                        <TableHead className="text-right">Declined</TableHead>
+                        <TableHead className="text-right">Chargebacks</TableHead>
+                        <TableHead className="text-right">Volume €</TableHead>
+                        <TableHead className="text-right">CB Rate</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {bicStats.bics.map((bic) => (
+                          <TableRow key={bic.bic} className={bic.is_high_risk ? 'bg-red-50' : ''}>
+                            <TableCell className="font-mono text-sm">
+                              {bic.bic}
+                              {bic.is_high_risk && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2" />}
+                            </TableCell>
+                            <TableCell>{bic.bank_country}</TableCell>
+                            <TableCell className="text-right">{bic.total_transactions}</TableCell>
+                            <TableCell className="text-right text-green-600">{bic.approved_count}</TableCell>
+                            <TableCell className="text-right text-amber-600">{bic.declined_count}</TableCell>
+                            <TableCell className="text-right text-red-600">{bic.chargeback_count}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(bic.total_volume)}</TableCell>
+                            <TableCell className={`text-right font-medium ${bic.is_high_risk ? 'text-red-600' : ''}`}>
+                              {formatPercent(bic.cb_rate_count)}
+                            </TableCell>
+                          </TableRow>
+                      ))}
+                      <TableRow className={`${hasBicAlert ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
+                        <TableCell colSpan={2}>Total ({bicStats.totals.total_bics} BICs)</TableCell>
+                        <TableCell className="text-right">{bicStats.totals.total_transactions}</TableCell>
+                        <TableCell className="text-right">-</TableCell>
+                        <TableCell className="text-right">-</TableCell>
+                        <TableCell className="text-right">{bicStats.totals.total_chargebacks}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(bicStats.totals.total_volume)}</TableCell>
+                        <TableCell className={`text-right ${hasBicAlert ? 'text-red-600' : ''}`}>
+                          {formatPercent(bicStats.totals.overall_cb_rate)}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+              ) : (
+                  <p className="text-slate-500 text-center py-4">No BIC data available</p>
+              )}
+            </CardContent>
+          </Card>
+        </main>
+      </div>
   )
 }

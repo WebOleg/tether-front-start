@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/layout'
@@ -141,7 +141,7 @@ interface EditDebtorForm {
   model: string;
 }
 
-export default function DebtorsPage() {
+function DebtorsContent() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -654,5 +654,20 @@ export default function DebtorsPage() {
 
         </div>
       </>
+  )
+}
+
+export default function DebtorsPage() {
+  return (
+      <Suspense fallback={
+        <div className="p-6">
+          <Header title="Debtors" description="Loading..." />
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          </div>
+        </div>
+      }>
+        <DebtorsContent />
+      </Suspense>
   )
 }

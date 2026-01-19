@@ -646,7 +646,7 @@ export default function UploadsPage() {
                         <TableCell className="text-center">
                           {cbPercent !== null && cbPercent !== undefined ? (
                             <span className={`text-sm font-medium ${cbPercent === 0 ? 'text-green-600' : cbPercent < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
-                              {cbPercent.toFixed(2)}%
+                              {Math.round(cbPercent)}%
                             </span>
                           ) : (
                             <span className="text-sm text-slate-400">-</span>
@@ -655,7 +655,7 @@ export default function UploadsPage() {
                         <TableCell className="text-center">
                           {cbAmtPercent !== null && cbAmtPercent !== undefined ? (
                             <span className={`text-sm font-medium ${cbAmtPercent === 0 ? 'text-green-600' : cbAmtPercent < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
-                              {cbAmtPercent.toFixed(2)}%
+                             {Math.round(cbAmtPercent)}%
                             </span>
                           ) : (
                             <span className="text-sm text-slate-400">-</span>

@@ -385,13 +385,13 @@ export interface CountryChargebackStats {
   declined: number
   errors: number
   chargebacks: number
-  cb_rate_total: number
-  cb_rate_approved: number
+  cb_rate_total: number | null
+  cb_rate_approved: number | null
   alert: boolean
 }
 
 export interface CountryChargebackTotals extends Omit<CountryChargebackStats, 'country'> {
-  cb_rate_amount_approved: number
+  cb_rate_amount_approved: number | null
   cb_alert_amount_approved: boolean
 }
 
@@ -426,7 +426,7 @@ export interface ChargebackBankDetail {
   bank_name: string;
   total_amount: number;
   chargebacks: number;
-  cb_rate: number;
+  cb_rate: number | null;
   alert: boolean;
 }
 
@@ -434,7 +434,7 @@ export interface ChargebackBankTotal {
   total: number;
   total_amount: number;
   chargebacks: number;
-  total_cb_rate: number;
+  total_cb_rate: number | null;
   alert: boolean;
 }
 

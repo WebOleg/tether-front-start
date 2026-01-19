@@ -6,8 +6,8 @@ export interface CountryChargebackStats {
   errors: number
   chargebacks: number
   chargeback_amount: number
-  cb_rate_total: number
-  cb_rate_approved: number
+  cb_rate_total: number | null
+  cb_rate_approved: number | null
   alert: boolean
 }
 
@@ -45,7 +45,7 @@ export interface BankChargebackStats {
   total_amount: number
   chargebacks: number
   chargeback_amount: number
-  cb_rate: number
+  cb_rate: number | null
   alert: boolean
 }
 
@@ -59,6 +59,6 @@ export interface ChargebackBankStats {
     total_amount: number
     chargebacks: number
     chargeback_amount: number
-    cb_rate: number
+    cb_rate: number | null
   }
 }

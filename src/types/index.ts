@@ -94,6 +94,10 @@ export interface Upload {
   bav_verified_count?: number
   billed_with_emp_count?: number
   chargeback_count?: number
+  cb_percentage?: number | null
+  cb_amount_percentage?: number | null
+  approved_amount?: number
+  chargeback_amount?: number
 }
 
 export type UploadStatus = 'pending' | 'processing' | 'completed' | 'failed'

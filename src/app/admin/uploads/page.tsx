@@ -574,6 +574,7 @@ export default function UploadsPage() {
                   <TableHead className="text-center">Invalid</TableHead>
                   <TableHead className="text-center">Valid %</TableHead>
                   <TableHead className="text-center">CB %</TableHead>
+                  <TableHead className="text-center">CB Amt %</TableHead>
                   <TableHead>Uploaded</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
@@ -581,13 +582,13 @@ export default function UploadsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
                     </TableCell>
                   </TableRow>
                 ) : uploads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-slate-500">
+                    <TableCell colSpan={10} className="text-center py-8 text-slate-500">
                       No uploads yet
                     </TableCell>
                   </TableRow>
@@ -598,9 +599,8 @@ export default function UploadsPage() {
                     const invalid = upload.invalid_count || 0
                     const skippedTotal = upload.skipped?.total || 0
                     const validPercent = total > 0 ? Math.round((valid / total) * 100) : 0
-                    const billedWithEmp = upload.billed_with_emp_count || 0
-                    const chargebacks = upload.chargeback_count || 0
-                    const chargebackPercent = billedWithEmp > 0 ? Math.round((chargebacks / billedWithEmp) * 100) : 0
+                    const cbPercent = upload.cb_percentage
+                    const cbAmtPercent = upload.cb_amount_percentage
 
                     return (
                       <TableRow key={upload.id} className="hover:bg-slate-50">
@@ -644,9 +644,18 @@ export default function UploadsPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-center">
-                          {billedWithEmp > 0 ? (
-                            <span className={`text-sm font-medium ${chargebackPercent === 0 ? 'text-green-600' : chargebackPercent < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
-                              {chargebackPercent}%
+                          {cbPercent !== null && cbPercent !== undefined ? (
+                            <span className={`text-sm font-medium ${cbPercent === 0 ? 'text-green-600' : cbPercent < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              {cbPercent.toFixed(2)}%
+                            </span>
+                          ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {cbAmtPercent !== null && cbAmtPercent !== undefined ? (
+                            <span className={`text-sm font-medium ${cbAmtPercent === 0 ? 'text-green-600' : cbAmtPercent < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              {cbAmtPercent.toFixed(2)}%
                             </span>
                           ) : (
                             <span className="text-sm text-slate-400">-</span>

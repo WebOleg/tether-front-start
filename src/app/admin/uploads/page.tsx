@@ -387,7 +387,6 @@ export default function UploadsPage() {
           <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
 
-              {/* Configuration Bar */}
               <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between p-4 rounded-lg border bg-slate-50/50">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
@@ -434,7 +433,6 @@ export default function UploadsPage() {
                 </div>
               </div>
 
-              {/* Dropzone */}
               <div
                   ref={dropZoneRef}
                   onClick={() => fileInputRef.current?.click()}
@@ -471,7 +469,6 @@ export default function UploadsPage() {
                 />
               </div>
 
-              {/* File Selected State */}
               {file && !uploadStatus && !activeUploadId && (
                   <div className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg shadow-sm animate-in fade-in slide-in-from-top-2">
                     <div className="flex items-center gap-3">
@@ -601,6 +598,8 @@ export default function UploadsPage() {
                     const validPercent = total > 0 ? Math.round((valid / total) * 100) : 0
                     const cbPercent = upload.cb_percentage
                     const cbAmtPercent = upload.cb_amount_percentage
+                    const cbCount = upload.chargeback_count || 0
+                    const cbAmount = upload.chargeback_amount || 0
 
                     return (
                       <TableRow key={upload.id} className="hover:bg-slate-50">
@@ -646,7 +645,7 @@ export default function UploadsPage() {
                         <TableCell className="text-center">
                           {cbPercent !== null && cbPercent !== undefined ? (
                             <span className={`text-sm font-medium ${cbPercent === 0 ? 'text-green-600' : cbPercent < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
-                              {Math.round(cbPercent)}%
+                              {cbCount} ({Math.round(cbPercent)}%)
                             </span>
                           ) : (
                             <span className="text-sm text-slate-400">-</span>
@@ -655,7 +654,7 @@ export default function UploadsPage() {
                         <TableCell className="text-center">
                           {cbAmtPercent !== null && cbAmtPercent !== undefined ? (
                             <span className={`text-sm font-medium ${cbAmtPercent === 0 ? 'text-green-600' : cbAmtPercent < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
-                             {Math.round(cbAmtPercent)}%
+                              €{cbAmount.toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ({Math.round(cbAmtPercent)}%)
                             </span>
                           ) : (
                             <span className="text-sm text-slate-400">-</span>

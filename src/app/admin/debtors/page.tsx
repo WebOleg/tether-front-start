@@ -49,7 +49,8 @@ import {
 } from "@/components/ui/tooltip"
 import { api } from '@/lib/api'
 import type { Debtor, DebtorStatus, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
-import { PaginationMeta } from '@/components/ui/pagination'
+// 1. UPDATED IMPORT: Added Pagination component
+import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import {
   CheckCircle2,
   XCircle,
@@ -63,7 +64,7 @@ import {
   X
 } from 'lucide-react'
 
-// --- HELPERS ---
+// --- HELPERS (Kept same as before) ---
 
 const statusColors: Record<DebtorStatus, string> = {
   uploaded: 'bg-slate-100 text-slate-800',
@@ -136,7 +137,6 @@ function ModelBadge({ model }: { model?: string | null }) {
   )
 }
 
-// -- Type for Edit Form --
 interface EditDebtorForm {
   model: string;
 }
@@ -146,7 +146,7 @@ function DebtorsContent() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  // 1. Get initial state from URL
+  // Get initial state from URL
   const currentStatus = searchParams.get('status') || 'all'
   const currentModel = searchParams.get('model') || 'all'
   const currentSearch = searchParams.get('search') || ''
@@ -158,25 +158,25 @@ function DebtorsContent() {
   const [meta, setMeta] = useState<PaginationMetaType | null>(null)
   const [links, setLinks] = useState<PaginationLinks | null>(null)
 
+  // 2. NEW STATE: For pagination links (numbered pages)
+  const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
+
   // Local state for Search Input
   const [searchInput, setSearchInput] = useState(currentSearch)
 
-  // -- Edit State --
+  // Edit State
   const [editingDebtor, setEditingDebtor] = useState<Debtor | null>(null)
   const [formData, setFormData] = useState<EditDebtorForm>({ model: 'legacy' })
   const [isSaving, setIsSaving] = useState(false)
   const [showLegacyWarning, setShowLegacyWarning] = useState(false)
 
-  // Constant for Limit
   const LIFETIME_LIMIT = 750;
 
-  // Computed: Count active filters
   const activeFilterCount =
       (currentStatus !== 'all' ? 1 : 0) +
       (currentModel !== 'all' ? 1 : 0) +
       (currentSearch ? 1 : 0);
 
-  // 2. Helper to push new params to URL
   const updateUrl = useCallback((updates: Record<string, string | number | null>) => {
     const params = new URLSearchParams(searchParams.toString())
 
@@ -195,12 +195,10 @@ function DebtorsContent() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false })
   }, [searchParams, pathname, router])
 
-  // 3. Sync local input if URL changes externally
   useEffect(() => {
     setSearchInput(currentSearch)
   }, [currentSearch])
 
-  // 4. Debounce Effect
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchInput !== currentSearch) {
@@ -210,7 +208,7 @@ function DebtorsContent() {
     return () => clearTimeout(timer)
   }, [searchInput, currentSearch, updateUrl])
 
-  // 5. Main Data Fetch Effect
+  // 3. UPDATED FETCH: Extract pagination links from response
   const fetchDebtors = useCallback(async () => {
     setLoading(true)
     try {
@@ -227,6 +225,11 @@ function DebtorsContent() {
       setDebtors(response.data)
       setMeta(response.meta || null)
       setLinks(response.links || null)
+
+      // Match the logic from BillingPage to get the array of page links
+      if (response.meta && 'links' in response.meta) {
+        setPaginationLinks((response.meta as PaginationMetaType & { links?: PaginationLink[] }).links || [])
+      }
     } catch (error) {
       console.error('Failed to fetch debtors:', error)
     } finally {
@@ -242,13 +245,16 @@ function DebtorsContent() {
   const handleStatusFilterChange = (status: string) => updateUrl({ status })
   const handleModelFilterChange = (model: string) => updateUrl({ model })
 
-  // -- Reset Filters Handler --
+  // 4. NEW HANDLERS: For pagination interactions
+  const handlePageClick = (page: number) => updateUrl({ page })
+  const handlePreviousPage = () => links?.prev && updateUrl({ page: currentPage - 1 })
+  const handleNextPage = () => links?.next && updateUrl({ page: currentPage + 1 })
+
   const handleResetFilters = () => {
     setSearchInput('')
     router.replace(pathname)
   }
 
-  // -- Edit Logic --
   const handleEditClick = (debtor: Debtor) => {
     const profile = (debtor as any).debtor_profile
     setFormData({
@@ -261,13 +267,9 @@ function DebtorsContent() {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  // 1. First click logic: Check if we need a warning
   const handleSaveClick = () => {
     if (!editingDebtor) return
-
     const originalModel = (editingDebtor as any).debtor_profile?.billing_model || 'legacy'
-
-    // Check if switching TO legacy FROM something else
     if (formData.model === 'legacy' && originalModel !== 'legacy') {
       setShowLegacyWarning(true)
     } else {
@@ -275,17 +277,12 @@ function DebtorsContent() {
     }
   }
 
-  // 2. Actual API Logic
   const executeSave = async () => {
     if (!editingDebtor) return
-
     setIsSaving(true)
     setShowLegacyWarning(false)
-
     try {
       await api.updateDebtor(editingDebtor.id, formData)
-
-      // Close and refresh
       setEditingDebtor(null)
       fetchDebtors()
     } catch (error) {
@@ -345,7 +342,7 @@ function DebtorsContent() {
                 </SelectContent>
               </Select>
 
-              {/* Reset Button with Counter */}
+              {/* Reset Button */}
               {activeFilterCount > 0 && (
                   <Button
                       variant="outline"
@@ -585,6 +582,16 @@ function DebtorsContent() {
               </TableBody>
             </Table>
           </div>
+
+          {/* 5. ADDED PAGINATION COMPONENT (Matching BillingPage) */}
+          <Pagination
+              meta={meta}
+              links={links}
+              paginationLinks={paginationLinks}
+              onPageChange={handlePageClick}
+              onPreviousClick={handlePreviousPage}
+              onNextClick={handleNextPage}
+          />
 
           <Dialog open={!!editingDebtor} onOpenChange={(open) => !open && setEditingDebtor(null)}>
             <DialogContent className="sm:max-w-[500px]">

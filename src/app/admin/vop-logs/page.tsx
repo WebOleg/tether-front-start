@@ -27,6 +27,7 @@ import { api } from '@/lib/api'
 import type { PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType, VopLog, VopResult, NameMatch } from '@/types'
 import { CheckCircle, XCircle, MinusCircle, User, UserCheck, UserX } from 'lucide-react'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
+import { formatDate } from '@/lib/utils'
 
 const resultColors: Record<VopResult, string> = {
   verified: 'bg-green-100 text-green-800',
@@ -42,16 +43,6 @@ const nameMatchColors: Record<NameMatch, string> = {
   no: 'bg-red-100 text-red-800',
   unavailable: 'bg-slate-100 text-slate-600',
   error: 'bg-orange-100 text-orange-800',
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 function ScoreIndicator({ score }: { score: number }) {

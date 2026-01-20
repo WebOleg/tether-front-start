@@ -21,6 +21,7 @@ import { api } from '@/lib/api'
 import { ChargebackCodes, Chargebacks, PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType } from '@/types';
 import { CHARGEBACK_RULES, getChargebackRule } from '@/lib/chargebacks'
 import { useEffect, useState } from 'react'
+import { formatDate, formatDateNullable, formatCurrency } from '@/lib/utils'
 
 const riskColors: Record<string, string> = {
   low: 'bg-green-100 text-green-800',
@@ -28,12 +29,7 @@ const riskColors: Record<string, string> = {
   high: 'bg-red-100 text-red-800',
 }
 
-function formatCurrency(amount: number, currency: string): string {
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: currency,
-  }).format(amount)
-}
+
 
 export default function ChargebacksPage() {
   const [chargebackCodes, setChargebackCodes] = useState<ChargebackCodes[]>([])
@@ -146,6 +142,8 @@ export default function ChargebacksPage() {
                 <TableHead>Required Actions</TableHead>
                 <TableHead>Debtor</TableHead>
                 <TableHead>IBAN</TableHead>
+                <TableHead>Transaction</TableHead>
+                <TableHead>Chargeback</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Bank</TableHead>
               </TableRow>
@@ -205,11 +203,17 @@ export default function ChargebacksPage() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="font-mono text-xs">
                         {cb.debtor ? ((cb.debtor as any).iban || cb.debtor.iban_masked) : '-'}
                       </TableCell>
-                      <TableCell className="text-right text-sm font-mono">
-                        {formatCurrency(cb.amount, cb.currency)}
+                      <TableCell className="text-slate-500 text-sm">
+                        { formatDateNullable(cb.emp_created_at) }
+                      </TableCell>
+                      <TableCell className="text-slate-500 text-sm">
+                        { formatDateNullable(cb.chargebacked_at) }
+                      </TableCell>
+                      <TableCell className="text-right text-sm">
+                        { formatCurrency(cb.amount, cb.currency) }
                       </TableCell>
                       <TableCell>
                         <div>

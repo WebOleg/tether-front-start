@@ -168,7 +168,7 @@ export interface Debtor {
   debtor_profile?: DebtorProfile
 }
 
-export type DebtorStatus = 'uploaded' | 'pending' | 'processing' | 'recovered' | 'failed'
+export type DebtorStatus = 'uploaded' | 'pending' | 'processing' | 'recovered' | 'failed' | 'approved' | 'chargebacked'
 export type ValidationStatus = 'pending' | 'valid' | 'invalid'
 export type RiskClass = 'low' | 'medium' | 'high'
 

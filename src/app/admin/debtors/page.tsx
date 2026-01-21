@@ -71,7 +71,9 @@ const statusColors: Record<DebtorStatus, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   processing: 'bg-blue-100 text-blue-800',
   recovered: 'bg-green-100 text-green-800',
+  approved: 'bg-green-100 text-green-800',
   failed: 'bg-red-100 text-red-800',
+  chargebacked: 'bg-red-100 text-red-800',
 }
 
 const riskColors: Record<string, string> = {

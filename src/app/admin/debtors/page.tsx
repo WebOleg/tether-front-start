@@ -339,6 +339,8 @@ function DebtorsContent() {
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="processing">Processing</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="chargebacked">Chargebacked</SelectItem>
                   <SelectItem value="recovered">Recovered</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>

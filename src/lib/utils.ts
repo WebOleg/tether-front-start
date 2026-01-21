@@ -63,8 +63,19 @@ export function formatMonthYear(date: Date): string {
  * @returns Formatted currency string (e.g., "1.234,56 €")
  */
 export function formatCurrency(amount: number, currency: string): string {
-  return new Intl.NumberFormat('de-DE', {
+  return new Intl.NumberFormat('en-EU', {
     style: 'currency',
     currency: currency,
   }).format(amount)
+}
+
+/**
+ * Formats a file size in bytes into a human-readable string (B, KB, or MB).
+ * @param bytes - The file size in bytes.
+ * @returns The formatted file size string.
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }

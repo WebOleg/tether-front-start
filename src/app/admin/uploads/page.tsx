@@ -57,28 +57,13 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
+import { formatFileSize, formatDate } from '@/lib/utils'
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   processing: 'bg-blue-100 text-blue-800',
   completed: 'bg-green-100 text-green-800',
   failed: 'bg-red-100 text-red-800',
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function formatSkippedMessage(skipped: SkippedCounts): string {

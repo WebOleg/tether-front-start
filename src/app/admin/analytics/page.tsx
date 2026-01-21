@@ -244,6 +244,12 @@ export default function AnalyticsPage() {
       return status.data.status
     } catch (err) {
       console.error('Failed to poll EMP refresh status:', err)
+      setEmpRefreshing(false)
+      setEmpJobId(null)
+      setEmpResult({
+        message: 'Job completed or not found',
+        success: true
+      })
       return 'error'
     }
   }, [])

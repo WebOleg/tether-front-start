@@ -43,7 +43,6 @@ import {
   AlertCircle,
   AlertTriangle,
   Ban,
-  Filter,
   ShieldCheck,
   CreditCard,
   Send,
@@ -177,7 +176,6 @@ export default function UploadDetailPage() {
   const [billingStats, setBillingStats] = useState<BillingStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
-  const [filtering, setFiltering] = useState(false)
   const [verifyingVop, setVerifyingVop] = useState(false)
   const [validating, setValidating] = useState(false)
   const [search, setSearch] = useState('')
@@ -202,13 +200,9 @@ export default function UploadDetailPage() {
     debtorTypeRef.current = debtorType
   }, [debtorType])
 
-  // Show validation UI when local state OR backend reports processing
   const isValidating = validating || stats?.is_processing
-
-  // Derived state: validation is complete when not processing and no pending
   const validationCompleted = stats ? !stats.is_processing && stats.pending === 0 : false
 
-  // Sync local validating state with backend
   useEffect(() => {
     if (stats?.is_processing) {
       setValidating(true)
@@ -293,7 +287,6 @@ export default function UploadDetailPage() {
     setCurrentPage(1)
   }
 
-  // Initialization Effect
   useEffect(() => {
     const initPage = async () => {
       setLoading(true)
@@ -301,28 +294,22 @@ export default function UploadDetailPage() {
         const uploadData = await api.getUpload(uploadId)
         setUpload(uploadData)
 
-        // Only start validation on FIRST load
         setValidating(true)
 
-        // Start async validation
         api.validateUpload(uploadId).catch(err => {
           console.error('Validation dispatch error:', err)
         })
 
-        // Fetch initial global stats (no filters needed for init check)
         const statsData = await api.getUploadValidationStats(uploadId)
         setStats(statsData)
 
-        // Fetch VOP Stats (defaults to 'all' on init)
         const vopData = await api.getVopStats(uploadId)
         setVopStats(vopData)
         setVerifyVopInProgress(vopData?.is_processing ?? false)
 
-        // Fetch Billing Stats
         const billingData = await api.getBillingStats(uploadId)
         setBillingStats(billingData)
 
-        // Mark initial fetch as done so the other effects can take over
         setHasFetchedInitial(true)
       } catch (error) {
         console.error('Failed to initialize:', error)
@@ -337,7 +324,6 @@ export default function UploadDetailPage() {
     }
   }, [uploadId])
 
-  // Poll validation stats
   useEffect(() => {
     if (!isValidating || !uploadId) return
 
@@ -353,7 +339,6 @@ export default function UploadDetailPage() {
     return () => clearInterval(interval)
   }, [isValidating, uploadId, fetchValidationStats, fetchDebtors, fetchVopStats])
 
-  // Poll billing stats
   useEffect(() => {
     if (!billingStats?.is_processing) return
 
@@ -368,7 +353,6 @@ export default function UploadDetailPage() {
     return () => clearInterval(interval)
   }, [billingStats?.is_processing, fetchBillingStats])
 
-  // Refresh data when filters change
   useEffect(() => {
     if (!uploadId || loading || !hasFetchedInitial) return
 
@@ -405,7 +389,6 @@ export default function UploadDetailPage() {
     return () => clearTimeout(timer)
   }, [uploadId, currentPage, search, loading, hasFetchedInitial])
 
-  // Refresh stats when tabs change
   useEffect(() => {
     if (!uploadId || loading || !hasFetchedInitial) return
 
@@ -497,31 +480,6 @@ export default function UploadDetailPage() {
       }
     } finally {
       setSyncing(false)
-    }
-  }
-
-  const handleFilterChargebacks = async () => {
-    if (!stats?.chargebacked) return
-
-    if (!confirm(`Remove ${stats.chargebacked} chargebacked records from this upload?`)) {
-      return
-    }
-
-    setFiltering(true)
-    try {
-      const result = await api.filterChargebacks(uploadId)
-      toast.success(`Removed ${result.removed} chargebacked records`)
-
-      const [debtorsResponse, statsData] = await Promise.all([
-        api.getUploadDebtors(uploadId, { per_page: 100, search: search || undefined }),
-        api.getUploadValidationStats(uploadId),
-      ])
-      setDebtors(debtorsResponse.data)
-      setStats(statsData)
-    } catch (error) {
-      toast.error('Failed to filter chargebacks')
-    } finally {
-      setFiltering(false)
     }
   }
 
@@ -704,26 +662,6 @@ export default function UploadDetailPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {(stats?.chargebacked ?? 0) > 0 && (
-                  <Button
-                      variant="destructive"
-                      onClick={handleFilterChargebacks}
-                      disabled={filtering}
-                      className="gap-2"
-                  >
-                    {filtering ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Filtering...
-                        </>
-                    ) : (
-                        <>
-                          <Filter className="h-4 w-4" />
-                          Filter Chargebacks ({stats?.chargebacked})
-                        </>
-                    )}
-                  </Button>
-              )}
               {validationCompleted && vopPending > 0 && (
                   <Button
                       variant="outline"

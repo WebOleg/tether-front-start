@@ -606,10 +606,11 @@ export default function UploadsPage() {
                         <TableCell className="px-0">
                           <Link href={`/admin/uploads/${upload.id}`} className="hover:underline">
                             <div className="flex items-center gap-2">
-                              <FileSpreadsheet className="h-4 w-4 text-slate-400" />
+                              <FileSpreadsheet className="h-5 w-5 text-slate-400" />
                               <div>
                                 <p className="font-medium text-blue-600">{upload.original_filename}</p>
                                 <p className="text-xs text-slate-500">{formatFileSize(upload.file_size)}</p>
+                                <p className="text-xs text-slate-500">{ upload.filename }</p>
                               </div>
                             </div>
                           </Link>

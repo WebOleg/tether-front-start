@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import type { User } from '@/types'
+import { ReactNode } from 'react'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -19,7 +20,7 @@ import { LogOut, User as UserIcon } from 'lucide-react'
 
 interface HeaderProps {
   title: string
-  description?: string
+  description?: ReactNode
 }
 
 export function Header({ title, description }: HeaderProps) {

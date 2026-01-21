@@ -57,28 +57,13 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
+import { formatFileSize, formatDate } from '@/lib/utils'
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
   processing: 'bg-blue-100 text-blue-800',
   completed: 'bg-green-100 text-green-800',
   failed: 'bg-red-100 text-red-800',
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function formatSkippedMessage(skipped: SkippedCounts): string {
@@ -606,10 +591,11 @@ export default function UploadsPage() {
                         <TableCell className="px-0">
                           <Link href={`/admin/uploads/${upload.id}`} className="hover:underline">
                             <div className="flex items-center gap-2">
-                              <FileSpreadsheet className="h-4 w-4 text-slate-400" />
+                              <FileSpreadsheet className="h-5 w-5 text-slate-400" />
                               <div>
                                 <p className="font-medium text-blue-600">{upload.original_filename}</p>
                                 <p className="text-xs text-slate-500">{formatFileSize(upload.file_size)}</p>
+                                <p className="text-xs text-slate-500">{ upload.filename }</p>
                               </div>
                             </div>
                           </Link>

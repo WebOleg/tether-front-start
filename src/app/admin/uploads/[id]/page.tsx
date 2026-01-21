@@ -55,6 +55,7 @@ import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, Paginatio
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { formatDate, formatCurrency } from '@/lib/utils'
 
 const uploadStatusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -115,23 +116,6 @@ const validationStatusConfig: Record<string, { color: string; textColor: string;
 }
 
 type DebtorType = 'all' | 'legacy' | 'flywheel' | 'recovery'
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-EU', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(amount)
-}
 
 function getValidationDisplayStatus(debtor: Debtor): string {
   if (debtor.latest_billing?.status === 'chargebacked') {
@@ -577,7 +561,14 @@ export default function UploadDetailPage() {
       <>
         <Header
             title={upload.original_filename}
-            description={`Uploaded ${formatDate(upload.created_at)}`}
+            description={
+              <>
+                <div className="text-sm text-slate-500">{upload.filename}</div>
+                <div className="text-sm text-slate-500">
+                  Uploaded {formatDate(upload.created_at)}
+                </div>
+              </>
+            }
         />
 
         <div className="px-6 pt-4">
@@ -874,7 +865,7 @@ export default function UploadDetailPage() {
                           {billingStats.approved}
                         </p>
                         <p className="text-xs text-green-600">
-                          {formatCurrency(billingStats.approved_amount)}
+                          {formatCurrency(billingStats.approved_amount, 'EUR')}
                         </p>
                       </div>
                       <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
@@ -886,7 +877,7 @@ export default function UploadDetailPage() {
                           {billingStats.pending}
                         </p>
                         <p className="text-xs text-yellow-600">
-                          {formatCurrency(billingStats.pending_amount)}
+                          {formatCurrency(billingStats.pending_amount, 'EUR')}
                         </p>
                       </div>
                       <div className="bg-red-50 rounded-lg p-3 border border-red-200">
@@ -898,7 +889,7 @@ export default function UploadDetailPage() {
                           {billingStats.declined}
                         </p>
                         <p className="text-xs text-red-600">
-                          {formatCurrency(billingStats.declined_amount)}
+                          {formatCurrency(billingStats.declined_amount, 'EUR')}
                         </p>
                       </div>
                       <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
@@ -910,7 +901,7 @@ export default function UploadDetailPage() {
                           {billingStats.error}
                         </p>
                         <p className="text-xs text-slate-600">
-                          {formatCurrency(billingStats.error_amount)}
+                          {formatCurrency(billingStats.error_amount, 'EUR')}
                         </p>
                       </div>
                     </div>

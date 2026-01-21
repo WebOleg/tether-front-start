@@ -1,12 +1,9 @@
-/**
- * Analytics page - Chargeback ratios, Gateway Sync, EMP Refresh
- */
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
-import { Header } from '@/components/layout'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -75,10 +72,9 @@ function formatDate(date: Date): string {
   return date.toISOString().split('T')[0]
 }
 
-// Generate months from November 2025 to current date
 function generateMonthOptions() {
   const options: { value: string; label: string; month: number; year: number }[] = []
-  const startDate = new Date(2025, 10, 1) // November 2025 (month is 0-indexed)
+  const startDate = new Date(2025, 10, 1)
   const endDate = new Date()
 
   let current = new Date(startDate)
@@ -90,21 +86,18 @@ function generateMonthOptions() {
     current.setMonth(current.getMonth() + 1)
   }
 
-  return options.reverse() // Most recent first
+  return options.reverse()
 }
 
 export default function AnalyticsPage() {
-  // Main Stats State
   const [cbStats, setCbStats] = useState<ChargebackStats | null>(null)
   const [cbCodeStats, setCbCodeStats] = useState<ChargebackCodeStats | null>(null)
   const [cbBankStats, setCbBankStats] = useState<ChargebackBankStats | null>(null)
 
-  // BIC Stats State
   const [bicStats, setBicStats] = useState<BicAnalyticsStats | null>(null)
   const [bicPeriod, setBicPeriod] = useState('30d')
   const [bicLoading, setBicLoading] = useState(false)
 
-  // Filters State
   const [selectedPeriod, setSelectedPeriod] = useState<string>('7d')
   const [activeModel, setActiveModel] = useState<string>('all')
   const [dateMode, setDateMode] = useState<DateMode>('transaction')
@@ -112,7 +105,6 @@ export default function AnalyticsPage() {
 
   const monthOptions = useMemo(() => generateMonthOptions(), [])
 
-  // Bank search state
   const [bankSearchQuery, setBankSearchQuery] = useState('')
 
   const filteredBankStats = bankSearchQuery.trim()
@@ -124,11 +116,9 @@ export default function AnalyticsPage() {
       }
       : cbBankStats
 
-  // Reconciliation state
   const [reconciling, setReconciling] = useState(false)
   const [reconcileResult, setReconcileResult] = useState<{ message: string; success: boolean } | null>(null)
 
-  // EMP Refresh State
   const [empRefreshing, setEmpRefreshing] = useState(false)
   const [empJobId, setEmpJobId] = useState<string | null>(null)
   const [empProgress, setEmpProgress] = useState(0)
@@ -141,9 +131,7 @@ export default function AnalyticsPage() {
   })
   const [empToDate, setEmpToDate] = useState(() => formatDate(new Date()))
 
-  // Parse selected period into API params
   const getFilterParams = useCallback(() => {
-    // Base params with Date Mode and optional Model
     const base: {
       period?: string;
       month?: number;
@@ -161,12 +149,10 @@ export default function AnalyticsPage() {
     if (['24h', '7d', '30d', '90d'].includes(selectedPeriod)) {
       return { ...base, period: selectedPeriod }
     }
-    // Monthly format: "2025-12"
     const [year, month] = selectedPeriod.split('-').map(Number)
     return { ...base, month, year }
   }, [selectedPeriod, dateMode, activeModel])
 
-  // Fetch Main Analytics
   useEffect(() => {
     const fetchChargebackStats = async () => {
       setLoading(true)
@@ -190,7 +176,6 @@ export default function AnalyticsPage() {
     fetchChargebackStats()
   }, [selectedPeriod, dateMode, activeModel, getFilterParams])
 
-  // Fetch BIC Analytics (Independent period)
   useEffect(() => {
     const fetchBicStats = async () => {
       setBicLoading(true)
@@ -214,8 +199,10 @@ export default function AnalyticsPage() {
         if (status.data.is_processing && status.data.job_id) {
           setEmpRefreshing(true)
           setEmpJobId(status.data.job_id)
-          setEmpProgress(status.data.progress)
-          setEmpStats(status.data.stats as EmpRefreshStats)
+          setEmpProgress(status.data.progress || 0)
+          if (status.data.stats) {
+            setEmpStats(status.data.stats as EmpRefreshStats)
+          }
         }
       } catch (err) {
         console.error('Failed to check EMP refresh status:', err)
@@ -227,17 +214,20 @@ export default function AnalyticsPage() {
   const pollEmpProgress = useCallback(async (jobId: string) => {
     try {
       const status = await api.getEmpRefreshJobStatus(jobId)
-      setEmpProgress(status.data.progress)
-      const stats = status.data.stats as EmpRefreshStats
-      setEmpStats(stats)
+      setEmpProgress(status.data.progress || 0)
+      
+      const stats = status.data.stats as EmpRefreshStats | null
+      if (stats) {
+        setEmpStats(stats)
+      }
 
       if (status.data.status === 'completed') {
         setEmpRefreshing(false)
         setEmpJobId(null)
         const parts = []
-        if (stats.inserted > 0) parts.push(`${stats.inserted} new`)
-        if (stats.updated > 0) parts.push(`${stats.updated} updated`)
-        if (stats.unchanged && stats.unchanged > 0) parts.push(`${stats.unchanged} unchanged`)
+        if (stats?.inserted && stats.inserted > 0) parts.push(`${stats.inserted} new`)
+        if (stats?.updated && stats.updated > 0) parts.push(`${stats.updated} updated`)
+        if (stats?.unchanged && stats.unchanged > 0) parts.push(`${stats.unchanged} unchanged`)
         setEmpResult({
           message: `Completed! ${parts.join(', ') || 'No changes'}`,
           success: true
@@ -246,7 +236,7 @@ export default function AnalyticsPage() {
         setEmpRefreshing(false)
         setEmpJobId(null)
         setEmpResult({
-          message: `Failed with ${stats.errors} errors`,
+          message: `Failed with ${stats?.errors || 0} errors`,
           success: false
         })
       }
@@ -320,7 +310,7 @@ export default function AnalyticsPage() {
       if (result.data.queued) {
         setEmpJobId(result.data.job_id)
         setEmpResult({
-          message: `Started refresh for ${result.data.estimated_pages} pages`,
+          message: `Started refresh for ${result.data.estimated_pages || 0} pages`,
           success: true
         })
       } else {
@@ -345,7 +335,6 @@ export default function AnalyticsPage() {
       const modelParam = activeModel !== 'all' ? { model: activeModel } : undefined
       const blob = await api.getBicAnalyticsExport(bicPeriod, modelParam)
 
-      // Use global URL
       const url = URL.createObjectURL(blob)
 
       const a = document.createElement('a')
@@ -382,7 +371,6 @@ export default function AnalyticsPage() {
         <Header title="Analytics" description="Chargeback rates and transaction analysis" />
         <main className="container mx-auto px-6 py-8">
 
-          {/* Model Tabs */}
           <div className="mb-8">
             <Tabs value={activeModel} onValueChange={setActiveModel} className="w-full">
               <TabsList className="w-full h-auto p-1 bg-slate-100/80 border border-slate-200 grid grid-cols-4 gap-2">
@@ -522,15 +510,17 @@ export default function AnalyticsPage() {
                     </Button>
                   </div>
                 </div>
-                {empRefreshing && empStats && (
+                {empRefreshing && (
                     <div className="mt-2">
                       <Progress value={empProgress} className="h-2 [&>div]:bg-blue-500" />
-                      <div className="flex justify-between text-xs text-slate-500 mt-1">
-                        <span className="text-green-600">+{empStats.inserted} new</span>
-                        <span className="text-blue-600">↻{empStats.updated} upd</span>
-                        <span className="text-slate-400">={empStats.unchanged || 0}</span>
-                        {empStats.errors > 0 && <span className="text-red-500">✗{empStats.errors}</span>}
-                      </div>
+                      {empStats && (
+                        <div className="flex justify-between text-xs text-slate-500 mt-1">
+                          <span className="text-green-600">+{empStats.inserted} new</span>
+                          <span className="text-blue-600">↻{empStats.updated} upd</span>
+                          <span className="text-slate-400">={empStats.unchanged || 0}</span>
+                          {empStats.errors > 0 && <span className="text-red-500">✗{empStats.errors}</span>}
+                        </div>
+                      )}
                     </div>
                 )}
                 {empResult && !empRefreshing && (
@@ -543,14 +533,12 @@ export default function AnalyticsPage() {
             </Card>
           </div>
 
-          {/* Second Row Time Period Selection */}
           <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
             <h2 className="text-lg font-semibold text-slate-700">
               Chargeback Analytics
               {activeModel !== 'all' && <Badge variant="outline" className="ml-2 capitalize">{activeModel}</Badge>}
             </h2>
             <div className="flex items-center gap-4">
-              {/* Date Mode Selector */}
               <div className="flex items-center gap-2">
                 <Label htmlFor="date-mode" className="text-sm whitespace-nowrap">Date by:</Label>
                 <Select
@@ -577,7 +565,6 @@ export default function AnalyticsPage() {
                 </Select>
               </div>
 
-              {/* Period Selector */}
               <div className="flex items-center gap-2">
                 <Label htmlFor="cb-period" className="text-sm">Filter:</Label>
                 <Select
@@ -604,7 +591,6 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
-          {/* Date Mode Info Banner */}
           <div className={`mb-4 p-3 rounded-lg text-sm ${dateMode === 'transaction' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
             {dateMode === 'transaction' ? (
                 <div className="flex items-center gap-2">
@@ -619,9 +605,7 @@ export default function AnalyticsPage() {
             )}
           </div>
 
-          {/* Third Row Chargeback Ratios */}
           <div className="grid gap-6 md:grid-cols-3 mb-8">
-            {/* Chargeback / Approved Ratio */}
             <Card className={totalCbRateApproved < 20 ? 'border-green-300' : totalCbRateApproved < 25 ? 'border-amber-300' : 'border-red-300'}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -652,7 +636,6 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
 
-            {/* Chargeback / All transactions Amount Ratio */}
             <Card className={totalCbRateAmountApproved < 20 ? 'border-green-300' : totalCbRateAmountApproved < 25 ? 'border-amber-300' : 'border-red-300'}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -684,7 +667,6 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
 
-            {/* Chargeback / All Transactions Ratio */}
             <Card className={totalCbRateAll < 20 ? 'border-green-300' : totalCbRateAll < 25 ? 'border-amber-300' : 'border-red-300'}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -716,7 +698,6 @@ export default function AnalyticsPage() {
             </Card>
           </div>
 
-          {/* Chargeback Rates by Country */}
           <Card className={`mb-8 ${hasAlert ? 'border-red-300' : ''}`}>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -760,7 +741,6 @@ export default function AnalyticsPage() {
                                   </TableCell>
                                 </TableRow>
                             ))}
-                            {/* Total Row */}
                             <TableRow className="bg-slate-100 font-semibold border-t-2">
                               <TableCell>Total</TableCell>
                               <TableCell className="text-right">{cbStats.totals.total}</TableCell>
@@ -781,9 +761,7 @@ export default function AnalyticsPage() {
             </CardContent>
           </Card>
 
-          {/* Two Column Layout for Codes and Banks */}
           <div className="grid gap-6 md:grid-cols-2 mb-8">
-            {/* Chargeback Codes */}
             <Card className="max-h-[500px] flex flex-col">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -818,7 +796,6 @@ export default function AnalyticsPage() {
                                     </TableRow>
                                 )
                               })}
-                              {/* Total Row */}
                               <TableRow className="bg-slate-100 font-semibold border-t-2">
                                 <TableCell colSpan={2}>Total</TableCell>
                                 <TableCell className="text-right">{cbCodeStats.totals.occurrences}</TableCell>
@@ -834,7 +811,6 @@ export default function AnalyticsPage() {
               </CardContent>
             </Card>
 
-            {/* Chargeback by Bank */}
             <Card className={`h-[500px] flex flex-col ${hasBankAlert ? "border-red-300" : ""}`}>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -880,7 +856,6 @@ export default function AnalyticsPage() {
                                     </TableCell>
                                   </TableRow>
                               ))}
-                              {/* Total Row - only show when not searching */}
                               {!bankSearchQuery.trim() && (
                                   <TableRow className={`${hasBankAlert ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
                                     <TableCell>Total</TableCell>
@@ -904,7 +879,6 @@ export default function AnalyticsPage() {
             </Card>
           </div>
 
-          {/* BIC Analytics Section */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-slate-700">
               BIC Analytics {activeModel !== 'all' && <Badge variant="outline" className="ml-2 capitalize">{activeModel}</Badge>}

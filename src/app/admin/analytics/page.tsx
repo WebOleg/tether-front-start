@@ -472,7 +472,7 @@ export default function AnalyticsPage() {
               <div className="flex items-center gap-2">
                 <Label htmlFor="date-mode" className="text-sm whitespace-nowrap">Date by:</Label>
                 <Select value={dateMode} onValueChange={(value: DateMode) => setDateMode(value)}>
-                  <SelectTrigger className="w-48 h-8"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="date-mode" className="w-48 h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="transaction"><div className="flex items-center gap-2"><Calendar className="h-4 w-4" /><span>Transaction Date</span></div></SelectItem>
                     <SelectItem value="chargeback"><div className="flex items-center gap-2"><CalendarClock className="h-4 w-4" /><span>Chargeback Date</span></div></SelectItem>
@@ -482,7 +482,7 @@ export default function AnalyticsPage() {
               <div className="flex items-center gap-2">
                 <Label htmlFor="cb-period" className="text-sm">Filter:</Label>
                 <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                  <SelectTrigger className="w-44 h-8"><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="cb-period" className="w-44 h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Time</SelectItem>
                     <SelectItem value="24h">Last 24h</SelectItem>
@@ -727,7 +727,7 @@ export default function AnalyticsPage() {
             <div className="flex items-center gap-2">
               <Label htmlFor="bic-period" className="text-sm">Period:</Label>
               <Select value={bicPeriod} onValueChange={setBicPeriod}>
-                <SelectTrigger className="w-32 h-8"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="bic-period" className="w-32 h-8"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="7d">Last 7 days</SelectItem>
                   <SelectItem value="30d">Last 30 days</SelectItem>

@@ -248,9 +248,17 @@ export interface User {
   created_at: string
 }
 
+export type LoginStatus = 'authenticated' | 'setup_required' | 'otp_required' | 'rate_limited'
+
 export interface LoginResponse {
-  token: string
-  user: User
+  status: LoginStatus
+  token?: string
+  user?: User
+  message?: string
+  user_id?: number
+  email?: string
+  email_masked?: string
+  backup_codes?: string[]
 }
 
 export interface UploadFilters {

@@ -200,12 +200,21 @@ class ApiClient {
     return response.json()
   }
 
+  /**
+   * Authenticate user.
+   * Now supports 2FA flows: check response.status for 'otp_required' or 'setup_required'.
+   */
   async login(email: string, password: string): Promise<LoginResponse> {
     const response = await this.request<LoginResponse>('/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     })
-    this.setToken(response.token)
+
+    // Only set the token if authentication is complete
+    if (response.status === 'authenticated' && response.token) {
+      this.setToken(response.token)
+    }
+
     return response
   }
 
@@ -215,6 +224,65 @@ class ApiClient {
     } finally {
       this.clearToken()
     }
+  }
+
+
+  /**
+   * Complete 2FA setup (user acknowledges saving backup codes).
+   */
+  async setup2fa(email: string): Promise<LoginResponse> {
+    const response = await this.request<LoginResponse>('/auth/setup-2fa', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+
+    if (response.status === 'authenticated' && response.token) {
+      this.setToken(response.token)
+    }
+
+    return response
+  }
+
+  /**
+   * Verify the 6-digit OTP code.
+   */
+  async verifyOtp(email: string, code: string): Promise<LoginResponse> {
+    const response = await this.request<LoginResponse>('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    })
+
+    if (response.status === 'authenticated' && response.token) {
+      this.setToken(response.token)
+    }
+
+    return response
+  }
+
+  /**
+   * Resend the OTP code.
+   */
+  async resendOtp(email: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/auth/resend-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    })
+  }
+
+  /**
+   * Verify using a backup code (recovery).
+   */
+  async verifyBackupCode(email: string, code: string): Promise<LoginResponse> {
+    const response = await this.request<LoginResponse>('/auth/verify-backup-code', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    })
+
+    if (response.status === 'authenticated' && response.token) {
+      this.setToken(response.token)
+    }
+
+    return response
   }
 
   async getUser(): Promise<User> {

@@ -59,7 +59,6 @@ export function OtpVerification({
     return (
         <div className="space-y-6">
             <div className="text-center">
-                <h3 className="text-lg font-medium text-gray-900">Two-Factor Authentication</h3>
                 <p className="mt-2 text-sm text-gray-600">
                     We sent a 6-digit code to <strong>{emailMasked}</strong>.
                     <br/>
@@ -76,12 +75,6 @@ export function OtpVerification({
                         length={6}
                     />
                 </div>
-
-                {error && (
-                    <div className="text-center text-sm text-red-600 bg-red-50 p-2 rounded">
-                        {error}
-                    </div>
-                )}
 
                 <button
                     type="submit"

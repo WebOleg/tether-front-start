@@ -72,12 +72,6 @@ export function BackupCodeEntry({
                     />
                 </div>
 
-                {error && (
-                    <div className="text-center text-sm text-red-600 bg-red-50 p-2 rounded">
-                        {error}
-                    </div>
-                )}
-
                 <button
                     type="submit"
                     disabled={code.length !== 9 || isLoading}

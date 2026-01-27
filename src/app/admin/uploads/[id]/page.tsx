@@ -44,6 +44,7 @@ import {
   AlertTriangle,
   Ban,
   ShieldCheck,
+  ShieldX,
   CreditCard,
   Send,
   Layers,
@@ -535,9 +536,12 @@ export default function UploadDetailPage() {
   const editHeaders = editingDebtor?.raw_data ? Object.keys(editingDebtor.raw_data) : headers
   const editingErrors = editingDebtor?.validation_errors || []
   const vopPending = vopStats ? vopStats.pending : 0
-  const vopVerified = vopStats ? vopStats.verified : 0
   const vopTotalEligible = vopStats ? vopStats.total_eligible : 0
   const hasBillingActivity = billingStats && billingStats.total_attempts > 0
+
+  // VOP result counts from by_result
+  const vopPassed = (vopStats?.by_result?.verified || 0) + (vopStats?.by_result?.likely_verified || 0)
+  const vopFailed = (vopStats?.by_result?.mismatch || 0) + (vopStats?.by_result?.rejected || 0) + (vopStats?.by_result?.inconclusive || 0)
 
   const canSync = (vopTotalEligible === 0 || vopPending === 0) && !isValidating
 
@@ -750,7 +754,7 @@ export default function UploadDetailPage() {
           )}
 
           {stats && (
-              <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 gap-4">
+              <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-10 gap-4">
                 <Card>
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-2">
@@ -812,13 +816,24 @@ export default function UploadDetailPage() {
                     <p className="text-2xl font-semibold mt-1">{upload.bav_excluded_count ?? 0}</p>
                   </CardContent>
                 </Card>
-                <Card className={vopVerified > 0 ? 'border-green-300 bg-green-50' : ''}>
+                {/* VOP Passed - can be billed (verified + likely_verified) */}
+                <Card className={vopPassed > 0 ? 'border-green-300 bg-green-50' : ''}>
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="h-3 w-3 text-green-600" />
-                      <span className="text-sm text-slate-500">VOP Verified</span>
+                      <span className="text-sm text-slate-500">VOP Passed</span>
                     </div>
-                    <p className="text-2xl font-semibold mt-1">{vopVerified}</p>
+                    <p className="text-2xl font-semibold mt-1">{vopPassed}</p>
+                  </CardContent>
+                </Card>
+                {/* VOP Failed - cannot be billed (mismatch + rejected + inconclusive) */}
+                <Card className={vopFailed > 0 ? 'border-red-300 bg-red-50' : ''}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2">
+                      <ShieldX className="h-3 w-3 text-red-600" />
+                      <span className="text-sm text-slate-500">VOP Failed</span>
+                    </div>
+                    <p className="text-2xl font-semibold mt-1">{vopFailed}</p>
                   </CardContent>
                 </Card>
                 <Card>

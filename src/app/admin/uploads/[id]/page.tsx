@@ -567,10 +567,10 @@ export default function UploadDetailPage() {
             title={upload.original_filename}
             description={
               <>
-                <div className="text-sm text-slate-500">{upload.filename}</div>
-                <div className="text-sm text-slate-500">
+                <span className="block text-sm text-slate-500">{upload.filename}</span>
+                <span className="block text-sm text-slate-500">
                   Uploaded {formatDate(upload.created_at)}
-                </div>
+                </span>
               </>
             }
         />

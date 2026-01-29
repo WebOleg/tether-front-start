@@ -173,11 +173,11 @@ export default function VopLogsPage() {
                     <TableCell>
                       {log.bank_identified ? (
                         <div>
-                          <div className="font-medium">{log.bank_name}</div>
-                          <div className="text-sm text-slate-500">{log.bic}</div>
+                          <div className="">{log.bank_name ?? '—'}</div>
+                          <div className="text-xs text-slate-500">{log.bic ?? '—'}</div>
                         </div>
                       ) : (
-                        <span className="text-slate-400">Not identified</span>
+                        <span className="text-slate-400">—</span>
                       )}
                     </TableCell>
                     <TableCell>

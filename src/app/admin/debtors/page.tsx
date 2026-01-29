@@ -440,8 +440,10 @@ function DebtorsContent() {
                               )}
                             </TableCell>
 
-                            <TableCell className="font-mono text-sm">
-                              {debtor.iban_masked}
+                            <TableCell>
+                              <div className="font-mono text-sm"> 
+                                {debtor.iban_masked}
+                              </div>
                             </TableCell>
                             <TableCell>{debtor.country}</TableCell>
                             <TableCell className="text-right font-medium">

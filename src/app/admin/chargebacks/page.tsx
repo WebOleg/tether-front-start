@@ -159,7 +159,7 @@ export default function ChargebacksPage() {
                   return (
                     <TableRow key={cb.id}>
                       <TableCell>
-                        <div className="font-mono text-blue-600">
+                        <div className="font-mono text-rose-600">
                           {cb.error_code}
                         </div>
                         <div className="text-slate-600 text-xs">

@@ -132,10 +132,9 @@ export function VopResultBadge({ result }: VopResultBadgeProps) {
   const isRejected = result === 'rejected'
   
   // Format display text
-  const displayText = result.replace('_', ' ').split(' ').map(word => 
+  const displayText = result.replaceAll('_', ' ').split(' ').map(word => 
     word.charAt(0).toUpperCase() + word.slice(1)
   ).join(' ')
-
   return (
     <Badge variant="outline" className={`rounded-full px-2.5 py-0.5 font-normal gap-1 min-w-[120px] justify-center ${colorClasses}`}>
       {isVerified && <CheckCircle2 className="h-3 w-3" />}

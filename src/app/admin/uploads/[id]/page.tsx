@@ -57,9 +57,8 @@ import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { statusColors as uploadStatusColors, validationStatusConfig } from '@/lib/styles'
+import { validationStatusConfig } from '@/lib/styles'
 import { ModelBadge, StatusBadge } from '@/components/ui/badges'
-
 type DebtorType = 'all' | 'legacy' | 'flywheel' | 'recovery'
 
 function getValidationDisplayStatus(debtor: Debtor): string {

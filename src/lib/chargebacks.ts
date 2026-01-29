@@ -91,6 +91,15 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
       CHARGEBACK_ACTIONS.RETRY,
     ],
   },
+  BE10: {
+    risk: "low",
+    detail: "Debtor country code is missing or invalid",
+    action: [
+      "Validate debtor ISO-2 country code",
+      "Ensure IBAN country prefix matches debtor country",
+      CHARGEBACK_ACTIONS.RETRY,
+    ],
+  },
   CNOR: {
     risk: 'high',
     detail: 'Creditor bank is not registered',

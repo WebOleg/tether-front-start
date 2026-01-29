@@ -22,12 +22,7 @@ import { ChargebackCodes, Chargebacks, PaginationLink, PaginationLinks, Paginati
 import { CHARGEBACK_RULES, getChargebackRule } from '@/lib/chargebacks'
 import { useEffect, useState } from 'react'
 import { formatDate, formatDateNullable, formatCurrency } from '@/lib/utils'
-
-const riskColors: Record<string, string> = {
-  low: 'bg-green-100 text-green-800',
-  medium: 'bg-yellow-100 text-yellow-800',
-  high: 'bg-red-100 text-red-800',
-}
+import { RiskBadge } from '@/components/ui/badges'
 
 export default function ChargebacksPage() {
   const [chargebackCodes, setChargebackCodes] = useState<ChargebackCodes[]>([])
@@ -173,9 +168,7 @@ export default function ChargebacksPage() {
                       </TableCell>
                       <TableCell>
                         {cb.error_code && CHARGEBACK_RULES[cb.error_code] && (
-                          <Badge className={riskColors[CHARGEBACK_RULES[cb.error_code].risk]}>
-                            {CHARGEBACK_RULES[cb.error_code].risk}
-                          </Badge>
+                          <RiskBadge risk={CHARGEBACK_RULES[cb.error_code].risk} />
                         )}
                       </TableCell>
                       <TableCell>

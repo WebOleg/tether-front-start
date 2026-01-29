@@ -51,6 +51,8 @@ import { api } from '@/lib/api'
 import type { Debtor, DebtorStatus, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
 // 1. UPDATED IMPORT: Added Pagination component
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
+import { modelRowStyles, statusRowStyles } from '@/lib/styles'
+import { ModelBadge, StatusBadge, RiskBadge } from '@/components/ui/badges'
 import {
   CheckCircle2,
   XCircle,
@@ -62,51 +64,6 @@ import {
   X
 } from 'lucide-react'
 import { formatCurrency, formatDateTime, getDaysRemaining } from '@/lib/utils'
-
-// --- HELPERS (Kept same as before) ---
-
-const statusColors: Record<DebtorStatus, string> = {
-  uploaded: 'bg-slate-100 text-slate-800',
-  pending: 'bg-yellow-100 text-yellow-800',
-  processing: 'bg-blue-100 text-blue-800',
-  recovered: 'bg-green-100 text-green-800',
-  approved: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800',
-  chargebacked: 'bg-red-100 text-red-800',
-}
-
-const riskColors: Record<string, string> = {
-  low: 'bg-green-100 text-green-800',
-  medium: 'bg-yellow-100 text-yellow-800',
-  high: 'bg-red-100 text-red-800',
-}
-
-const modelRowStyles: Record<string, string> = {
-  flywheel: 'bg-blue-50/60 hover:bg-blue-100/60',
-  recovery: 'bg-purple-50/60 hover:bg-purple-100/60',
-  legacy: 'bg-white hover:bg-slate-50',
-}
-
-const statusRowStyles: Record<DebtorStatus | string, string> = {
-  pending: 'bg-yellow-50/60 hover:bg-yellow-100/60',
-  processing: 'bg-blue-50/60 hover:bg-blue-100/60',
-  recovered: 'bg-green-50/60 hover:bg-green-100/60',
-  failed: 'bg-red-50/60 hover:bg-red-100/60',
-}
-
-function ModelBadge({ model }: { model?: string | null }) {
-  const normalized = (model || 'legacy').toLowerCase()
-  const config: Record<string, string> = {
-    flywheel: 'border-blue-300 text-blue-700 bg-blue-50',
-    recovery: 'border-purple-300 text-purple-700 bg-purple-50',
-    legacy: 'border-slate-300 text-slate-700 bg-slate-50',
-  }
-  return (
-      <Badge variant="outline" className={`capitalize ${config[normalized] ?? config.legacy}`}>
-        {normalized}
-      </Badge>
-  )
-}
 
 interface EditDebtorForm {
   model: string;
@@ -493,15 +450,11 @@ function DebtorsContent() {
                             <TableCell>{debtor.bank_name_reference}</TableCell>
                             <TableCell>{debtor.bank_country_iso_reference}</TableCell>
                             <TableCell>
-                              <Badge className={statusColors[debtor.status]}>
-                                {debtor.status}
-                              </Badge>
+                              <StatusBadge status={debtor.status} />
                             </TableCell>
                             <TableCell>
                               {debtor.risk_class && (
-                                  <Badge className={riskColors[debtor.risk_class]}>
-                                    {debtor.risk_class}
-                                  </Badge>
+                                  <RiskBadge risk={debtor.risk_class} />
                               )}
                             </TableCell>
 

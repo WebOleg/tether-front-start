@@ -57,14 +57,8 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
-import { formatFileSize, formatDate } from '@/lib/utils'
-
-const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  processing: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800',
-}
+import { formatCurrency, formatFileSize, formatDate } from '@/lib/utils'
+import { StatusBadge } from '@/components/ui/badges'
 
 function formatSkippedMessage(skipped: SkippedCounts): string {
   const parts: string[] = []
@@ -601,9 +595,7 @@ export default function UploadsPage() {
                           </Link>
                         </TableCell>
                         <TableCell>
-                          <Badge className={statusColors[upload.status]}>
-                            {upload.status}
-                          </Badge>
+                          <StatusBadge status={upload.status} />
                         </TableCell>
                         <TableCell className="text-center">
                           <span className="font-medium">{total}</span>
@@ -640,7 +632,7 @@ export default function UploadsPage() {
                         <TableCell className="text-center">
                           {cbAmtPercent !== null && cbAmtPercent !== undefined ? (
                             <span className={`text-sm font-medium ${cbAmtPercent === 0 ? 'text-green-600' : cbAmtPercent < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
-                              €{cbAmount.toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ({Math.round(cbAmtPercent)}%)
+                              { formatCurrency(cbAmount) } ({Math.round(cbAmtPercent)}%)
                             </span>
                           ) : (
                             <span className="text-sm text-slate-400">-</span>

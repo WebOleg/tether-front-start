@@ -57,64 +57,8 @@ import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatDate, formatCurrency } from '@/lib/utils'
-
-const uploadStatusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  processing: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800',
-}
-
-const validationStatusConfig: Record<string, { color: string; textColor: string; rowBg: string; hoverBg: string; icon: React.ReactNode; label: string }> = {
-  valid: {
-    color: 'text-green-600',
-    textColor: 'text-green-600',
-    rowBg: 'bg-white',
-    hoverBg: 'bg-slate-50',
-    icon: <CheckCircle className="h-5 w-5" />,
-    label: 'Valid'
-  },
-  invalid: {
-    color: 'text-orange-500',
-    textColor: 'text-orange-600',
-    rowBg: 'bg-orange-50',
-    hoverBg: 'bg-orange-100',
-    icon: <XCircle className="h-5 w-5" />,
-    label: 'Invalid'
-  },
-  error: {
-    color: 'text-red-500',
-    textColor: 'text-red-600',
-    rowBg: 'bg-red-50',
-    hoverBg: 'bg-red-100',
-    icon: <AlertCircle className="h-5 w-5" />,
-    label: 'Error'
-  },
-  pending: {
-    color: 'text-gray-400',
-    textColor: 'text-gray-500',
-    rowBg: 'bg-white',
-    hoverBg: 'bg-slate-50',
-    icon: <Clock className="h-5 w-5" />,
-    label: 'Pending'
-  },
-  chargebacked: {
-    color: 'text-red-600',
-    textColor: 'text-red-700',
-    rowBg: 'bg-red-100',
-    hoverBg: 'bg-red-200',
-    icon: <Ban className="h-5 w-5" />,
-    label: 'Chargebacked'
-  },
-  approved: {
-    color: 'text-green-600',
-    textColor: 'text-green-700',
-    rowBg: 'bg-green-50',
-    hoverBg: 'bg-green-100',
-    icon: <CheckCircle className="h-5 w-5" />,
-    label: 'Approved'
-  },
-}
+import { statusColors as uploadStatusColors, validationStatusConfig } from '@/lib/styles'
+import { ModelBadge, StatusBadge } from '@/components/ui/badges'
 
 type DebtorType = 'all' | 'legacy' | 'flywheel' | 'recovery'
 
@@ -129,25 +73,6 @@ function getValidationDisplayStatus(debtor: Debtor): string {
     return 'error'
   }
   return debtor.validation_status
-}
-
-function ModelBadge({ model }: { model?: string | null }) {
-  const normalized = (model || 'legacy').toLowerCase()
-
-  const config: Record<string, string> = {
-    flywheel: 'border-blue-300 text-blue-700 bg-blue-50',
-    recovery: 'border-purple-300 text-purple-700 bg-purple-50',
-    legacy: 'border-slate-300 text-slate-700 bg-slate-50',
-  }
-
-  return (
-      <Badge
-          variant="outline"
-          className={`capitalize ${config[normalized] ?? config.legacy}`}
-      >
-        {normalized}
-      </Badge>
-  )
 }
 
 export default function UploadDetailPage() {
@@ -637,9 +562,7 @@ export default function UploadDetailPage() {
                   Back
                 </Button>
               </Link>
-              <Badge className={uploadStatusColors[upload.status]}>
-                {upload.status}
-              </Badge>
+              <StatusBadge status={upload.status} />
               <span className="text-sm text-slate-500">
               {stats?.total || 0} records
             </span>

@@ -24,19 +24,7 @@ import {
 } from 'lucide-react'
 import type { DashboardData } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
-
-const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  processing: 'bg-blue-100 text-blue-800',
-  completed: 'bg-green-100 text-green-800',
-  recovered: 'bg-green-100 text-green-800',
-  approved: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800',
-  declined: 'bg-red-100 text-red-800',
-  error: 'bg-red-100 text-red-800',
-  chargebacked: 'bg-orange-100 text-orange-800',
-  voided: 'bg-slate-100 text-slate-800',
-}
+import { StatusBadge } from '@/components/ui/badges'
 
 const statusIcons: Record<string, React.ReactNode> = {
   approved: <CheckCircle className="h-4 w-4 text-green-600" />,
@@ -327,9 +315,7 @@ export default function AdminDashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-slate-600">{upload.total_records} rows</span>
-                        <Badge className={statusColors[upload.status] || 'bg-slate-100'}>
-                          {upload.status}
-                        </Badge>
+                        <StatusBadge status={upload.status} />
                       </div>
                     </div>
                   ))}
@@ -361,9 +347,7 @@ export default function AdminDashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">{formatCurrency(billing.amount, 'EUR')}</span>
-                        <Badge className={statusColors[billing.status] || 'bg-slate-100'}>
-                          {billing.status}
-                        </Badge>
+                        <StatusBadge status={billing.status} />
                       </div>
                     </div>
                   ))}

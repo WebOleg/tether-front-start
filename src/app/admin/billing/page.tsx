@@ -34,6 +34,7 @@ import {
   X
 } from 'lucide-react'
 import { formatCurrency, formatDate, formatSimpleDate  } from '@/lib/utils'
+import { ModelBadge, StatusBadge } from '@/components/ui/badges'
 
 function calculateCycle(dateString: string, model: string = 'legacy') {
   const start = new Date(dateString)
@@ -48,44 +49,6 @@ function calculateCycle(dateString: string, model: string = 'legacy') {
   }
 
   return { start, end }
-}
-
-function ModelBadge({ model }: { model?: string }) {
-  const mode = (model || 'legacy').toLowerCase()
-  const isFlywheel = mode === 'flywheel'
-  const isRecovery = mode === 'recovery'
-
-  let styles = 'bg-slate-100 text-slate-800 border-slate-200'
-  if (isFlywheel) styles = 'bg-sky-50 text-sky-700 border-sky-200'
-  if (isRecovery) styles = 'bg-violet-50 text-violet-700 border-violet-200'
-
-  return (
-      <Badge variant="outline" className={`capitalize rounded-full px-2.5 font-normal ${styles}`}>
-        {mode}
-      </Badge>
-  )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    pending: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    declined: 'bg-rose-50 text-rose-700 border-rose-200',
-    error: 'bg-orange-50 text-orange-700 border-orange-200',
-    voided: 'bg-slate-100 text-slate-700 border-slate-200',
-    chargebacked: 'bg-purple-50 text-purple-700 border-purple-200',
-  }
-
-  const isApproved = status === 'approved'
-  const isDeclined = status === 'declined' || status === 'error'
-
-  return (
-      <Badge variant="outline" className={`capitalize rounded-full px-2.5 font-normal gap-1 ${styles[status] || styles.pending}`}>
-        {isApproved && <CheckCircle2 className="h-3 w-3" />}
-        {isDeclined && <XCircle className="h-3 w-3" />}
-        {status}
-      </Badge>
-  )
 }
 
 function BillingContent() {

@@ -7,7 +7,6 @@
 
 import { useEffect, useState } from 'react'
 import { Header } from '@/components/layout'
-import { Badge } from '@/components/ui/badge'
 import {
   Table,
   TableBody,
@@ -25,64 +24,11 @@ import {
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
 import type { PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType, VopLog, VopResult, NameMatch } from '@/types'
-import { CheckCircle, XCircle, MinusCircle, User, UserCheck, UserX } from 'lucide-react'
+import { Badge, CheckCircle, XCircle } from 'lucide-react'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { formatDate } from '@/lib/utils'
-
-const resultColors: Record<VopResult, string> = {
-  verified: 'bg-green-100 text-green-800',
-  likely_verified: 'bg-blue-100 text-blue-800',
-  inconclusive: 'bg-yellow-100 text-yellow-800',
-  mismatch: 'bg-orange-100 text-orange-800',
-  rejected: 'bg-red-100 text-red-800',
-}
-
-const nameMatchColors: Record<NameMatch, string> = {
-  yes: 'bg-green-100 text-green-800',
-  partial: 'bg-blue-100 text-blue-800',
-  no: 'bg-red-100 text-red-800',
-  unavailable: 'bg-slate-100 text-slate-600',
-  error: 'bg-orange-100 text-orange-800',
-}
-
-function ScoreIndicator({ score }: { score: number }) {
-  const color = score >= 80 ? 'text-green-600' : score >= 60 ? 'text-yellow-600' : 'text-red-600'
-  const bg = score >= 80 ? 'bg-green-100' : score >= 60 ? 'bg-yellow-100' : 'bg-red-100'
-  
-  return (
-    <div className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium ${bg} ${color}`}>
-      {score}
-    </div>
-  )
-}
-
-function NameMatchIndicator({ nameMatch, score }: { nameMatch: NameMatch | null, score: number | null }) {
-  if (!nameMatch) {
-    return <span className="text-slate-400">—</span>
-  }
-
-  const icons: Record<NameMatch, React.ReactNode> = {
-    yes: <UserCheck className="h-4 w-4" />,
-    partial: <User className="h-4 w-4" />,
-    no: <UserX className="h-4 w-4" />,
-    unavailable: <MinusCircle className="h-4 w-4" />,
-    error: <XCircle className="h-4 w-4" />,
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <Badge className={nameMatchColors[nameMatch]}>
-        <span className="flex items-center gap-1">
-          {icons[nameMatch]}
-          {nameMatch}
-        </span>
-      </Badge>
-      {score !== null && nameMatch !== 'unavailable' && nameMatch !== 'error' && (
-        <span className="text-xs text-slate-500">({score}%)</span>
-      )}
-    </div>
-  )
-}
+import { VopResultBadge, VopNameMatchBadge, VopScoreBadge } from '@/components/ui/badges'
+import { Badge as BadgeComponent } from '@/components/ui/badge'
 
 export default function VopLogsPage() {
   const [vopLogs, setVopLogs] = useState<VopLog[]>([])
@@ -236,24 +182,30 @@ export default function VopLogsPage() {
                     </TableCell>
                     <TableCell>
                       {log.iban_valid ? (
-                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <div className="flex items-center justify-center gap-1 text-green-600">
+                          <CheckCircle className="h-4 w-4" />
+                        </div>
                       ) : (
-                        <XCircle className="h-5 w-5 text-red-600" />
+                        <div className="flex items-center justify-center gap-1 text-red-600">
+                          <XCircle className="h-4 w-4" />
+                        </div>
                       )}
                     </TableCell>
                     <TableCell>
-                      <ScoreIndicator score={log.vop_score} />
+                      <VopScoreBadge score={log.vop_score} />
                     </TableCell>
                     <TableCell>
-                      <Badge className={resultColors[log.result]}>
-                        {log.result.replace('_', ' ')}
-                      </Badge>
+                      <VopResultBadge result={log.result} />
                     </TableCell>
                     <TableCell>
-                      <NameMatchIndicator 
-                        nameMatch={log.name_match} 
-                        score={log.name_match_score} 
-                      />
+                      {log.name_match ? (
+                        <VopNameMatchBadge 
+                          nameMatch={log.name_match} 
+                          score={log.name_match_score} 
+                        />
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-slate-500">
                       {formatDate(log.created_at)}

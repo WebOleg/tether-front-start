@@ -54,8 +54,6 @@ import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import {
   CheckCircle2,
   XCircle,
-  Clock,
-  AlertCircle,
   Search,
   Pencil,
   Loader2,
@@ -63,6 +61,7 @@ import {
   FileText,
   X
 } from 'lucide-react'
+import { formatCurrency, formatDateTime, getDaysRemaining } from '@/lib/utils'
 
 // --- HELPERS (Kept same as before) ---
 
@@ -93,36 +92,6 @@ const statusRowStyles: Record<DebtorStatus | string, string> = {
   processing: 'bg-blue-50/60 hover:bg-blue-100/60',
   recovered: 'bg-green-50/60 hover:bg-green-100/60',
   failed: 'bg-red-50/60 hover:bg-red-100/60',
-}
-
-function formatCurrency(amount: number, currency: string): string {
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: currency,
-  }).format(amount)
-}
-
-function formatDateTime(dateString: string | null | undefined): string {
-  if (!dateString) return '-'
-  return new Intl.DateTimeFormat('de-DE', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(dateString))
-}
-
-function getDaysRemaining(dateString: string) {
-  const target = new Date(dateString)
-  const today = new Date()
-  target.setHours(0, 0, 0, 0)
-  today.setHours(0, 0, 0, 0)
-  const diffTime = target.getTime() - today.getTime()
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-  if (diffDays < 0) return { text: `${Math.abs(diffDays)} days overdue`, color: 'text-red-600 font-medium', icon: AlertCircle }
-  if (diffDays === 0) return { text: 'Due today', color: 'text-orange-600 font-medium', icon: Clock }
-  if (diffDays === 1) return { text: 'Tomorrow', color: 'text-blue-600', icon: Clock }
-  return { text: `in ${diffDays} days`, color: 'text-slate-500', icon: null }
 }
 
 function ModelBadge({ model }: { model?: string | null }) {

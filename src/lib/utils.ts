@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { AlertCircle, Clock } from "lucide-react"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -45,6 +46,22 @@ export function formatDateOnly(date: Date | string): string {
 }
 
 /**
+ * Formats a date string into a German date format (DD.MM.YYYY).
+ * Returns '-' if the input is null, undefined, or empty.
+ *
+ * @param dateString - The date string to format. Can be null or undefined.
+ * @returns A formatted date string in 'DD.MM.YYYY' format, or '-' if input is invalid.
+ */
+export function formatDateTime(dateString: string | null | undefined): string {
+  if (!dateString) return '-'
+  return new Intl.DateTimeFormat('de-DE', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(dateString))
+}
+
+/**
  * Format a date for month/year labels in charts.
  * @param date - Date object
  * @returns Formatted string (e.g., "January 2026")
@@ -57,13 +74,61 @@ export function formatMonthYear(date: Date): string {
 }
 
 /**
+ * Calculates the number of days remaining until a given date and returns
+ * an object containing a descriptive text, a color class, and an optional icon.
+ *
+ * @param dateString - The target date as a string.
+ * @returns An object with:
+ *   - text: A string describing the due status (e.g., "Due today", "Tomorrow", "in X days", "X days overdue").
+ *   - color: A CSS class string for styling the text based on urgency.
+ *   - icon: An optional icon component (AlertCircle for overdue, Clock for today/tomorrow, null otherwise).
+ */
+export function getDaysRemaining(dateString: string) {
+  const target = new Date(dateString)
+  const today = new Date()
+  target.setHours(0, 0, 0, 0)
+  today.setHours(0, 0, 0, 0)
+  const diffTime = target.getTime() - today.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+  if (diffDays < 0) return { text: `${Math.abs(diffDays)} days overdue`, color: 'text-red-600 font-medium', icon: AlertCircle }
+  if (diffDays === 0) return { text: 'Due today', color: 'text-orange-600 font-medium', icon: Clock }
+  if (diffDays === 1) return { text: 'Tomorrow', color: 'text-blue-600', icon: Clock }
+  return { text: `in ${diffDays} days`, color: 'text-slate-500', icon: null }
+}
+
+/**
+ * Formats a given Date object into a simple string representation in the German date format (DD.MM.YYYY).
+ *
+ * @param date - The Date object to format.
+ * @returns A string representing the date in 'DD.MM.YYYY' format.
+ */
+export function formatSimpleDate(date: Date): string {
+  return date.toLocaleDateString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+}
+
+/**
+ * Formats a Date object into a string in ISO date format (YYYY-MM-DD), removing the time part.
+ *
+ * @param date - The Date object to format.
+ * @returns A string representing the date in 'YYYY-MM-DD' format.
+ */
+export function formatIsoDate(date: Date): string {
+  return date.toISOString().split('T')[0]
+}
+
+/**
  * Format a number as currency with locale formatting.
  * @param amount - The amount to format
  * @param currency - The currency code (e.g., "EUR", "USD")
  * @returns Formatted currency string (e.g., "1.234,56 €")
  */
-export function formatCurrency(amount: number, currency: string): string {
-  return new Intl.NumberFormat('en-EU', {
+export function formatCurrency(amount: number, currency: string = 'EUR'): string {
+  return new Intl.NumberFormat('de-DE', {
     style: 'currency',
     currency: currency,
   }).format(amount)
@@ -78,4 +143,15 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/**
+ * Formats a numeric value as a percentage string with two decimal places.
+ * If the value is undefined or null, it defaults to "0.00%".
+ * @param value - The numeric value to format. Can be a number, null, or undefined.
+ * @returns A string representing the value as a percentage with two decimals.
+ */
+export function formatPercent(value: number | undefined | null): string {
+  if (value === undefined || value === null) return '0.00%'
+  return `${value.toFixed(2)}%`
 }

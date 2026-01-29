@@ -46,6 +46,7 @@ import { toast } from 'sonner'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getChargebackRule } from '@/lib/chargebacks'
 import { Badge } from '@/components/ui/badge'
+import  { formatCurrency, formatIsoDate, formatPercent } from '@/lib/utils'
 
 interface EmpRefreshStats {
   inserted: number
@@ -54,22 +55,6 @@ interface EmpRefreshStats {
   errors: number
   processed_pages?: number
   total_pages?: number
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(amount)
-}
-
-function formatPercent(value: number | undefined | null): string {
-  if (value === undefined || value === null) return '0.00%'
-  return `${value.toFixed(2)}%`
-}
-
-function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0]
 }
 
 function generateMonthOptions() {
@@ -127,9 +112,9 @@ export default function AnalyticsPage() {
   const [empFromDate, setEmpFromDate] = useState(() => {
     const date = new Date()
     date.setDate(date.getDate() - 30)
-    return formatDate(date)
+    return formatIsoDate(date)
   })
-  const [empToDate, setEmpToDate] = useState(() => formatDate(new Date()))
+  const [empToDate, setEmpToDate] = useState(() => formatIsoDate(new Date()))
 
   const getFilterParams = useCallback(() => {
     const base: {

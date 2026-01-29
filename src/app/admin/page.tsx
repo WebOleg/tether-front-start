@@ -23,22 +23,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import type { DashboardData } from '@/types'
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(amount)
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -189,26 +174,26 @@ export default function AdminDashboard() {
   const financialCards = [
     {
       title: 'Total Billed (EMP)',
-      value: formatCurrency(data.debtors.total_amount),
+      value: formatCurrency(data.debtors.total_amount, 'EUR'),
       icon: TrendingUp,
       color: 'text-slate-600',
     },
     {
       title: 'Net Recovered',
-      value: formatCurrency(data.debtors.recovered_amount),
+      value: formatCurrency(data.debtors.recovered_amount, 'EUR'),
       subtitle: `${data.debtors.recovery_rate}% recovery rate`,
       icon: CheckCircle,
       color: 'text-green-600',
     },
     {
       title: 'Approved Payments',
-      value: formatCurrency(data.billing.total_approved_amount),
+      value: formatCurrency(data.billing.total_approved_amount, 'EUR'),
       icon: CreditCard,
       color: 'text-blue-600',
     },
     {
       title: 'Chargebacks',
-      value: formatCurrency(data.billing.total_chargeback_amount || 0),
+      value: formatCurrency(data.billing.total_chargeback_amount || 0, 'EUR'),
       subtitle: `${data.billing.chargeback_rate || 0}% rate`,
       icon: AlertTriangle,
       color: 'text-orange-600',
@@ -375,7 +360,7 @@ export default function AdminDashboard() {
                         <p className="text-xs text-slate-500">{formatDate(billing.created_at)}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{formatCurrency(billing.amount)}</span>
+                        <span className="text-sm font-medium">{formatCurrency(billing.amount, 'EUR')}</span>
                         <Badge className={statusColors[billing.status] || 'bg-slate-100'}>
                           {billing.status}
                         </Badge>

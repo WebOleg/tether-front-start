@@ -33,34 +33,7 @@ import {
   User,
   X
 } from 'lucide-react'
-
-// --- HELPERS ---
-
-function formatCurrency(amount: number, currency: string): string {
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: currency,
-  }).format(amount)
-}
-
-function formatDate(dateString: string | null): string {
-  if (!dateString) return '-'
-  return new Date(dateString).toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function formatSimpleDate(date: Date): string {
-  return date.toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  })
-}
+import { formatCurrency, formatDate, formatSimpleDate  } from '@/lib/utils'
 
 function calculateCycle(dateString: string, model: string = 'legacy') {
   const start = new Date(dateString)

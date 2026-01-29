@@ -29,8 +29,6 @@ const riskColors: Record<string, string> = {
   high: 'bg-red-100 text-red-800',
 }
 
-
-
 export default function ChargebacksPage() {
   const [chargebackCodes, setChargebackCodes] = useState<ChargebackCodes[]>([])
   const [selectedCode, setSelectedCode] = useState<string>('all')

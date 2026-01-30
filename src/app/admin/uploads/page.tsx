@@ -44,9 +44,10 @@ import {
   Zap,
   RotateCcw,
   Archive,
-  Trash2
+  Trash2,
+  Building2
  } from 'lucide-react'
-import type { Upload, SkippedCounts, PaginationLinks, PaginationLink, PaginationMeta as PaginationMetaType } from '@/types'
+import type { Upload, SkippedCounts, PaginationLinks, PaginationLink, PaginationMeta as PaginationMetaType, EmpAccount } from '@/types'
 import {
   Dialog,
   DialogContent,
@@ -116,6 +117,16 @@ export default function UploadsPage() {
   const [links, setLinks] = useState<PaginationLinks | null>(null)
   const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
   const completedUploadsRef = useRef<Set<number>>(new Set());
+  const [activeEmpAccount, setActiveEmpAccount] = useState<EmpAccount | null>(null)
+
+  const fetchActiveEmpAccount = async () => {
+    try {
+      const account = await api.getActiveEmpAccount()
+      setActiveEmpAccount(account)
+    } catch (error) {
+      console.error('Failed to fetch active EMP account:', error)
+    }
+  }
 
   const fetchUploads = async () => {
     setLoading(true)
@@ -142,6 +153,7 @@ export default function UploadsPage() {
 
   useEffect(() => {
     fetchUploads()
+    fetchActiveEmpAccount()
   }, [currentPage])
 
   const handlePreviousPage = () => {
@@ -355,9 +367,19 @@ export default function UploadsPage() {
       <div className="p-6">
         <Card className="mb-4">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <FileUp className="h-5 w-5 text-slate-500" />
-              <CardTitle>Upload File</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileUp className="h-5 w-5 text-slate-500" />
+                <CardTitle>Upload File</CardTitle>
+              </div>
+              {activeEmpAccount && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <Building2 className="h-4 w-4 text-emerald-600" />
+                  <span className="text-sm font-medium text-emerald-700">
+                    {activeEmpAccount.name}
+                  </span>
+                </div>
+              )}
             </div>
             <CardDescription>
               Select a CSV, TXT or XLSX file to upload debtor records (max 50MB)

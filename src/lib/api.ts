@@ -33,6 +33,8 @@ import type {
   ChargebackCodes,
   Chargebacks,
   BicAnalyticsStats,
+  EmpAccount,
+  EmpAccountStats,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -104,7 +106,7 @@ export interface StatsFilterParams {
   month?: number
   year?: number
   date_mode?: DateMode
-  model?: string // Merged from HEAD functionality
+  model?: string
 }
 
 export class ApiError extends Error {
@@ -200,17 +202,12 @@ class ApiClient {
     return response.json()
   }
 
-  /**
-   * Authenticate user.
-   * Now supports 2FA flows: check response.status for 'otp_required' or 'setup_required'.
-   */
   async login(email: string, password: string): Promise<LoginResponse> {
     const response = await this.request<LoginResponse>('/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     })
 
-    // Only set the token if authentication is complete
     if (response.status === 'authenticated' && response.token) {
       this.setToken(response.token)
     }
@@ -226,10 +223,6 @@ class ApiClient {
     }
   }
 
-
-  /**
-   * Complete 2FA setup (user acknowledges saving backup codes).
-   */
   async setup2fa(email: string): Promise<LoginResponse> {
     const response = await this.request<LoginResponse>('/auth/setup-2fa', {
       method: 'POST',
@@ -243,9 +236,6 @@ class ApiClient {
     return response
   }
 
-  /**
-   * Verify the 6-digit OTP code.
-   */
   async verifyOtp(email: string, code: string): Promise<LoginResponse> {
     const response = await this.request<LoginResponse>('/auth/verify-otp', {
       method: 'POST',
@@ -259,9 +249,6 @@ class ApiClient {
     return response
   }
 
-  /**
-   * Resend the OTP code.
-   */
   async resendOtp(email: string): Promise<{ message: string }> {
     return this.request<{ message: string }>('/auth/resend-otp', {
       method: 'POST',
@@ -269,9 +256,6 @@ class ApiClient {
     })
   }
 
-  /**
-   * Verify using a backup code (recovery).
-   */
   async verifyBackupCode(email: string, code: string): Promise<LoginResponse> {
     const response = await this.request<LoginResponse>('/auth/verify-backup-code', {
       method: 'POST',
@@ -655,7 +639,6 @@ class ApiClient {
     return this.request<EmpRefreshJobStatusResponse>('/admin/emp/refresh/' + jobId)
   }
 
-  // BIC Analytics
   async getBicAnalytics(period: string = '30d', filters?: AnalyticsFilters): Promise<BicAnalyticsStats> {
     const query = this.buildQuery({ period, ...filters })
     const response = await this.request<{ data: BicAnalyticsStats }>(
@@ -674,6 +657,39 @@ class ApiClient {
     const query = this.buildQuery({ period, ...filters })
     const response = await fetch(`${API_BASE_URL}/admin/analytics/bic/export${query}`, { headers })
     return response.blob()
+  }
+
+  // EMP Account Management
+  async getEmpAccounts(): Promise<EmpAccount[]> {
+    const response = await this.request<{ success: boolean; data: EmpAccount[] }>('/admin/emp/accounts')
+    return response.data
+  }
+
+  async getActiveEmpAccount(): Promise<EmpAccount | null> {
+    try {
+      const response = await this.request<{ success: boolean; data: EmpAccount }>('/admin/emp/accounts/active')
+      return response.data
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return null
+      }
+      throw error
+    }
+  }
+
+  async setActiveEmpAccount(accountId: number): Promise<EmpAccount> {
+    const response = await this.request<{ success: boolean; data: EmpAccount }>(
+        `/admin/emp/accounts/${accountId}/activate`,
+        { method: 'POST' }
+    )
+    return response.data
+  }
+
+  async getEmpAccountStats(accountId: number): Promise<EmpAccountStats> {
+    const response = await this.request<{ success: boolean; data: EmpAccountStats }>(
+        `/admin/emp/accounts/${accountId}/stats`
+    )
+    return response.data
   }
 }
 

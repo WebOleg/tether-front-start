@@ -603,3 +603,33 @@ export interface BicAnalyticsStats {
   bics: BicAnalyticsDetail[]
   totals: BicAnalyticsTotals
 }
+// ==========================================================================
+// EMP Account Types
+// ==========================================================================
+
+export interface EmpAccount {
+  id: number
+  name: string
+  slug: string
+  is_active: boolean
+  sort_order: number
+  created_at: string
+}
+
+export interface EmpAccountStats {
+  account: {
+    id: number
+    name: string
+    slug: string
+  }
+  stats: {
+    total_transactions: number
+    pending: number
+    approved: number
+    declined: number
+    chargebacked: number
+    total_amount: number
+    chargeback_amount: number
+    chargeback_rate: number
+  }
+}

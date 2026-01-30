@@ -26,7 +26,8 @@ const tabConfigs = [
     activeBg: 'bg-blue-50',
     hoverBg: 'hover:bg-blue-50/50',
     ringColor: 'focus-visible:ring-blue-500',
-    description: 'View all transaction records'
+    description: 'View all transaction records',
+    countActiveGradient: 'from-blue-500 to-blue-600'
   },
   {
     value: 'flywheel',
@@ -36,17 +37,19 @@ const tabConfigs = [
     activeBg: 'bg-blue-50',
     hoverBg: 'hover:bg-blue-50/50',
     ringColor: 'focus-visible:ring-blue-500',
-    description: 'Flywheel model transactions'
+    description: 'Flywheel model transactions',
+    countActiveGradient: 'from-blue-500 to-blue-600'
   },
   {
     value: 'recovery',
     label: 'Recovery',
     icon: RotateCcw,
     activeColor: 'text-blue-700',
-    activeBg: 'bg-purple-50',
+    activeBg: 'bg-slate-50',
     hoverBg: 'hover:bg-purple-50/50',
     ringColor: 'focus-visible:ring-purple-500',
-    description: 'Recovery model transactions'
+    description: 'Recovery model transactions',
+    countActiveGradient: 'from-blue-700 to-blue-600'
   },
   {
     value: 'legacy',
@@ -56,7 +59,8 @@ const tabConfigs = [
     activeBg: 'bg-slate-50',
     hoverBg: 'hover:bg-slate-50/50',
     ringColor: 'focus-visible:ring-slate-500',
-    description: 'Legacy system transactions'
+    description: 'Legacy system transactions',
+    countActiveGradient: 'from-blue-700 to-blue-700'
   }
 ]
 
@@ -68,6 +72,7 @@ export function ModelTabs({ value, onValueChange, className, showCounts }: Model
           const Icon = tab.icon
           const count = showCounts?.[tab.value as keyof typeof showCounts]
           const isActive = value === tab.value
+          const hasCount = count !== undefined
           
           return (
             <TabsTrigger
@@ -83,6 +88,7 @@ export function ModelTabs({ value, onValueChange, className, showCounts }: Model
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
                 tab.ringColor,
                 'data-[state=active]:bg-white',
+                'data-[state=active]:shadow-sm',
                 'data-[state=active]:scale-[1.02]',
                 `data-[state=active]:${tab.activeColor}`,
                 'disabled:opacity-50 disabled:cursor-not-allowed',
@@ -101,24 +107,25 @@ export function ModelTabs({ value, onValueChange, className, showCounts }: Model
                 <span className="whitespace-nowrap">{tab.label}</span>
               </div>
               
-              {count !== undefined && count > 0 && (
+              {hasCount && (
                 <span 
                   className={cn(
                     'absolute -top-1 -right-1 md:relative md:top-0 md:right-0',
-                    'inline-flex items-center justify-center',
-                    'min-w-[20px] h-5 px-1.5 rounded-full',
-                    'text-xs font-semibold',
+                    'flex items-center justify-center',
+                    'min-w-[24px] h-5 px-2 rounded-full',
+                    'text-xs font-semibold leading-none',
                     'bg-slate-200 text-slate-700',
-                    'group-data-[state=active]:bg-gradient-to-br',
-                    isActive && tab.value === 'all' && 'group-data-[state=active]:from-blue-500 group-data-[state=active]:to-blue-600 group-data-[state=active]:text-white',
-                    isActive && tab.value === 'flywheel' && 'group-data-[state=active]:from-blue-500 group-data-[state=active]:to-blue-600 group-data-[state=active]:text-white',
-                    isActive && tab.value === 'recovery' && 'group-data-[state=active]:from-purple-500 group-data-[state=active]:to-purple-600 group-data-[state=active]:text-white',
-                    isActive && tab.value === 'legacy' && 'group-data-[state=active]:from-slate-600 group-data-[state=active]:to-slate-700 group-data-[state=active]:text-white',
                     'transition-all duration-200',
-                    'group-data-[state=active]:scale-110'
+                    isActive && [
+                      'bg-gradient-to-br',
+                      tab.countActiveGradient,
+                      'text-white',
+                      'shadow-sm',
+                      'scale-105'
+                    ]
                   )}
                 >
-                  {count > 999 ? `${(count / 1000).toFixed(1)}k` : count}
+                  {count && count > 999 ? `${(count / 1000).toFixed(1)}k` : count || 0}
                 </span>
               )}
             </TabsTrigger>

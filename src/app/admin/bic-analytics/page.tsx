@@ -38,18 +38,7 @@ import type { BicAnalyticsStats, EmpAccount } from '@/types'
 import { toast } from 'sonner'
 import { ModelTabs } from '@/components/ui/model-tabs'
 import { Badge } from '@/components/ui/badge'
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(amount)
-}
-
-function formatPercent(value: number | undefined | null): string {
-  if (value === undefined || value === null) return '0.00%'
-  return `${value.toFixed(2)}%`
-}
+import { formatCurrency, formatPercent } from '@/lib/utils'
 
 type SortField = 'cb_rate_count' | 'cb_rate_volume' | 'chargeback_count' | 'total_transactions' | 'total_volume'
 

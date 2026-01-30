@@ -21,8 +21,9 @@ import {
   AlertCircle,
   AlertTriangle,
   XCircle,
+  Building2,
 } from 'lucide-react'
-import type { DashboardData } from '@/types'
+import type { DashboardData, EmpAccount } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/badges'
 
@@ -61,17 +62,36 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all')
+  const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
+  const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<string>('all')
   const monthOptions = generateMonthOptions()
 
   useEffect(() => {
-    const fetchDashboard = async () => {
+    const fetchEmpAccounts = async () => {
       try {
-        const params: { month?: number; year?: number } = {}
+        const accounts = await api.getEmpAccounts()
+        setEmpAccounts(accounts)
+      } catch (err) {
+        console.error('Failed to fetch EMP accounts:', err)
+      }
+    }
+    fetchEmpAccounts()
+  }, [])
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      setLoading(true)
+      try {
+        const params: { month?: number; year?: number; emp_account_id?: number } = {}
 
         if (selectedPeriod !== 'all') {
           const [year, month] = selectedPeriod.split('-').map(Number)
           params.month = month
           params.year = year
+        }
+
+        if (selectedEmpAccountId !== 'all') {
+          params.emp_account_id = Number(selectedEmpAccountId)
         }
 
         const dashboard = await api.getDashboard(params)
@@ -85,7 +105,7 @@ export default function AdminDashboard() {
     }
 
     fetchDashboard()
-  }, [selectedPeriod])
+  }, [selectedPeriod, selectedEmpAccountId])
 
   if (loading) {
     return (
@@ -192,24 +212,56 @@ export default function AdminDashboard() {
     <>
       <Header title="Dashboard" description="Overview of your debt recovery operations" />
       <div className="p-6 space-y-6">
-        {/* Month Filter */}
-        <div className="flex items-center gap-4">
-          <label htmlFor="month-filter" className="text-sm font-medium text-slate-700">
-            Filter by Month:
-          </label>
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="w-[240px]" id="month-filter">
-              <SelectValue placeholder="All Time" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Time</SelectItem>
-              {monthOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label htmlFor="month-filter" className="text-sm font-medium text-slate-700">
+              Month:
+            </label>
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-[200px]" id="month-filter">
+                <SelectValue placeholder="All Time" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                {monthOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label htmlFor="emp-account-filter" className="text-sm font-medium text-slate-700">
+              EMP Account:
+            </label>
+            <Select value={selectedEmpAccountId} onValueChange={setSelectedEmpAccountId}>
+              <SelectTrigger className="w-[200px]" id="emp-account-filter">
+                <SelectValue placeholder="All Accounts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-slate-500" />
+                    <span>All Accounts</span>
+                  </div>
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                {empAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-emerald-600" />
+                      <span>{account.name}</span>
+                      {account.is_active && (
+                        <Badge variant="outline" className="ml-1 text-xs">Active</Badge>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* KPI Cards */}

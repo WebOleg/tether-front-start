@@ -107,6 +107,13 @@ export interface StatsFilterParams {
   year?: number
   date_mode?: DateMode
   model?: string
+  emp_account_id?: number
+}
+
+export interface DashboardFilterParams {
+  month?: number
+  year?: number
+  emp_account_id?: number
 }
 
 export class ApiError extends Error {
@@ -129,6 +136,7 @@ export type UploadScopedFilters = {
 
 export type AnalyticsFilters = {
   model?: string
+  emp_account_id?: number
 }
 
 class ApiClient {
@@ -274,7 +282,7 @@ class ApiClient {
     return response.data
   }
 
-  async getDashboard(params?: { month?: number; year?: number }): Promise<DashboardData> {
+  async getDashboard(params?: DashboardFilterParams): Promise<DashboardData> {
     const query = this.buildQuery(params)
     const response = await this.request<{ data: DashboardData }>(`/admin/dashboard${query}`)
     return response.data
@@ -456,7 +464,8 @@ class ApiClient {
       month: params.month,
       year: params.year,
       date_mode: params.date_mode || 'transaction',
-      model: params.model
+      model: params.model,
+      emp_account_id: params.emp_account_id,
     })
     const response = await this.request<{ data: ChargebackStats }>(
         `/admin/stats/chargeback-rates${query}`
@@ -478,7 +487,8 @@ class ApiClient {
       month: params.month,
       year: params.year,
       date_mode: params.date_mode || 'transaction',
-      model: params.model
+      model: params.model,
+      emp_account_id: params.emp_account_id,
     })
     const response = await this.request<{ data: ChargebackCodeStats }>(
         `/admin/stats/chargeback-codes${query}`
@@ -492,7 +502,8 @@ class ApiClient {
       month: params.month,
       year: params.year,
       date_mode: params.date_mode || 'transaction',
-      model: params.model
+      model: params.model,
+      emp_account_id: params.emp_account_id,
     })
     const response = await this.request<{ data: ChargebackBankStats }>(
         `/admin/stats/chargeback-banks${query}`

@@ -34,8 +34,10 @@ import {
   X,
   Filter,
 } from 'lucide-react'
-import type { BicAnalyticsStats } from '@/types'
+import type { BicAnalyticsStats, EmpAccount } from '@/types'
 import { toast } from 'sonner'
+import { ModelTabs } from '@/components/ui/model-tabs'
+import { Badge } from '@/components/ui/badge'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('de-DE', {
@@ -55,6 +57,11 @@ export default function BicAnalyticsPage() {
   const [bicStats, setBicStats] = useState<BicAnalyticsStats | null>(null)
   const [bicPeriod, setBicPeriod] = useState('30d')
   const [loading, setLoading] = useState(true)
+  const [activeModel, setActiveModel] = useState<string>('all')
+
+  // EMP Account filter
+  const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
+  const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<string>('all')
 
   // Filters
   const [countryFilter, setCountryFilter] = useState<string>('all')
@@ -63,11 +70,28 @@ export default function BicAnalyticsPage() {
   const [hideSmallBics, setHideSmallBics] = useState(false)
   const [sortField, setSortField] = useState<SortField>('cb_rate_count')
 
+  // Fetch EMP accounts on mount
+  useEffect(() => {
+    const fetchEmpAccounts = async () => {
+      try {
+        const accounts = await api.getEmpAccounts()
+        setEmpAccounts(accounts)
+      } catch (err) {
+        console.error('Failed to fetch EMP accounts:', err)
+      }
+    }
+    fetchEmpAccounts()
+  }, [])
+
   useEffect(() => {
     const fetchBicStats = async () => {
       setLoading(true)
       try {
-        const stats = await api.getBicAnalytics(bicPeriod)
+        const filters: { model?: string; emp_account_id?: number } = {}
+        if (activeModel !== 'all') filters.model = activeModel
+        if (selectedEmpAccountId !== 'all') filters.emp_account_id = Number(selectedEmpAccountId)
+        
+        const stats = await api.getBicAnalytics(bicPeriod, filters)
         setBicStats(stats)
       } catch (err) {
         console.error('Failed to fetch BIC analytics:', err)
@@ -77,7 +101,7 @@ export default function BicAnalyticsPage() {
       }
     }
     fetchBicStats()
-  }, [bicPeriod])
+  }, [bicPeriod, activeModel, selectedEmpAccountId])
 
   // Extract unique countries from data
   const countries = useMemo(() => {
@@ -178,11 +202,15 @@ export default function BicAnalyticsPage() {
 
   const handleExport = async () => {
     try {
-      const blob = await api.getBicAnalyticsExport(bicPeriod)
+      const filters: { model?: string; emp_account_id?: number } = {}
+      if (activeModel !== 'all') filters.model = activeModel
+      if (selectedEmpAccountId !== 'all') filters.emp_account_id = Number(selectedEmpAccountId)
+      
+      const blob = await api.getBicAnalyticsExport(bicPeriod, filters)
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `bic-analytics-${bicPeriod}.csv`
+      a.download = `bic-analytics-${bicPeriod}-${activeModel}.csv`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -216,6 +244,11 @@ export default function BicAnalyticsPage() {
         <Header title="BIC Analytics" description="Bank-level transaction metrics and risk monitoring" />
         <main className="container mx-auto px-6 py-8">
 
+          {/* Model Tabs */}
+          <div className="mb-8">
+            <ModelTabs value={activeModel} onValueChange={setActiveModel} />
+          </div>
+
           {/* Controls Row */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex flex-wrap items-center gap-3">
@@ -231,6 +264,32 @@ export default function BicAnalyticsPage() {
                     <SelectItem value="30d">Last 30 days</SelectItem>
                     <SelectItem value="60d">Last 60 days</SelectItem>
                     <SelectItem value="90d">Last 90 days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* EMP Account Filter */}
+              <div className="flex items-center gap-2">
+                <Label className="text-sm whitespace-nowrap">Account:</Label>
+                <Select value={selectedEmpAccountId} onValueChange={setSelectedEmpAccountId}>
+                  <SelectTrigger className="w-44 h-8">
+                    <SelectValue placeholder="All Accounts" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-slate-500" />
+                        <span>All Accounts</span>
+                      </div>
+                    </SelectItem>
+                    {empAccounts.map((account) => (
+                        <SelectItem key={account.id} value={account.id.toString()}>
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-emerald-600" />
+                            <span>{account.name}</span>
+                          </div>
+                        </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -324,53 +383,77 @@ export default function BicAnalyticsPage() {
             </Button>
           </div>
 
+          {/* Active Model Badge */}
+          {activeModel !== 'all' && (
+              <div className="mb-4">
+                <Badge variant="outline" className="capitalize">
+                  {activeModel} Model
+                </Badge>
+              </div>
+          )}
+
           {/* Summary Cards */}
-          <div className="grid gap-4 md:grid-cols-5 mb-6">
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-sm text-slate-500">Total BICs</div>
-                <div className="text-2xl font-bold">{filteredTotals.total_bics}</div>
-                {activeFilterCount > 0 && bicStats && (
-                    <div className="text-xs text-slate-400">of {bicStats.totals.total_bics}</div>
-                )}
-              </CardContent>
-            </Card>
-            <Card className={hasHighRisk ? 'border-red-300' : ''}>
-              <CardContent className="pt-4">
-                <div className="text-sm text-slate-500 flex items-center gap-1">
-                  High Risk BICs
-                  {hasHighRisk && <AlertTriangle className="h-4 w-4 text-red-500" />}
-                </div>
-                <div className={`text-2xl font-bold ${hasHighRisk ? 'text-red-600' : ''}`}>
-                  {filteredTotals.high_risk_bics}
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <div className="text-sm text-slate-500">Total Transactions</div>
-                <div className="text-2xl font-bold">{filteredTotals.total_transactions.toLocaleString()}</div>
-              </CardContent>
-            </Card>
-            <Card className={filteredTotals.cb_rate_count >= 25 ? 'border-red-300' : ''}>
-              <CardContent className="pt-4">
-                <div className="text-sm text-slate-500">CB % Count</div>
-                <div className={`text-2xl font-bold ${filteredTotals.cb_rate_count >= 25 ? 'text-red-600' : ''}`}>
-                  {formatPercent(filteredTotals.cb_rate_count)}
-                </div>
-                <div className="text-xs text-slate-400">chargebacks / approved</div>
-              </CardContent>
-            </Card>
-            <Card className={filteredTotals.cb_rate_volume >= 25 ? 'border-red-300' : ''}>
-              <CardContent className="pt-4">
-                <div className="text-sm text-slate-500">CB % Volume</div>
-                <div className={`text-2xl font-bold ${filteredTotals.cb_rate_volume >= 25 ? 'text-red-600' : ''}`}>
-                  {formatPercent(filteredTotals.cb_rate_volume)}
-                </div>
-                <div className="text-xs text-slate-400">CB amount / approved amount</div>
-              </CardContent>
-            </Card>
-          </div>
+          {loading ? (
+              <div className="grid gap-4 md:grid-cols-5 mb-6">
+                {[...Array(5)].map((_, i) => (
+                    <Card key={i} className="relative overflow-hidden">
+                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent" style={{ animationDelay: `${i * 0.1}s` }} />
+                      <CardContent className="pt-4">
+                        <div className="h-4 w-24 bg-slate-200 rounded animate-pulse mb-2" />
+                        <div className="h-8 w-16 bg-slate-200 rounded animate-pulse mb-2" />
+                        <div className="h-3 w-32 bg-slate-200 rounded animate-pulse" />
+                      </CardContent>
+                    </Card>
+                ))}
+              </div>
+          ) : (
+              <div className="grid gap-4 md:grid-cols-5 mb-6">
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-slate-500">Total BICs</div>
+                    <div className="text-2xl font-bold">{filteredTotals.total_bics}</div>
+                    {activeFilterCount > 0 && bicStats && (
+                        <div className="text-xs text-slate-400">of {bicStats.totals.total_bics}</div>
+                    )}
+                  </CardContent>
+                </Card>
+                <Card className={hasHighRisk ? 'border-red-300' : ''}>
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-slate-500 flex items-center gap-1">
+                      High Risk BICs
+                      {hasHighRisk && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                    </div>
+                    <div className={`text-2xl font-bold ${hasHighRisk ? 'text-red-600' : ''}`}>
+                      {filteredTotals.high_risk_bics}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-slate-500">Total Transactions</div>
+                    <div className="text-2xl font-bold">{filteredTotals.total_transactions.toLocaleString()}</div>
+                  </CardContent>
+                </Card>
+                <Card className={filteredTotals.cb_rate_count >= 25 ? 'border-red-300' : ''}>
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-slate-500">CB % Count</div>
+                    <div className={`text-2xl font-bold ${filteredTotals.cb_rate_count >= 25 ? 'text-red-600' : ''}`}>
+                      {formatPercent(filteredTotals.cb_rate_count)}
+                    </div>
+                    <div className="text-xs text-slate-400">chargebacks / approved</div>
+                  </CardContent>
+                </Card>
+                <Card className={filteredTotals.cb_rate_volume >= 25 ? 'border-red-300' : ''}>
+                  <CardContent className="pt-4">
+                    <div className="text-sm text-slate-500">CB % Volume</div>
+                    <div className={`text-2xl font-bold ${filteredTotals.cb_rate_volume >= 25 ? 'text-red-600' : ''}`}>
+                      {formatPercent(filteredTotals.cb_rate_volume)}
+                    </div>
+                    <div className="text-xs text-slate-400">CB amount / approved amount</div>
+                  </CardContent>
+                </Card>
+              </div>
+          )}
 
           {/* BIC Table */}
           <Card className={hasHighRisk ? "border-red-300" : ""}>
@@ -379,6 +462,11 @@ export default function BicAnalyticsPage() {
                 <Building2 className="h-5 w-5 text-slate-500" />
                 <CardTitle className="text-lg">Transactions by BIC</CardTitle>
                 {hasHighRisk && <AlertTriangle className="h-5 w-5 text-red-500" />}
+                {activeModel !== 'all' && (
+                    <Badge variant="outline" className="ml-2 capitalize">
+                      {activeModel}
+                    </Badge>
+                )}
               </div>
             </CardHeader>
             <CardContent>

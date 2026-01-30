@@ -30,10 +30,6 @@ import {
   PieChart,
   Building2,
   CheckCircle,
-  Layers,
-  Zap,
-  RotateCcw,
-  Archive,
   Search,
   Loader2,
   Calendar,
@@ -42,10 +38,10 @@ import {
 import type { ChargebackStats, ChargebackCodeStats, ChargebackBankStats, EmpAccount } from '@/types'
 import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getChargebackRule } from '@/lib/chargebacks'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatIsoDate, formatPercent } from '@/lib/utils'
+import { ModelTabs } from '@/components/ui/model-tabs'
 
 interface EmpRefreshStats {
   inserted: number
@@ -338,26 +334,7 @@ export default function AnalyticsPage() {
 
         {/* Model Tabs */}
         <div className="mb-8">
-          <Tabs value={activeModel} onValueChange={setActiveModel} className="w-full">
-            <TabsList className="w-full h-auto p-1 bg-slate-100/80 border border-slate-200 grid grid-cols-4 gap-2">
-              <TabsTrigger value="all" className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all">
-                <Layers className="h-4 w-4" />
-                <span className="font-medium">All Records</span>
-              </TabsTrigger>
-              <TabsTrigger value="flywheel" className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all">
-                <Zap className="h-4 w-4" />
-                <span className="font-medium">Flywheel</span>
-              </TabsTrigger>
-              <TabsTrigger value="recovery" className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-purple-700 data-[state=active]:shadow-sm transition-all">
-                <RotateCcw className="h-4 w-4" />
-                <span className="font-medium">Recovery</span>
-              </TabsTrigger>
-              <TabsTrigger value="legacy" className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all">
-                <Archive className="h-4 w-4" />
-                <span className="font-medium">Legacy</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <ModelTabs value={activeModel} onValueChange={setActiveModel} />
         </div>
 
         {/* Sync Cards */}

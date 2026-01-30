@@ -31,7 +31,8 @@ import {
   XCircle,
   AlertCircle,
   User,
-  X
+  X,
+  Building2
 } from 'lucide-react'
 import { formatCurrency, formatDate, formatSimpleDate  } from '@/lib/utils'
 import { ModelBadge, StatusBadge } from '@/components/ui/badges'
@@ -278,18 +279,19 @@ function BillingContent() {
                   <TableHead>Status</TableHead>
                   <TableHead>Processed</TableHead>
                   <TableHead>Error</TableHead>
+                  <TableHead>Account</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
+                      <TableCell colSpan={8} className="text-center py-8">
                         Loading...
                       </TableCell>
                     </TableRow>
                 ) : attempts.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
+                      <TableCell colSpan={8} className="text-center py-8">
                         No billing attempts found
                       </TableCell>
                     </TableRow>
@@ -368,6 +370,18 @@ function BillingContent() {
                                   </div>
                               ) : (
                                   <span className="text-slate-300">-</span>
+                              )}
+                            </TableCell>
+
+                            {/* Account */}
+                            <TableCell>
+                              {attempt.emp_account ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <Building2 className="h-3.5 w-3.5 text-emerald-600" />
+                                    <span className="text-sm text-slate-700">{attempt.emp_account.name}</span>
+                                  </div>
+                              ) : (
+                                  <span className="text-sm text-slate-400">-</span>
                               )}
                             </TableCell>
                           </TableRow>

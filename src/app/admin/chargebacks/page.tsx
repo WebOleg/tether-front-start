@@ -23,6 +23,7 @@ import { CHARGEBACK_RULES, getChargebackRule } from '@/lib/chargebacks'
 import { useEffect, useState } from 'react'
 import { formatDate, formatDateNullable, formatCurrency } from '@/lib/utils'
 import { RiskBadge } from '@/components/ui/badges'
+import { Building2 } from 'lucide-react'
 
 export default function ChargebacksPage() {
   const [chargebackCodes, setChargebackCodes] = useState<ChargebackCodes[]>([])
@@ -139,18 +140,19 @@ export default function ChargebacksPage() {
                 <TableHead>Chargeback</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Bank</TableHead>
+                <TableHead>Account</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center h-24 text-muted-foreground">
                       Loading chargebacks...
                     </TableCell>
                   </TableRow>
                 ) : chargebacks.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center h-24 text-muted-foreground">
                       No chargebacks found
                     </TableCell>
                   </TableRow>
@@ -214,6 +216,16 @@ export default function ChargebacksPage() {
                           {cb.bank_country ?? '-'}
                         </div>
                       </TableCell>
+                      <TableCell>
+                        {cb.emp_account ? (
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="h-3.5 w-3.5 text-emerald-600" />
+                            <span className="text-sm text-slate-700">{cb.emp_account.name}</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-slate-400">-</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   )
                 }
@@ -235,5 +247,3 @@ export default function ChargebacksPage() {
     </>
   )
 }
-
-

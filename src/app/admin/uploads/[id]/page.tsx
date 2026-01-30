@@ -494,6 +494,12 @@ export default function UploadDetailPage() {
                 <div className="text-sm text-slate-500">{upload.filename}</div>
                 <div className="text-sm text-slate-500">
                   Uploaded {formatDate(upload.created_at)}
+                  {upload.emp_account && (
+                    <span className="ml-3 inline-flex items-center gap-1">
+                      <span className="text-slate-400">•</span>
+                      <span className="text-emerald-600 font-medium">{upload.emp_account.name}</span>
+                    </span>
+                  )}
                 </div>
               </>
             }

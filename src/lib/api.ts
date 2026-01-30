@@ -39,6 +39,15 @@ import type {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
 
+export interface DescriptorParams {
+  descriptor_name: string
+  descriptor_city: string
+  descriptor_country: string
+  is_default: boolean
+  month?: number
+  year?: number
+}
+
 export interface ReconciliationStats {
   eligible: number
   pending: number

@@ -98,6 +98,12 @@ export interface Upload {
   cb_amount_percentage?: number | null
   approved_amount?: number
   chargeback_amount?: number
+  emp_account_id?: number | null
+  emp_account?: {
+    id: number
+    name: string
+    slug: string
+  } | null
 }
 
 export type UploadStatus = 'pending' | 'processing' | 'completed' | 'failed'

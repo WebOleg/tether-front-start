@@ -280,11 +280,14 @@ class ApiClient {
     return response.data
   }
 
-  async uploadFile(file: File, billingModel: string = 'legacy'): Promise<UploadResult> {
+  async uploadFile(file: File, billingModel: string = 'legacy', empAccountId?: number): Promise<UploadResult> {
     const token = this.getToken()
     const formData = new FormData()
     formData.append('file', file)
     formData.append('billing_model', billingModel)
+    if (empAccountId) {
+      formData.append('emp_account_id', empAccountId.toString())
+    }
 
     const headers: HeadersInit = { 'Accept': 'application/json' }
     if (token) {

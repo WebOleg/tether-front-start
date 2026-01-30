@@ -128,6 +128,23 @@ export class ApiError extends Error {
   }
 }
 
+export interface DescriptorSchedule {
+  id: number
+  descriptor: string
+  is_default: boolean
+  effective_month?: number
+  effective_year?: number
+  created_at?: string
+  updated_at?: string
+}
+
+export type DescriptorPayload = {
+  descriptor: string
+  is_default: boolean
+  effective_month?: number
+  effective_year?: number
+}
+
 export type DebtorType = 'legacy' | 'flywheel' | 'recovery'
 
 export type UploadScopedFilters = {
@@ -211,10 +228,15 @@ class ApiClient {
   }
 
   async login(email: string, password: string): Promise<LoginResponse> {
-    const response = await this.request<LoginResponse>('/login', {
+    const response = await this.request<any>('/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     })
+
+    // If backend sends token but no status, assume success
+    if (response.token && !response.status) {
+      response.status = 'authenticated'
+    }
 
     if (response.status === 'authenticated' && response.token) {
       this.setToken(response.token)
@@ -704,6 +726,29 @@ class ApiClient {
         `/admin/emp/accounts/${accountId}/stats`
     )
     return response.data
+  }
+
+  // Descriptor Management
+  async getDescriptorSchedules(): Promise<ApiResponse<DescriptorSchedule[]>> {
+    return this.request<ApiResponse<DescriptorSchedule[]>>('/admin/billing/descriptors')
+  }
+
+  async createDescriptorSchedule(data: DescriptorPayload): Promise<{ data: DescriptorSchedule }> {
+    return this.request<{ data: DescriptorSchedule }>('/admin/billing/descriptors', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateDescriptorSchedule(id: number, data: DescriptorPayload): Promise<{ data: DescriptorSchedule }> {
+    return this.request<{ data: DescriptorSchedule }>(`/admin/billing/descriptors/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteDescriptorSchedule(id: number): Promise<void> {
+    await this.request(`/admin/billing/descriptors/${id}`, { method: 'DELETE' })
   }
 }
 

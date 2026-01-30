@@ -30,7 +30,6 @@ import {
   PieChart,
   Building2,
   CheckCircle,
-  CreditCard,
   Layers,
   Zap,
   RotateCcw,
@@ -40,7 +39,7 @@ import {
   Calendar,
   CalendarClock,
 } from 'lucide-react'
-import type { ChargebackStats, ChargebackCodeStats, ChargebackBankStats, BicAnalyticsStats, EmpAccount } from '@/types'
+import type { ChargebackStats, ChargebackCodeStats, ChargebackBankStats, EmpAccount } from '@/types'
 import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -78,10 +77,6 @@ export default function AnalyticsPage() {
   const [cbStats, setCbStats] = useState<ChargebackStats | null>(null)
   const [cbCodeStats, setCbCodeStats] = useState<ChargebackCodeStats | null>(null)
   const [cbBankStats, setCbBankStats] = useState<ChargebackBankStats | null>(null)
-
-  const [bicStats, setBicStats] = useState<BicAnalyticsStats | null>(null)
-  const [bicPeriod, setBicPeriod] = useState('30d')
-  const [bicLoading, setBicLoading] = useState(false)
 
   const [selectedPeriod, setSelectedPeriod] = useState<string>('7d')
   const [activeModel, setActiveModel] = useState<string>('all')
@@ -179,24 +174,6 @@ export default function AnalyticsPage() {
     }
     fetchChargebackStats()
   }, [selectedPeriod, dateMode, activeModel, selectedEmpAccountId, getFilterParams])
-
-  useEffect(() => {
-    const fetchBicStats = async () => {
-      setBicLoading(true)
-      try {
-        const filters: { model?: string; emp_account_id?: number } = {}
-        if (activeModel !== 'all') filters.model = activeModel
-        if (selectedEmpAccountId !== 'all') filters.emp_account_id = Number(selectedEmpAccountId)
-        const stats = await api.getBicAnalytics(bicPeriod, filters)
-        setBicStats(stats)
-      } catch (err) {
-        console.error('Failed to fetch BIC analytics:', err)
-      } finally {
-        setBicLoading(false)
-      }
-    }
-    fetchBicStats()
-  }, [bicPeriod, activeModel, selectedEmpAccountId])
 
   useEffect(() => {
     const checkExistingJob = async () => {
@@ -342,33 +319,11 @@ export default function AnalyticsPage() {
     }
   }
 
-  const handleBicExport = async () => {
-    try {
-      const filters: { model?: string; emp_account_id?: number } = {}
-      if (activeModel !== 'all') filters.model = activeModel
-      if (selectedEmpAccountId !== 'all') filters.emp_account_id = Number(selectedEmpAccountId)
-      const blob = await api.getBicAnalyticsExport(bicPeriod, filters)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `bic-analytics-${bicPeriod}-${activeModel}.csv`
-      document.body.appendChild(a)
-      a.click()
-      URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-      toast.success('BIC Analytics exported')
-    } catch (err) {
-      toast.error('Failed to export BIC analytics')
-      console.error('Export failed:', err)
-    }
-  }
-
   const hasAlert = cbStats?.countries?.some(c => c.alert) || false
   const totalCbRateApproved = cbStats?.totals?.cb_rate_approved || 0
   const totalCbRateAll = cbStats?.totals?.cb_rate_total || 0
   const totalCbRateAmountApproved = cbStats?.totals?.cb_rate_amount_approved || 0
   const hasBankAlert = cbBankStats?.totals?.alert || false
-  const hasBicAlert = bicStats?.totals?.high_risk_bics && bicStats.totals.high_risk_bics > 0
 
   const loadingSpinner = (
     <div className="flex justify-center py-8">
@@ -765,88 +720,6 @@ export default function AnalyticsPage() {
             </CardContent>
           </Card>
         </div>
-
-        {/* BIC Analytics Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-700">BIC Analytics {activeModel !== 'all' && <Badge variant="outline" className="ml-2 capitalize">{activeModel}</Badge>}</h2>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="bic-period" className="text-sm">Period:</Label>
-            <Select value={bicPeriod} onValueChange={setBicPeriod}>
-              <SelectTrigger id="bic-period" className="w-32 h-8"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7d">Last 7 days</SelectItem>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-                <SelectItem value="60d">Last 60 days</SelectItem>
-                <SelectItem value="90d">Last 90 days</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={handleBicExport} variant="outline" size="sm" className="h-8"><Download className="h-4 w-4 mr-1" />Export</Button>
-          </div>
-        </div>
-
-        {/* BIC Summary Cards */}
-        {bicStats && (
-          <div className="grid gap-4 md:grid-cols-4 mb-6">
-            <Card><CardContent className="pt-4"><div className="text-sm text-slate-500">Total BICs</div><div className="text-2xl font-bold">{bicStats.totals.total_bics}</div></CardContent></Card>
-            <Card className={hasBicAlert ? 'border-red-300' : ''}><CardContent className="pt-4"><div className="text-sm text-slate-500 flex items-center gap-1">High Risk BICs{hasBicAlert && <AlertTriangle className="h-4 w-4 text-red-500" />}</div><div className={`text-2xl font-bold ${hasBicAlert ? 'text-red-600' : ''}`}>{bicStats.totals.high_risk_bics}</div></CardContent></Card>
-            <Card><CardContent className="pt-4"><div className="text-sm text-slate-500">Total Transactions</div><div className="text-2xl font-bold">{bicStats.totals.total_transactions.toLocaleString()}</div></CardContent></Card>
-            <Card><CardContent className="pt-4"><div className="text-sm text-slate-500">Overall CB Rate</div><div className="text-2xl font-bold">{formatPercent(bicStats.totals.overall_cb_rate)}</div></CardContent></Card>
-          </div>
-        )}
-
-        {/* BIC Table */}
-        <Card className={`${hasBicAlert ? "border-red-300" : ""}`}>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-slate-500" />
-              <CardTitle className="text-lg">Transactions by BIC</CardTitle>
-              {hasBicAlert && <AlertTriangle className="h-5 w-5 text-red-500" />}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {bicLoading ? (
-              <div className="flex items-center justify-center py-8"><RefreshCw className="h-6 w-6 animate-spin text-slate-400" /></div>
-            ) : bicStats && bicStats.bics && bicStats.bics.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>BIC</TableHead>
-                    <TableHead>Country</TableHead>
-                    <TableHead className="text-right">Total TX</TableHead>
-                    <TableHead className="text-right">Approved</TableHead>
-                    <TableHead className="text-right">Declined</TableHead>
-                    <TableHead className="text-right">Chargebacks</TableHead>
-                    <TableHead className="text-right">Volume €</TableHead>
-                    <TableHead className="text-right">CB Rate</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {bicStats.bics.map((bic) => (
-                    <TableRow key={bic.bic} className={bic.is_high_risk ? 'bg-red-50' : ''}>
-                      <TableCell className="font-mono text-sm">{bic.bic}{bic.is_high_risk && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2" />}</TableCell>
-                      <TableCell>{bic.bank_country}</TableCell>
-                      <TableCell className="text-right">{bic.total_transactions}</TableCell>
-                      <TableCell className="text-right text-green-600">{bic.approved_count}</TableCell>
-                      <TableCell className="text-right text-amber-600">{bic.declined_count}</TableCell>
-                      <TableCell className="text-right text-red-600">{bic.chargeback_count}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(bic.total_volume)}</TableCell>
-                      <TableCell className={`text-right font-medium ${bic.is_high_risk ? 'text-red-600' : ''}`}>{formatPercent(bic.cb_rate_count)}</TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow className={`${hasBicAlert ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
-                    <TableCell colSpan={2}>Total ({bicStats.totals.total_bics} BICs)</TableCell>
-                    <TableCell className="text-right">{bicStats.totals.total_transactions}</TableCell>
-                    <TableCell className="text-right">-</TableCell>
-                    <TableCell className="text-right">-</TableCell>
-                    <TableCell className="text-right">{bicStats.totals.total_chargebacks}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(bicStats.totals.total_volume)}</TableCell>
-                    <TableCell className={`text-right ${hasBicAlert ? 'text-red-600' : ''}`}>{formatPercent(bicStats.totals.overall_cb_rate)}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            ) : (<p className="text-slate-500 text-center py-4">No BIC data available</p>)}
-          </CardContent>
-        </Card>
       </main>
     </div>
   )

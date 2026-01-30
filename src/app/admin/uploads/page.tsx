@@ -436,7 +436,8 @@ export default function UploadsPage() {
 
                   <div className="w-full sm:w-[200px]">
                     <Select
-                        value={selectedEmpAccountId?.toString() || ''}
+                        key={selectedEmpAccountId}
+                        value={selectedEmpAccountId?.toString() || undefined}
                         onValueChange={(value) => setSelectedEmpAccountId(Number(value))}
                         disabled={isUploading || empAccounts.length === 0}
                     >

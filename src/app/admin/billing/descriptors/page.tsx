@@ -101,7 +101,7 @@ export default function DescriptorSchedulePage() {
         setLoading(true)
         try {
             // Ensure your API returns { data: TransactionDescriptor[] }
-            const response: any = await api.request('/admin/billing/descriptors')
+            const response = await api.getDescriptors()
             setSchedules(response.data || [])
         } catch (error) {
             console.error('Failed to fetch schedules', error)
@@ -183,9 +183,9 @@ export default function DescriptorSchedulePage() {
             }
 
             if (editingId) {
-                await api.request(`/admin/billing/descriptors/${editingId}`, { method: 'PUT', body: JSON.stringify(payload) })
+                await api.updateDescriptor(editingId, payload)
             } else {
-                await api.request('/admin/billing/descriptors', { method: 'POST', body: JSON.stringify(payload) })
+                await api.createDescriptor(payload)
             }
             setIsDialogOpen(false)
             fetchSchedules()
@@ -199,7 +199,7 @@ export default function DescriptorSchedulePage() {
     const handleDelete = async () => {
         if (!deletingId) return;
         try {
-            await api.request(`/admin/billing/descriptors/${deletingId}`, { method: 'DELETE' })
+            await api.deleteDescriptor(deletingId)
             setDeletingId(null)
             fetchSchedules()
         } catch (error) {

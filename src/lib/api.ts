@@ -253,6 +253,30 @@ class ApiClient {
     }
   }
 
+  async getDescriptors(): Promise<any> {
+    return this.request('/admin/billing/descriptors')
+  }
+
+  async createDescriptor(data: DescriptorParams): Promise<any> {
+    return this.request('/admin/billing/descriptors', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateDescriptor(id: number, data: DescriptorParams): Promise<any> {
+    return this.request(`/admin/billing/descriptors/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteDescriptor(id: number): Promise<void> {
+    await this.request(`/admin/billing/descriptors/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
   async setup2fa(email: string): Promise<LoginResponse> {
     const response = await this.request<LoginResponse>('/auth/setup-2fa', {
       method: 'POST',

@@ -13,12 +13,22 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -e
+
             cd /opt/tether-next
             git fetch origin main
             git reset --hard origin/main
+            
+            if [ -f .env ]; then
+              export $(grep -v '^#' .env | xargs)
+            else
+              echo "WARNING: .env file not found!"
+            fi
+            
             docker compose -f infrastructure/docker/NextJs/docker-compose.yml up -d --build
             docker image prune -f
             echo "Waiting for container to start..."
             sleep 15
             curl -f http://localhost:3000 || (docker compose -f infrastructure/docker/NextJs/docker-compose.yml logs && exit 1)
+            
             echo "Deploy successful!"

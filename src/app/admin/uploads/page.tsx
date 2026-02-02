@@ -45,7 +45,8 @@ import {
   RotateCcw,
   Archive,
   Trash2,
-  Building2
+  Building2,
+  Filter
  } from 'lucide-react'
 import type { Upload, SkippedCounts, PaginationLinks, PaginationLink, PaginationMeta as PaginationMetaType, EmpAccount } from '@/types'
 import {
@@ -119,13 +120,13 @@ export default function UploadsPage() {
   const completedUploadsRef = useRef<Set<number>>(new Set());
   const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
   const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<number | undefined>(undefined)
+  const [filterEmpAccountId, setFilterEmpAccountId] = useState<string>('all')
   const [activeEmpAccount, setActiveEmpAccount] = useState<EmpAccount | null>(null)
 
   const fetchEmpAccounts = async () => {
     try {
       const accounts = await api.getEmpAccounts()
       setEmpAccounts(accounts)
-      // Set default to active account
       const active = accounts.find(a => a.is_active)
       if (active) {
         setSelectedEmpAccountId(active.id)
@@ -139,10 +140,15 @@ export default function UploadsPage() {
   const fetchUploads = async () => {
     setLoading(true)
     try {
-      const filters: { page?: number; per_page: number } = {
+      const filters: { page?: number; per_page: number; emp_account_id?: number } = {
         page: currentPage,
         per_page: 50
       }
+
+      if (filterEmpAccountId !== 'all') {
+        filters.emp_account_id = Number(filterEmpAccountId)
+      }
+
       const response = await api.getUploads(filters)
 
       setUploads(response.data)
@@ -160,9 +166,17 @@ export default function UploadsPage() {
   }
 
   useEffect(() => {
-    fetchUploads()
     fetchEmpAccounts()
-  }, [currentPage])
+  }, [])
+
+  useEffect(() => {
+    fetchUploads()
+  }, [currentPage, filterEmpAccountId])
+
+  const handleFilterChange = (value: string) => {
+    setFilterEmpAccountId(value)
+    setCurrentPage(1)
+  }
 
   const handlePreviousPage = () => {
     if (links?.prev) {
@@ -576,11 +590,37 @@ export default function UploadsPage() {
           </CardContent>
         </Card>
 
-        <PaginationMeta
-          meta={meta}
-          label="uploads"
-          containerClassName="px-6 py-2"
-        />
+        <div className="flex items-center justify-between mb-4">
+          <PaginationMeta
+            meta={meta}
+            label="uploads"
+            containerClassName="px-0 py-0"
+          />
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-slate-500" />
+            <Select value={filterEmpAccountId} onValueChange={handleFilterChange}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filter by account" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-slate-500" />
+                    <span>All Accounts</span>
+                  </div>
+                </SelectItem>
+                {empAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-emerald-600" />
+                      <span>{account.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         <Card className="py-6">
           <CardHeader>

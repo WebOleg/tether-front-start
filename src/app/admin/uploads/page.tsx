@@ -44,9 +44,10 @@ import {
   Zap,
   RotateCcw,
   Archive,
-  Trash2
+  Trash2,
+  Building2
  } from 'lucide-react'
-import type { Upload, SkippedCounts, PaginationLinks, PaginationLink, PaginationMeta as PaginationMetaType } from '@/types'
+import type { Upload, SkippedCounts, PaginationLinks, PaginationLink, PaginationMeta as PaginationMetaType, EmpAccount } from '@/types'
 import {
   Dialog,
   DialogContent,
@@ -116,6 +117,24 @@ export default function UploadsPage() {
   const [links, setLinks] = useState<PaginationLinks | null>(null)
   const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
   const completedUploadsRef = useRef<Set<number>>(new Set());
+  const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
+  const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<number | undefined>(undefined)
+  const [activeEmpAccount, setActiveEmpAccount] = useState<EmpAccount | null>(null)
+
+  const fetchEmpAccounts = async () => {
+    try {
+      const accounts = await api.getEmpAccounts()
+      setEmpAccounts(accounts)
+      // Set default to active account
+      const active = accounts.find(a => a.is_active)
+      if (active) {
+        setSelectedEmpAccountId(active.id)
+        setActiveEmpAccount(active)
+      }
+    } catch (error) {
+      console.error('Failed to fetch EMP accounts:', error)
+    }
+  }
 
   const fetchUploads = async () => {
     setLoading(true)
@@ -142,6 +161,7 @@ export default function UploadsPage() {
 
   useEffect(() => {
     fetchUploads()
+    fetchEmpAccounts()
   }, [currentPage])
 
   const handlePreviousPage = () => {
@@ -259,7 +279,7 @@ export default function UploadsPage() {
     completedUploadsRef.current.clear()
 
     try {
-      const result = await api.uploadFile(file, billingModel)
+      const result = await api.uploadFile(file, billingModel, selectedEmpAccountId)
       setActiveUploadId(result.upload.id)
 
       if (result.skipped && result.skipped.total > 0) {
@@ -355,9 +375,11 @@ export default function UploadsPage() {
       <div className="p-6">
         <Card className="mb-4">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <FileUp className="h-5 w-5 text-slate-500" />
-              <CardTitle>Upload File</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileUp className="h-5 w-5 text-slate-500" />
+                <CardTitle>Upload File</CardTitle>
+              </div>
             </div>
             <CardDescription>
               Select a CSV, TXT or XLSX file to upload debtor records (max 50MB)
@@ -375,40 +397,68 @@ export default function UploadsPage() {
                     </Label>
                   </div>
                   <p className="text-sm text-slate-500">
-                    Select the billing strategy (model) to apply
+                    Select billing model and EMP account
                   </p>
                 </div>
 
-                <div className="w-full sm:w-[240px]">
-                  <Select
-                      value={billingModel}
-                      onValueChange={setBillingModel}
-                      disabled={isUploading}
-                  >
-                    <SelectTrigger id="billing-model" className="bg-white">
-                      <SelectValue placeholder="Select model" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="legacy">
-                        <div className="flex items-center gap-2">
-                          <Archive className="h-4 w-4 text-slate-500" />
-                          <span>Legacy</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="flywheel">
-                        <div className="flex items-center gap-2">
-                          <Zap className="h-4 w-4 text-blue-600" />
-                          <span>Flywheel</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="recovery">
-                        <div className="flex items-center gap-2">
-                          <RotateCcw className="h-4 w-4 text-purple-600" />
-                          <span>Recovery</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="w-full sm:w-[200px]">
+                    <Select
+                        value={billingModel}
+                        onValueChange={setBillingModel}
+                        disabled={isUploading}
+                    >
+                      <SelectTrigger id="billing-model" className="bg-white">
+                        <SelectValue placeholder="Select model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="legacy">
+                          <div className="flex items-center gap-2">
+                            <Archive className="h-4 w-4 text-slate-500" />
+                            <span>Legacy</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="flywheel">
+                          <div className="flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-blue-600" />
+                            <span>Flywheel</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="recovery">
+                          <div className="flex items-center gap-2">
+                            <RotateCcw className="h-4 w-4 text-purple-600" />
+                            <span>Recovery</span>
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="w-full sm:w-[200px]">
+                    <Select
+                        key={selectedEmpAccountId}
+                        value={selectedEmpAccountId?.toString() || undefined}
+                        onValueChange={(value) => setSelectedEmpAccountId(Number(value))}
+                        disabled={isUploading || empAccounts.length === 0}
+                    >
+                      <SelectTrigger className="bg-white">
+                        <SelectValue placeholder="Select EMP Account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {empAccounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id.toString()}>
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-4 w-4 text-emerald-600" />
+                              <span>{account.name}</span>
+                              {account.is_active && (
+                                <Badge variant="outline" className="ml-1 text-xs">Active</Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
@@ -544,11 +594,11 @@ export default function UploadsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="px-0">File</TableHead>
+                  <TableHead>Account</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-center">Records</TableHead>
                   <TableHead className="text-center">Valid</TableHead>
                   <TableHead className="text-center">Invalid</TableHead>
-                  <TableHead className="text-center">Valid %</TableHead>
                   <TableHead className="text-center">CB %</TableHead>
                   <TableHead className="text-center">CB Amt %</TableHead>
                   <TableHead>Uploaded</TableHead>
@@ -574,7 +624,6 @@ export default function UploadsPage() {
                     const valid = upload.valid_count || 0
                     const invalid = upload.invalid_count || 0
                     const skippedTotal = upload.skipped?.total || 0
-                    const validPercent = total > 0 ? Math.round((valid / total) * 100) : 0
                     const cbPercent = upload.cb_percentage
                     const cbAmtPercent = upload.cb_amount_percentage
                     const cbCount = upload.chargeback_count || 0
@@ -589,10 +638,21 @@ export default function UploadsPage() {
                               <div>
                                 <p className="font-medium text-blue-600">{upload.original_filename}</p>
                                 <p className="text-xs text-slate-500">{formatFileSize(upload.file_size)}</p>
-                                <p className="text-xs text-slate-500">{ upload.filename }</p>
                               </div>
                             </div>
                           </Link>
+                        </TableCell>
+                        <TableCell>
+                          {upload.emp_account ? (
+                            <div className="flex items-center gap-1.5">
+                              <Building2 className="h-3.5 w-3.5 text-emerald-600" />
+                              <span className="text-sm font-medium text-slate-700">
+                                {upload.emp_account.name}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={upload.status} />
@@ -614,11 +674,6 @@ export default function UploadsPage() {
                             <XCircle className="h-4 w-4" />
                             <span className="text-sm font-medium">{invalid}</span>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className={`text-sm font-medium ${validPercent === 100 ? 'text-green-600' : validPercent >= 80 ? 'text-yellow-600' : 'text-red-600'}`}>
-                            {validPercent}%
-                          </span>
                         </TableCell>
                         <TableCell className="text-center">
                           {cbPercent !== null && cbPercent !== undefined ? (

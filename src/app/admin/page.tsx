@@ -21,8 +21,9 @@ import {
   AlertCircle,
   AlertTriangle,
   XCircle,
+  Building2,
 } from 'lucide-react'
-import type { DashboardData } from '@/types'
+import type { DashboardData, EmpAccount } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/badges'
 
@@ -61,17 +62,36 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all')
+  const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
+  const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<string>('all')
   const monthOptions = generateMonthOptions()
 
   useEffect(() => {
-    const fetchDashboard = async () => {
+    const fetchEmpAccounts = async () => {
       try {
-        const params: { month?: number; year?: number } = {}
+        const accounts = await api.getEmpAccounts()
+        setEmpAccounts(accounts)
+      } catch (err) {
+        console.error('Failed to fetch EMP accounts:', err)
+      }
+    }
+    fetchEmpAccounts()
+  }, [])
+
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      setLoading(true)
+      try {
+        const params: { month?: number; year?: number; emp_account_id?: number } = {}
 
         if (selectedPeriod !== 'all') {
           const [year, month] = selectedPeriod.split('-').map(Number)
           params.month = month
           params.year = year
+        }
+
+        if (selectedEmpAccountId !== 'all') {
+          params.emp_account_id = Number(selectedEmpAccountId)
         }
 
         const dashboard = await api.getDashboard(params)
@@ -85,26 +105,137 @@ export default function AdminDashboard() {
     }
 
     fetchDashboard()
-  }, [selectedPeriod])
+  }, [selectedPeriod, selectedEmpAccountId])
 
   if (loading) {
     return (
       <>
         <Header title="Dashboard" description="Overview of your debt recovery operations" />
-        <div className="p-6">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
-              <Card key={i}>
-                <CardHeader className="pb-2">
-                  <div className="h-4 w-24 bg-slate-200 rounded animate-pulse" />
-                </CardHeader>
-                <CardContent>
-                  <div className="h-8 w-16 bg-slate-200 rounded animate-pulse" />
-                </CardContent>
-              </Card>
-            ))}
+        
+        <div className="relative min-h-screen">
+          {/* Fixed Overlay Loading Indicator - Always centered in viewport */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+            <div className="bg-white rounded-lg shadow-2xl px-6 py-4 flex items-center gap-3 border border-slate-200 pointer-events-auto">
+              <div className="h-5 w-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+              <span className="text-md text-slate-700">Loading dashboard data...</span>
+            </div>
+          </div>
+
+          {/* Blurred Background Overlay - Only over content */}
+          <div className="absolute inset-0 bg-black/1 backdrop-blur-[2px] pointer-events-none"></div>
+
+          {/* Skeleton Content in Background */}
+          <div className="p-6 space-y-6">
+            {/* Filters - Skeleton */}
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-12 bg-slate-200 rounded animate-pulse" />
+                <div className="h-10 w-[200px] bg-slate-200 rounded-md animate-pulse" />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-24 bg-slate-200 rounded animate-pulse" />
+                <div className="h-10 w-[200px] bg-slate-200 rounded-md animate-pulse" />
+              </div>
+            </div>
+
+            {/* KPI Cards - Skeleton */}
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {[...Array(4)].map((_, i) => (
+                <Card key={i} className="relative overflow-hidden">
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent" />
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <div className="h-4 w-24 bg-slate-200 rounded animate-pulse" />
+                    <div className="h-9 w-9 bg-slate-200 rounded-lg animate-pulse" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-9 w-20 bg-slate-200 rounded animate-pulse mb-2" />
+                    <div className="h-4 w-24 bg-slate-200 rounded animate-pulse" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Financial Overview - Skeleton */}
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              {[...Array(4)].map((_, i) => (
+                <Card key={i} className="relative overflow-hidden">
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent" style={{ animationDelay: `${i * 0.1}s` }} />
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3">
+                      <div className="h-5 w-5 bg-slate-200 rounded animate-pulse" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 w-32 bg-slate-200 rounded animate-pulse" />
+                        <div className="h-6 w-28 bg-slate-200 rounded animate-pulse" />
+                        <div className="h-3 w-24 bg-slate-200 rounded animate-pulse" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Status Breakdown - Skeleton */}
+            <div className="grid gap-6 md:grid-cols-2">
+              {[...Array(2)].map((_, i) => (
+                <Card key={i} className="relative overflow-hidden">
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent" style={{ animationDelay: `${i * 0.15}s` }} />
+                  <CardHeader>
+                    <div className="h-6 w-40 bg-slate-200 rounded animate-pulse" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {[...Array(5)].map((_, j) => (
+                        <div key={j} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 bg-slate-200 rounded-full animate-pulse" />
+                            <div className="h-4 w-28 bg-slate-200 rounded animate-pulse" />
+                          </div>
+                          <div className="h-5 w-16 bg-slate-200 rounded animate-pulse" />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Recent Activity - Skeleton */}
+            <div className="grid gap-6 md:grid-cols-2">
+              {[...Array(2)].map((_, i) => (
+                <Card key={i} className="relative overflow-hidden">
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent" style={{ animationDelay: `${i * 0.2}s` }} />
+                  <CardHeader>
+                    <div className="h-6 w-36 bg-slate-200 rounded animate-pulse" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {[...Array(3)].map((_, j) => (
+                        <div key={j} className="flex items-center justify-between gap-4">
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="h-4 w-full max-w-[200px] bg-slate-200 rounded animate-pulse" />
+                            <div className="h-3 w-32 bg-slate-200 rounded animate-pulse" />
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="h-4 w-16 bg-slate-200 rounded animate-pulse" />
+                            <div className="h-6 w-20 bg-slate-200 rounded-full animate-pulse" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </div>
+
+        <style jsx>{`
+          @keyframes shimmer {
+            100% {
+              transform: translateX(100%);
+            }
+          }
+        `}</style>
       </>
     )
   }
@@ -192,24 +323,56 @@ export default function AdminDashboard() {
     <>
       <Header title="Dashboard" description="Overview of your debt recovery operations" />
       <div className="p-6 space-y-6">
-        {/* Month Filter */}
-        <div className="flex items-center gap-4">
-          <label htmlFor="month-filter" className="text-sm font-medium text-slate-700">
-            Filter by Month:
-          </label>
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="w-[240px]" id="month-filter">
-              <SelectValue placeholder="All Time" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Time</SelectItem>
-              {monthOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label htmlFor="month-filter" className="text-sm font-medium text-slate-700">
+              Month:
+            </label>
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-[200px]" id="month-filter">
+                <SelectValue placeholder="All Time" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                {monthOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label htmlFor="emp-account-filter" className="text-sm font-medium text-slate-700">
+              EMP Account:
+            </label>
+            <Select value={selectedEmpAccountId} onValueChange={setSelectedEmpAccountId}>
+              <SelectTrigger className="w-[200px]" id="emp-account-filter">
+                <SelectValue placeholder="All Accounts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-slate-500" />
+                    <span>All Accounts</span>
+                  </div>
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                {empAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-emerald-600" />
+                      <span>{account.name}</span>
+                      {account.is_active && (
+                        <Badge variant="outline" className="ml-1 text-xs">Active</Badge>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* KPI Cards */}

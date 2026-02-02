@@ -33,9 +33,20 @@ import type {
   ChargebackCodes,
   Chargebacks,
   BicAnalyticsStats,
+  EmpAccount,
+  EmpAccountStats,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+
+export interface DescriptorParams {
+  descriptor_name: string
+  descriptor_city: string
+  descriptor_country: string
+  is_default: boolean
+  month?: number
+  year?: number
+}
 
 export interface ReconciliationStats {
   eligible: number
@@ -104,7 +115,14 @@ export interface StatsFilterParams {
   month?: number
   year?: number
   date_mode?: DateMode
-  model?: string // Merged from HEAD functionality
+  model?: string
+  emp_account_id?: number
+}
+
+export interface DashboardFilterParams {
+  month?: number
+  year?: number
+  emp_account_id?: number
 }
 
 export class ApiError extends Error {
@@ -119,6 +137,23 @@ export class ApiError extends Error {
   }
 }
 
+export interface DescriptorSchedule {
+  id: number
+  descriptor: string
+  is_default: boolean
+  effective_month?: number
+  effective_year?: number
+  created_at?: string
+  updated_at?: string
+}
+
+export type DescriptorPayload = {
+  descriptor: string
+  is_default: boolean
+  effective_month?: number
+  effective_year?: number
+}
+
 export type DebtorType = 'legacy' | 'flywheel' | 'recovery'
 
 export type UploadScopedFilters = {
@@ -127,6 +162,7 @@ export type UploadScopedFilters = {
 
 export type AnalyticsFilters = {
   model?: string
+  emp_account_id?: number
 }
 
 class ApiClient {
@@ -200,17 +236,17 @@ class ApiClient {
     return response.json()
   }
 
-  /**
-   * Authenticate user.
-   * Now supports 2FA flows: check response.status for 'otp_required' or 'setup_required'.
-   */
   async login(email: string, password: string): Promise<LoginResponse> {
-    const response = await this.request<LoginResponse>('/login', {
+    const response = await this.request<any>('/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     })
 
-    // Only set the token if authentication is complete
+    // If backend sends token but no status, assume success
+    if (response.token && !response.status) {
+      response.status = 'authenticated'
+    }
+
     if (response.status === 'authenticated' && response.token) {
       this.setToken(response.token)
     }
@@ -226,10 +262,30 @@ class ApiClient {
     }
   }
 
+  async getDescriptors(): Promise<any> {
+    return this.request('/admin/billing/descriptors')
+  }
 
-  /**
-   * Complete 2FA setup (user acknowledges saving backup codes).
-   */
+  async createDescriptor(data: DescriptorParams): Promise<any> {
+    return this.request('/admin/billing/descriptors', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateDescriptor(id: number, data: DescriptorParams): Promise<any> {
+    return this.request(`/admin/billing/descriptors/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteDescriptor(id: number): Promise<void> {
+    await this.request(`/admin/billing/descriptors/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
   async setup2fa(email: string): Promise<LoginResponse> {
     const response = await this.request<LoginResponse>('/auth/setup-2fa', {
       method: 'POST',
@@ -243,9 +299,6 @@ class ApiClient {
     return response
   }
 
-  /**
-   * Verify the 6-digit OTP code.
-   */
   async verifyOtp(email: string, code: string): Promise<LoginResponse> {
     const response = await this.request<LoginResponse>('/auth/verify-otp', {
       method: 'POST',
@@ -259,9 +312,6 @@ class ApiClient {
     return response
   }
 
-  /**
-   * Resend the OTP code.
-   */
   async resendOtp(email: string): Promise<{ message: string }> {
     return this.request<{ message: string }>('/auth/resend-otp', {
       method: 'POST',
@@ -269,9 +319,6 @@ class ApiClient {
     })
   }
 
-  /**
-   * Verify using a backup code (recovery).
-   */
   async verifyBackupCode(email: string, code: string): Promise<LoginResponse> {
     const response = await this.request<LoginResponse>('/auth/verify-backup-code', {
       method: 'POST',
@@ -290,17 +337,20 @@ class ApiClient {
     return response.data
   }
 
-  async getDashboard(params?: { month?: number; year?: number }): Promise<DashboardData> {
+  async getDashboard(params?: DashboardFilterParams): Promise<DashboardData> {
     const query = this.buildQuery(params)
     const response = await this.request<{ data: DashboardData }>(`/admin/dashboard${query}`)
     return response.data
   }
 
-  async uploadFile(file: File, billingModel: string = 'legacy'): Promise<UploadResult> {
+  async uploadFile(file: File, billingModel: string = 'legacy', empAccountId?: number): Promise<UploadResult> {
     const token = this.getToken()
     const formData = new FormData()
     formData.append('file', file)
     formData.append('billing_model', billingModel)
+    if (empAccountId) {
+      formData.append('emp_account_id', empAccountId.toString())
+    }
 
     const headers: HeadersInit = { 'Accept': 'application/json' }
     if (token) {
@@ -469,7 +519,8 @@ class ApiClient {
       month: params.month,
       year: params.year,
       date_mode: params.date_mode || 'transaction',
-      model: params.model
+      model: params.model,
+      emp_account_id: params.emp_account_id,
     })
     const response = await this.request<{ data: ChargebackStats }>(
         `/admin/stats/chargeback-rates${query}`
@@ -491,7 +542,8 @@ class ApiClient {
       month: params.month,
       year: params.year,
       date_mode: params.date_mode || 'transaction',
-      model: params.model
+      model: params.model,
+      emp_account_id: params.emp_account_id,
     })
     const response = await this.request<{ data: ChargebackCodeStats }>(
         `/admin/stats/chargeback-codes${query}`
@@ -505,7 +557,8 @@ class ApiClient {
       month: params.month,
       year: params.year,
       date_mode: params.date_mode || 'transaction',
-      model: params.model
+      model: params.model,
+      emp_account_id: params.emp_account_id,
     })
     const response = await this.request<{ data: ChargebackBankStats }>(
         `/admin/stats/chargeback-banks${query}`
@@ -655,7 +708,6 @@ class ApiClient {
     return this.request<EmpRefreshJobStatusResponse>('/admin/emp/refresh/' + jobId)
   }
 
-  // BIC Analytics
   async getBicAnalytics(period: string = '30d', filters?: AnalyticsFilters): Promise<BicAnalyticsStats> {
     const query = this.buildQuery({ period, ...filters })
     const response = await this.request<{ data: BicAnalyticsStats }>(
@@ -674,6 +726,62 @@ class ApiClient {
     const query = this.buildQuery({ period, ...filters })
     const response = await fetch(`${API_BASE_URL}/admin/analytics/bic/export${query}`, { headers })
     return response.blob()
+  }
+
+  // EMP Account Management
+  async getEmpAccounts(): Promise<EmpAccount[]> {
+    const response = await this.request<{ success: boolean; data: EmpAccount[] }>('/admin/emp/accounts')
+    return response.data
+  }
+
+  async getActiveEmpAccount(): Promise<EmpAccount | null> {
+    try {
+      const response = await this.request<{ success: boolean; data: EmpAccount }>('/admin/emp/accounts/active')
+      return response.data
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return null
+      }
+      throw error
+    }
+  }
+
+  async setActiveEmpAccount(accountId: number): Promise<EmpAccount> {
+    const response = await this.request<{ success: boolean; data: EmpAccount }>(
+        `/admin/emp/accounts/${accountId}/activate`,
+        { method: 'POST' }
+    )
+    return response.data
+  }
+
+  async getEmpAccountStats(accountId: number): Promise<EmpAccountStats> {
+    const response = await this.request<{ success: boolean; data: EmpAccountStats }>(
+        `/admin/emp/accounts/${accountId}/stats`
+    )
+    return response.data
+  }
+
+  // Descriptor Management
+  async getDescriptorSchedules(): Promise<ApiResponse<DescriptorSchedule[]>> {
+    return this.request<ApiResponse<DescriptorSchedule[]>>('/admin/billing/descriptors')
+  }
+
+  async createDescriptorSchedule(data: DescriptorPayload): Promise<{ data: DescriptorSchedule }> {
+    return this.request<{ data: DescriptorSchedule }>('/admin/billing/descriptors', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateDescriptorSchedule(id: number, data: DescriptorPayload): Promise<{ data: DescriptorSchedule }> {
+    return this.request<{ data: DescriptorSchedule }>(`/admin/billing/descriptors/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteDescriptorSchedule(id: number): Promise<void> {
+    await this.request(`/admin/billing/descriptors/${id}`, { method: 'DELETE' })
   }
 }
 

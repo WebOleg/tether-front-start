@@ -47,18 +47,15 @@ import {
   ShieldX,
   CreditCard,
   Send,
-  Layers,
-  Zap,
-  RotateCcw,
-  Archive
 } from 'lucide-react'
 import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { Progress } from '@/components/ui/progress'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ModelTabs } from '@/components/ui/model-tabs'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { validationStatusConfig } from '@/lib/styles'
 import { ModelBadge, StatusBadge } from '@/components/ui/badges'
+
 type DebtorType = 'all' | 'legacy' | 'flywheel' | 'recovery'
 
 function getValidationDisplayStatus(debtor: Debtor): string {
@@ -491,66 +488,27 @@ export default function UploadDetailPage() {
             title={upload.original_filename}
             description={
               <>
-                <div className="text-sm text-slate-500">{upload.filename}</div>
-                <div className="text-sm text-slate-500">
+                <span className="block text-sm text-slate-500">{upload.filename}</span>
+                <span className="block text-sm text-slate-500">
                   Uploaded {formatDate(upload.created_at)}
-                </div>
+                  {upload.emp_account && (
+                      <span className="ml-3 inline-flex items-center gap-1">
+                      <span className="text-slate-400">•</span>
+                      <span className="text-emerald-600 font-medium">{upload.emp_account.name}</span>
+                    </span>
+                  )}
+                </span>
               </>
             }
         />
 
         <div className="px-6 pt-4">
-          <Tabs value={debtorType} onValueChange={handleTypeChange} className="w-full">
-            <TabsList className="w-full h-auto p-1 bg-slate-100/80 border border-slate-200 grid grid-cols-4 gap-2">
-
-              <TabsTrigger
-                  value="all"
-                  className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all"
-              >
-                <Layers className="h-4 w-4" />
-                <span className="font-medium">All Records</span>
-                <Badge variant="secondary" className="ml-1 bg-slate-200 text-slate-700 group-data-[state=active]:bg-blue-100 group-data-[state=active]:text-blue-700">
-                  {modelCounts.all}
-                </Badge>
-              </TabsTrigger>
-
-              <TabsTrigger
-                  value="flywheel"
-                  className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all"
-              >
-                <Zap className="h-4 w-4" />
-                <span className="font-medium">Flywheel</span>
-                <Badge variant="secondary" className="ml-1 bg-slate-200 text-slate-700">
-                  {modelCounts.flywheel}
-                </Badge>
-              </TabsTrigger>
-
-              <TabsTrigger
-                  value="recovery"
-                  className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-purple-700 data-[state=active]:shadow-sm transition-all"
-              >
-                <RotateCcw className="h-4 w-4" />
-                <span className="font-medium">Recovery</span>
-                <Badge variant="secondary" className="ml-1 bg-slate-200 text-slate-700">
-                  {modelCounts.recovery}
-                </Badge>
-              </TabsTrigger>
-
-              <TabsTrigger
-                  value="legacy"
-                  className="flex items-center justify-center gap-2 py-2.5 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm transition-all"
-              >
-                <Archive className="h-4 w-4" />
-                <span className="font-medium">Legacy</span>
-                <Badge variant="secondary" className="ml-1 bg-slate-200 text-slate-700">
-                  {modelCounts.legacy}
-                </Badge>
-              </TabsTrigger>
-
-            </TabsList>
-          </Tabs>
+          <ModelTabs
+            value={debtorType}
+            onValueChange={handleTypeChange}
+            showCounts={modelCounts}
+          />
         </div>
-
 
         <div className="">
           <div className="px-6 pt-4 flex flex-col sm:flex-row justify-between gap-4">

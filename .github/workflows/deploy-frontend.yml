@@ -1,23 +1,42 @@
 name: Deploy Frontend
 on:
   workflow_dispatch:
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to Frontend Server
+      - name: Deploy to Frontend Server via Docker
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.FRONTEND_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -e
+
             cd /opt/tether-next
             git fetch origin main
             git reset --hard origin/main
-            npm ci
-            npm run build
-            systemctl restart tether-next
-            sleep 10
-            curl -f http://localhost:3000 || exit 1
+            
+            if [ -f .env ]; then
+              echo "Loading .env variables..."
+              export $(grep -v '^#' .env | xargs)
+            else
+              echo "WARNING: .env file not found in $(pwd)!"
+            fi
+
+            echo "Building with API URL: $NEXT_PUBLIC_API_URL"
+            
+            docker compose -f infrastructure/docker/NextJs/docker-compose.yml up -d --build
+            
+            # 5. Cleanup & Verification
+            docker image prune -f
+            
+            echo "Waiting for container to start..."
+            sleep 15
+            
+            # Health check
+            curl -f http://localhost:3000 || (docker compose -f infrastructure/docker/NextJs/docker-compose.yml logs && exit 1)
+            
             echo "Deploy successful!"

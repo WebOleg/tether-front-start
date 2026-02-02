@@ -67,6 +67,12 @@ export interface SkippedRow {
 
 export type SkipReason = 'blacklisted' | 'chargebacked' | 'already_recovered' | 'recently_attempted'
 
+export interface EmpAccountRef {
+  id: number
+  name: string
+  slug: string
+}
+
 export interface Upload {
   id: number
   filename: string
@@ -98,6 +104,8 @@ export interface Upload {
   cb_amount_percentage?: number | null
   approved_amount?: number
   chargeback_amount?: number
+  emp_account_id?: number | null
+  emp_account?: EmpAccountRef | null
 }
 
 export type UploadStatus = 'pending' | 'processing' | 'completed' | 'failed'
@@ -109,7 +117,6 @@ export interface UploadDelete {
 
 export type VopStatus = 'pending' | 'verified' | 'error'
 export type BillingModel = 'legacy' | 'flywheel' | 'recovery'
-
 
 export interface DebtorProfile {
   id: number
@@ -124,7 +131,6 @@ export interface DebtorProfile {
   created_at: string
   updated_at: string
 }
-
 
 export interface Debtor {
   id: number
@@ -172,7 +178,6 @@ export type DebtorStatus = 'uploaded' | 'pending' | 'processing' | 'recovered' |
 export type ValidationStatus = 'pending' | 'valid' | 'invalid'
 export type RiskClass = 'low' | 'medium' | 'high'
 
-
 export interface ModelCounts {
   all: number
   legacy: number
@@ -192,6 +197,7 @@ export interface ValidationStats {
   model_counts?: ModelCounts
   is_processing: boolean
 }
+
 export type NameMatch = 'yes' | 'partial' | 'no' | 'unavailable' | 'error'
 
 export interface VopLog {
@@ -237,6 +243,7 @@ export interface BillingAttempt {
   can_retry: boolean
   processed_at: string | null
   created_at: string
+  emp_account?: EmpAccountRef | null
 }
 
 export type BillingStatus = 'pending' | 'approved' | 'declined' | 'error' | 'voided' | 'chargebacked'
@@ -435,26 +442,26 @@ export interface ChargebackCodeStats {
 }
 
 export interface ChargebackBankDetail {
-  bank_name: string;
-  total_amount: number;
-  chargebacks: number;
-  cb_rate: number | null;
-  alert: boolean;
+  bank_name: string
+  total_amount: number
+  chargebacks: number
+  cb_rate: number | null
+  alert: boolean
 }
 
 export interface ChargebackBankTotal {
-  total: number;
-  total_amount: number;
-  chargebacks: number;
-  total_cb_rate: number | null;
-  alert: boolean;
+  total: number
+  total_amount: number
+  chargebacks: number
+  total_cb_rate: number | null
+  alert: boolean
 }
 
 export interface ChargebackBankStats {
-  period: string;
-  start_date: string;
-  banks: ChargebackBankDetail[];
-  totals: ChargebackBankTotal;
+  period: string
+  start_date: string
+  banks: ChargebackBankDetail[]
+  totals: ChargebackBankTotal
 }
 
 export type DateMode = 'transaction' | 'chargeback'
@@ -555,6 +562,7 @@ export interface Chargebacks {
   processed_at: string
   emp_created_at: string
   chargebacked_at: string
+  emp_account?: EmpAccountRef | null
   debtor: {
     id: number
     first_name: string
@@ -602,4 +610,35 @@ export interface BicAnalyticsStats {
   threshold: number
   bics: BicAnalyticsDetail[]
   totals: BicAnalyticsTotals
+}
+
+// ==========================================================================
+// EMP Account Types
+// ==========================================================================
+
+export interface EmpAccount {
+  id: number
+  name: string
+  slug: string
+  is_active: boolean
+  sort_order: number
+  created_at: string
+}
+
+export interface EmpAccountStats {
+  account: {
+    id: number
+    name: string
+    slug: string
+  }
+  stats: {
+    total_transactions: number
+    pending: number
+    approved: number
+    declined: number
+    chargebacked: number
+    total_amount: number
+    chargeback_amount: number
+    chargeback_rate: number
+  }
 }

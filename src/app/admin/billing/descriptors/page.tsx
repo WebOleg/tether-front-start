@@ -137,16 +137,20 @@ export default function DescriptorSchedulePage() {
     }
 
     const validateField = (field: 'name' | 'city' | 'country', value: string) => {
-        if (!value) return "Required";
+        // Name is strictly required
+        if (field === 'name' && !value) return "Required";
 
-        // Strict 3-letter check for Country
+        // If City or Country is empty, it's valid (Optional)
+        if ((field === 'city' || field === 'country') && !value) return undefined;
+
+        // Strict 3-letter check for Country (Only runs if value is not empty)
         if (field === 'country') {
             if (value.length !== 3) return "Must be exactly 3 characters (ISO Alpha-3)";
             if (!/^[A-Z]{3}$/.test(value)) return "Must be 3 uppercase letters";
             return undefined;
         }
 
-        // Existing regex for other fields
+        // Regex check for invalid characters (Only runs if value is not empty)
         if (!DESCRIPTOR_REGEX.test(value)) {
             return "Invalid characters (A-Z, 0-9, . , - only)";
         }
@@ -253,7 +257,9 @@ export default function DescriptorSchedulePage() {
                                             {item.descriptor_name}
                                         </TableCell>
                                         <TableCell className="text-slate-600">
-                                            {item.descriptor_city}, {item.descriptor_country}
+                                            {[item.descriptor_city, item.descriptor_country]
+                                                .filter(Boolean)
+                                                .join(', ')}
                                         </TableCell>
                                         <TableCell>
                                             {item.is_default ? (

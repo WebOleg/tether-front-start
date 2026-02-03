@@ -18,6 +18,7 @@ export const CHARGEBACK_ACTIONS = {
   FIX_DATA: 'Fix transaction data',
   UPDATE_PROFILE: 'Update customer profile',
   CHECK_DUPLICATES: 'Check duplicates',
+  REJECT: 'Reject',
 } as const
 
 export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
@@ -92,11 +93,10 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
     ],
   },
   BE10: {
-    risk: "low",
-    detail: "Debtor country code is missing or invalid",
+    risk: 'low',
+    detail: 'Debtor country code is missing or invalid',
     action: [
-      "Validate debtor ISO-2 country code",
-      "Ensure IBAN country prefix matches debtor country",
+      'Validate debtor ISO-2 country code',
       CHARGEBACK_ACTIONS.RETRY,
     ],
   },
@@ -216,6 +216,110 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Ask customer to change bank settings',
+    ],
+  },
+  XT13: {
+    risk: 'high',
+    detail: 'Unsupported XML field',
+    action: [
+      CHARGEBACK_ACTIONS.REJECT,
+      'Remove unsupported XML field and resend',
+    ],
+  },
+  XT33: {
+    risk: 'high',
+    detail: 'Invalid data format',
+    action: [
+      CHARGEBACK_ACTIONS.REJECT,
+      'Fix field data formats and resend',
+    ],
+  },
+  XT73: {
+    risk: 'high',
+    detail: 'Invalid country code',
+    action: [
+      CHARGEBACK_ACTIONS.REJECT,
+      'Correct country code (ISO-2) and resend',
+    ],
+  },
+  XT75: {
+    risk: 'high',
+    detail: 'Invalid original transaction status',
+    action: [
+      CHARGEBACK_ACTIONS.REJECT,
+      'Verify original transaction status and resend',
+    ],
+  },
+  XT77: {
+    risk: 'high',
+    detail: 'Interbank Settlement Amount mismatch',
+    action: [
+      CHARGEBACK_ACTIONS.REJECT,
+      'Reconcile settlement amount and resend',
+    ],
+  },
+  XT78: {
+    risk: 'high',
+    detail: 'Compensation amount check failed',
+    action: [
+      CHARGEBACK_ACTIONS.REJECT,
+      'Recalculate compensation amount and resend',
+    ],
+  },
+  XT79: {
+    risk: 'high',
+    detail: 'Debtor Agent not allowed to receive DD',
+    action: [
+      CHARGEBACK_ACTIONS.REJECT,
+      'Use a debtor agent allowed to receive DD',
+    ],
+  },
+  XT80: {
+    risk: 'high',
+    detail: 'Creditor Agent not allowed to send DD',
+    action: [
+      CHARGEBACK_ACTIONS.REJECT,
+      'Use a creditor agent allowed to send DD',
+    ],
+  },
+  XT81: {
+    risk: 'high',
+    detail: 'Field not permitted in SDD Service',
+    action: [
+      CHARGEBACK_ACTIONS.REJECT,
+      'Remove non-permitted SDD field and resend',
+    ],
+  },
+  XT87: {
+    risk: 'high',
+    detail: 'R-Message route mismatch',
+    action: [
+      CHARGEBACK_ACTIONS.REJECT,
+      'Verify R-message routing and resend',
+    ],
+  },
+  XT88: {
+    risk: 'high',
+    detail: 'Excess transactions cancelled',
+    action: [
+      CHARGEBACK_ACTIONS.REJECT,
+      'Reduce batch size / split transactions and resend',
+    ],
+  },
+  XT90: {
+    risk: 'high',
+    detail: 'Invalid use of Technical BIC',
+    action: [
+      CHARGEBACK_ACTIONS.REJECT,
+      'Replace Technical BIC with valid BIC and resend',
+    ],
+  },
+  XT91: {
+    risk: 'high',
+    detail: 'Creditor/Debtor Agent not part of SEPACOM CUG',
+    action: [
+      CHARGEBACK_ACTIONS.REJECT,
+      'Confirm SEPACOM CUG membership (use allowed agent)',
     ],
   },
 } as const

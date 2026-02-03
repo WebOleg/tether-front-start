@@ -270,6 +270,7 @@ export interface LoginResponse {
 
 export interface UploadFilters {
   status?: UploadStatus
+  emp_account_id?: number
   page?: number
   per_page?: number
 }

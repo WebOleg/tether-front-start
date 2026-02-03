@@ -257,7 +257,9 @@ export default function DescriptorSchedulePage() {
                                             {item.descriptor_name}
                                         </TableCell>
                                         <TableCell className="text-slate-600">
-                                            {item.descriptor_city}, {item.descriptor_country}
+                                            {[item.descriptor_city, item.descriptor_country]
+                                                .filter(Boolean)
+                                                .join(', ')}
                                         </TableCell>
                                         <TableCell>
                                             {item.is_default ? (

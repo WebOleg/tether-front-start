@@ -126,8 +126,10 @@ export default function UploadDetailPage() {
       )
       setVerifyVopInProgress(data?.is_processing ?? true)
       setVopStats(data)
+      return data
     } catch (error) {
       console.error('Failed to fetch VOP stats:', error)
+      return null
     }
   }, [uploadId])
 
@@ -328,18 +330,24 @@ export default function UploadDetailPage() {
       toast.success('VOP verification started. This may take a few minutes.')
 
       const pollInterval = setInterval(async () => {
-        await fetchVopStats()
+        const vopData = await fetchVopStats()
         await fetchValidationStats()
-      }, 5000)
+        if (vopData && vopData.is_processing === false) {
+          clearInterval(pollInterval)
+          setVerifyingVop(false)
+          toast.success('VOP verification completed.')
+        }
+      }, 2000)
 
       setTimeout(() => {
         clearInterval(pollInterval)
         fetchVopStats()
         fetchValidationStats()
         setVerifyingVop(false)
-      }, 120000)
+      }, 900000)
 
     } catch (error) {
+      setVerifyingVop(false)
       toast.error('Failed to start VOP verification')
     }
   }

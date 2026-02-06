@@ -241,6 +241,7 @@ export interface BillingAttempt {
   is_approved: boolean
   is_final: boolean
   can_retry: boolean
+  emp_created_at: string | null
   processed_at: string | null
   created_at: string
   emp_account?: EmpAccountRef | null

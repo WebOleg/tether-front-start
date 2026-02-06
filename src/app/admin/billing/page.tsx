@@ -277,6 +277,7 @@ function BillingContent() {
                   <TableHead>Paid Cycle</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Approved</TableHead>
                   <TableHead>Processed</TableHead>
                   <TableHead>Error</TableHead>
                   <TableHead>Account</TableHead>
@@ -285,13 +286,13 @@ function BillingContent() {
               <TableBody>
                 {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={9} className="text-center py-8">
                         Loading...
                       </TableCell>
                     </TableRow>
                 ) : attempts.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
+                      <TableCell colSpan={9} className="text-center py-8">
                         No billing attempts found
                       </TableCell>
                     </TableRow>
@@ -353,6 +354,14 @@ function BillingContent() {
                               <StatusBadge status={attempt.status} />
                             </TableCell>
 
+                            {/* Approved Date (EMP created_at) */}
+                            <TableCell className="text-sm text-slate-500">
+                              {attempt.emp_created_at ? formatDate(attempt.emp_created_at) : (
+                                  <span className="text-slate-300">-</span>
+                              )}
+                            </TableCell>
+
+                            {/* Processed Date */}
                             <TableCell className="text-sm text-slate-500">
                               {formatDate((attempt as any).processed_at || attempt.created_at)}
                             </TableCell>

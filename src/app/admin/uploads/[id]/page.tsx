@@ -266,15 +266,18 @@ export default function UploadDetailPage() {
     if (!VerifyVopInProgress) return
 
     const interval = setInterval(async () => {
-      const data = await fetchVopStats()
-      if (data && !data.is_processing) {
+      const vopData = await fetchVopStats()
+      const validationData = await fetchValidationStats()
+      
+      if (vopData && !vopData.is_processing) {
         setVerifyVopInProgress(false)
         clearInterval(interval)
+        toast.success('VOP verification completed.')
       }
     }, 2000)
 
     return () => clearInterval(interval)
-  }, [VerifyVopInProgress, fetchVopStats])
+  }, [VerifyVopInProgress, fetchVopStats, fetchValidationStats])
 
   useEffect(() => {
     if (!uploadId || loading || !hasFetchedInitial) return

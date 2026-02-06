@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 import { formatCurrency, formatDate, formatSimpleDate  } from '@/lib/utils'
 import { ModelBadge, StatusBadge } from '@/components/ui/badges'
+import { CleanUsersExport } from '@/components/clean-users-export'
 
 function calculateCycle(dateString: string, model: string = 'legacy') {
   const start = new Date(dateString)
@@ -57,32 +58,27 @@ function BillingContent() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  // 1. Get initial state from URL
   const currentStatus = searchParams.get('status') || 'all'
   const currentModel = searchParams.get('model') || 'all'
   const currentSearch = searchParams.get('search') || ''
   const currentDebtorId = searchParams.get('debtor_id') || ''
   const currentPage = Number(searchParams.get('page')) || 1
 
-  // Local API state
   const [attempts, setAttempts] = useState<BillingAttempt[]>([])
   const [loading, setLoading] = useState(true)
   const [meta, setMeta] = useState<PaginationMetaType | null>(null)
   const [links, setLinks] = useState<PaginationLinks | null>(null)
   const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
 
-  // Local Input State (for debounce)
   const [searchInput, setSearchInput] = useState(currentSearch)
   const [debtorIdInput, setDebtorIdInput] = useState(currentDebtorId)
 
-  // Computed: Count active filters
   const activeFilterCount =
       (currentStatus !== 'all' ? 1 : 0) +
       (currentModel !== 'all' ? 1 : 0) +
       (currentSearch ? 1 : 0) +
       (currentDebtorId ? 1 : 0);
 
-  // 2. Helper to update URL
   const updateUrl = useCallback((updates: Record<string, string | number | null>) => {
     const params = new URLSearchParams(searchParams.toString())
 
@@ -101,7 +97,6 @@ function BillingContent() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false })
   }, [searchParams, pathname, router])
 
-  // 3. Sync local input if URL changes externally
   useEffect(() => {
     setSearchInput(currentSearch)
   }, [currentSearch])
@@ -110,7 +105,6 @@ function BillingContent() {
     setDebtorIdInput(currentDebtorId)
   }, [currentDebtorId])
 
-  // 4a. Debounce Search
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchInput !== currentSearch) {
@@ -120,7 +114,6 @@ function BillingContent() {
     return () => clearTimeout(timer)
   }, [searchInput, currentSearch, updateUrl])
 
-  // 4b. Debounce Debtor ID
   useEffect(() => {
     const timer = setTimeout(() => {
       if (debtorIdInput !== currentDebtorId) {
@@ -130,8 +123,6 @@ function BillingContent() {
     return () => clearTimeout(timer)
   }, [debtorIdInput, currentDebtorId, updateUrl])
 
-
-  // 5. Main Data Fetch
   useEffect(() => {
     const fetchAttempts = async () => {
       setLoading(true)
@@ -164,14 +155,12 @@ function BillingContent() {
     fetchAttempts()
   }, [currentStatus, currentModel, currentSearch, currentDebtorId, currentPage])
 
-  // Handlers
   const handlePageClick = (page: number) => updateUrl({ page })
   const handlePreviousPage = () => links?.prev && updateUrl({ page: currentPage - 1 })
   const handleNextPage = () => links?.next && updateUrl({ page: currentPage + 1 })
   const handleStatusFilterChange = (status: string) => updateUrl({ status })
   const handleModelFilterChange = (model: string) => updateUrl({ model })
 
-  // Reset Filters Handler
   const handleResetFilters = () => {
     setSearchInput('')
     setDebtorIdInput('')
@@ -186,11 +175,15 @@ function BillingContent() {
         />
         <div className="p-6">
 
-          {/* --- FILTERS TOOLBAR --- */}
+          {/* Clean Users Export Section */}
+          <div className="mb-6">
+            <CleanUsersExport />
+          </div>
+
+          {/* Filters Toolbar */}
           <div className="mb-6 flex flex-col xl:flex-row gap-4 xl:items-center">
             <div className="flex flex-wrap gap-3 flex-1 w-full items-center">
 
-              {/* Search */}
               <div className="relative w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
@@ -201,7 +194,6 @@ function BillingContent() {
                 />
               </div>
 
-              {/* Debtor ID Filter - Contextual Drilldown */}
               {currentDebtorId && (
                   <div className="relative w-36 animate-in fade-in slide-in-from-left-2 duration-300">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-500" />
@@ -215,7 +207,6 @@ function BillingContent() {
                   </div>
               )}
 
-              {/* Model Filter */}
               <Select value={currentModel} onValueChange={handleModelFilterChange}>
                 <SelectTrigger className="w-40 bg-white">
                   <SelectValue placeholder="Model" />
@@ -228,7 +219,6 @@ function BillingContent() {
                 </SelectContent>
               </Select>
 
-              {/* Status Filter */}
               <Select value={currentStatus} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="w-40 bg-white">
                   <SelectValue placeholder="Status" />
@@ -242,7 +232,6 @@ function BillingContent() {
                 </SelectContent>
               </Select>
 
-              {/* Reset Button with Counter */}
               {activeFilterCount > 0 && (
                   <Button
                       variant="outline"
@@ -267,7 +256,6 @@ function BillingContent() {
               containerClassName='px-2'
           />
 
-          {/* --- TABLE --- */}
           <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
             <Table>
               <TableHeader>
@@ -306,13 +294,11 @@ function BillingContent() {
 
                       return (
                           <TableRow key={attempt.id} className="hover:bg-slate-50/50">
-                            {/* Transaction & Debtor */}
                             <TableCell>
                               <div className="flex flex-col">
                                 <span className="font-medium text-slate-700">
                                   {debtor?.iban_masked || 'Unknown Debtor'}
                                 </span>
-                                {/* Full Transaction ID Visible */}
                                 <span className="font-mono text-xs text-slate-400 mt-0.5 select-all">
                                   {attempt.transaction_id || attempt.id}
                                 </span>
@@ -324,12 +310,10 @@ function BillingContent() {
                               </div>
                             </TableCell>
 
-                            {/* Model */}
                             <TableCell>
                               <ModelBadge model={model} />
                             </TableCell>
 
-                            {/* Paid Cycle */}
                             <TableCell>
                               {cycle ? (
                                   <div className="flex flex-col gap-0.5">
@@ -354,14 +338,12 @@ function BillingContent() {
                               <StatusBadge status={attempt.status} />
                             </TableCell>
 
-                            {/* Approved Date (EMP created_at) */}
                             <TableCell className="text-sm text-slate-500">
                               {attempt.emp_created_at ? formatDate(attempt.emp_created_at) : (
                                   <span className="text-slate-300">-</span>
                               )}
                             </TableCell>
 
-                            {/* Processed Date */}
                             <TableCell className="text-sm text-slate-500">
                               {formatDate((attempt as any).processed_at || attempt.created_at)}
                             </TableCell>
@@ -382,7 +364,6 @@ function BillingContent() {
                               )}
                             </TableCell>
 
-                            {/* Account */}
                             <TableCell>
                               {attempt.emp_account ? (
                                   <div className="flex items-center gap-1.5">

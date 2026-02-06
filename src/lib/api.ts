@@ -165,6 +165,34 @@ export type AnalyticsFilters = {
   emp_account_id?: number
 }
 
+// Clean Users Export
+export interface CleanUsersStats {
+  count: number
+  min_days: number
+  cutoff_date: string
+  streaming_threshold: number
+}
+
+export interface CleanUsersExportJob {
+  job_id: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  message?: string
+}
+
+export interface CleanUsersExportStatus {
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  progress: number
+  processed: number
+  limit: number
+  min_days: number
+  filename?: string
+  path?: string
+  size?: number
+  error?: string
+  download_url?: string
+  updated_at?: string
+}
+
 class ApiClient {
   private token: string | null = null
 
@@ -242,7 +270,6 @@ class ApiClient {
       body: JSON.stringify({ email, password }),
     })
 
-    // If backend sends token but no status, assume success
     if (response.token && !response.status) {
       response.status = 'authenticated'
     }
@@ -728,7 +755,6 @@ class ApiClient {
     return response.blob()
   }
 
-  // EMP Account Management
   async getEmpAccounts(): Promise<EmpAccount[]> {
     const response = await this.request<{ success: boolean; data: EmpAccount[] }>('/admin/emp/accounts')
     return response.data
@@ -761,7 +787,6 @@ class ApiClient {
     return response.data
   }
 
-  // Descriptor Management
   async getDescriptorSchedules(): Promise<ApiResponse<DescriptorSchedule[]>> {
     return this.request<ApiResponse<DescriptorSchedule[]>>('/admin/billing/descriptors')
   }
@@ -782,6 +807,48 @@ class ApiClient {
 
   async deleteDescriptorSchedule(id: number): Promise<void> {
     await this.request(`/admin/billing/descriptors/${id}`, { method: 'DELETE' })
+  }
+
+  // Clean Users Export
+  async getCleanUsersStats(minDays: number = 30): Promise<CleanUsersStats> {
+    const response = await this.request<{ data: CleanUsersStats }>(
+      `/admin/billing-attempts/clean-users/stats?min_days=${minDays}`
+    )
+    return response.data
+  }
+
+  async exportCleanUsers(limit: number, minDays: number = 30): Promise<Blob | CleanUsersExportJob> {
+    const token = this.getToken()
+    const headers: HeadersInit = {
+      'Accept': 'application/json, text/csv',
+      'Content-Type': 'application/json',
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/admin/billing-attempts/clean-users/export?limit=${limit}&min_days=${minDays}`,
+      { headers }
+    )
+
+    if (response.headers.get('content-type')?.includes('text/csv')) {
+      return response.blob()
+    }
+
+    const data = await response.json()
+    return data.data as CleanUsersExportJob
+  }
+
+  async getCleanUsersExportStatus(jobId: string): Promise<CleanUsersExportStatus> {
+    const response = await this.request<{ data: CleanUsersExportStatus }>(
+      `/admin/billing-attempts/clean-users/export/${jobId}/status`
+    )
+    return response.data
+  }
+
+  getCleanUsersDownloadUrl(jobId: string): string {
+    return `${API_BASE_URL}/admin/billing-attempts/clean-users/export/${jobId}/download`
   }
 }
 

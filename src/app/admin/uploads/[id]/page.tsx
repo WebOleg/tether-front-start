@@ -95,7 +95,7 @@ export default function UploadDetailPage() {
   const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
   const [tableLoading, setTableLoading] = useState(false)
   const [hasFetchedInitial, setHasFetchedInitial] = useState(false)
-  const [VerifyVopInProgress, setVerifyVopInProgress] = useState(true)
+  const [VerifyVopInProgress, setVerifyVopInProgress] = useState(false)
   const [debtorType, setDebtorType] = useState<DebtorType>('all')
 
   const defaultCounts = { all: 0, flywheel: 0, recovery: 0, legacy: 0 }
@@ -124,7 +124,7 @@ export default function UploadDetailPage() {
           uploadId,
           currentType !== 'all' ? { debtor_type: currentType } : undefined
       )
-      setVerifyVopInProgress(data?.is_processing ?? true)
+      setVerifyVopInProgress(data?.is_processing ?? false)
       setVopStats(data)
       return data
     } catch (error) {
@@ -213,7 +213,7 @@ export default function UploadDetailPage() {
 
         const vopData = await api.getVopStats(uploadId)
         setVopStats(vopData)
-        setVerifyVopInProgress(vopData?.is_processing ?? true)
+        setVerifyVopInProgress(vopData?.is_processing ?? false)
 
         const billingData = await api.getBillingStats(uploadId)
         setBillingStats(billingData)
@@ -260,6 +260,21 @@ export default function UploadDetailPage() {
 
     return () => clearInterval(interval)
   }, [billingStats?.is_processing, fetchBillingStats])
+
+  // Polling effect for VOP verification progress
+  useEffect(() => {
+    if (!VerifyVopInProgress) return
+
+    const interval = setInterval(async () => {
+      const data = await fetchVopStats()
+      if (data && !data.is_processing) {
+        setVerifyVopInProgress(false)
+        clearInterval(interval)
+      }
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [VerifyVopInProgress, fetchVopStats])
 
   useEffect(() => {
     if (!uploadId || loading || !hasFetchedInitial) return
@@ -318,7 +333,7 @@ export default function UploadDetailPage() {
   }, [debtorType, fetchValidationStats, fetchBillingStats, fetchVopStats, fetchDebtors, uploadId, loading, hasFetchedInitial])
 
   const handleVerifyVop = async () => {
-    fetchVopStats()
+    await fetchVopStats()
     if(VerifyVopInProgress === true){
       toast.warning('VOP verification is already in progress.')
       return
@@ -549,7 +564,7 @@ export default function UploadDetailPage() {
                   <Button
                       variant="outline"
                       onClick={handleVerifyVop}
-                      disabled={verifyingVop}
+                      disabled={verifyingVop || VerifyVopInProgress}
                       className="gap-2"
                   >
                     {(verifyingVop || VerifyVopInProgress) ? (
@@ -602,7 +617,7 @@ export default function UploadDetailPage() {
                       variant="outline"
                       size="sm"
                       onClick={handleVerifyVop}
-                      disabled={verifyingVop}
+                      disabled={verifyingVop || VerifyVopInProgress}
                       className="border-amber-300 text-amber-700 hover:bg-amber-100"
                   >
                     {(verifyingVop || VerifyVopInProgress) ? (
@@ -612,7 +627,7 @@ export default function UploadDetailPage() {
                     )}
                   </Button>
                 </div>
-                {(verifyingVop || VerifyVopInProgress) && (
+                {(verifyingVop || VerifyVopInProgress) && vopTotalEligible > 0 && (
                   <div className="mt-3">
                     <Progress 
                       value={vopTotalEligible - vopPending}
@@ -622,7 +637,7 @@ export default function UploadDetailPage() {
                       className="bg-amber-200"
                     />
                     <p className="text-xs text-amber-600 mt-1 text-right">
-                      {Math.round((vopTotalEligible - vopPending) / vopTotalEligible * 100)}% complete
+                      {Math.round(((vopTotalEligible - vopPending) / vopTotalEligible) * 100)}% complete
                     </p>
                   </div>
                 )}

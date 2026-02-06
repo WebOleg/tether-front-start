@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
-import { api, CleanUsersStats, CleanUsersExportJob, CleanUsersExportStatus } from '@/lib/api'
+import { api, CleanUsersStats, CleanUsersExportStatus } from '@/lib/api'
 import { Download, Loader2, Users, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -14,27 +14,32 @@ export function CleanUsersExport() {
   const [stats, setStats] = useState<CleanUsersStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
-  const [limit, setLimit] = useState<number>(1000)
-  const [minDays, setMinDays] = useState<number>(30)
+  const [limitInput, setLimitInput] = useState('1000')
+  const [minDaysInput, setMinDaysInput] = useState('30')
   
   // Job tracking
   const [jobId, setJobId] = useState<string | null>(null)
   const [jobStatus, setJobStatus] = useState<CleanUsersExportStatus | null>(null)
 
+  const limit = parseInt(limitInput) || 0
+  const minDays = parseInt(minDaysInput) || 30
+
   const fetchStats = useCallback(async () => {
+    setLoading(true)
     try {
-      const data = await api.getCleanUsersStats(minDays)
+      const days = parseInt(minDaysInput) || 30
+      const data = await api.getCleanUsersStats(days)
       setStats(data)
     } catch (error) {
       console.error('Failed to fetch clean users stats:', error)
     } finally {
       setLoading(false)
     }
-  }, [minDays])
+  }, [minDaysInput])
 
   useEffect(() => {
     fetchStats()
-  }, [fetchStats])
+  }, []) // Only on mount
 
   // Poll job status
   useEffect(() => {
@@ -50,7 +55,7 @@ export function CleanUsersExport() {
           setExporting(false)
           
           if (status.status === 'completed') {
-            toast.success(`Export completed: ${status.processed} records`)
+            toast.success(`Export completed: ${status.processed?.toLocaleString()} records`)
           } else {
             toast.error(`Export failed: ${status.error}`)
           }
@@ -64,8 +69,16 @@ export function CleanUsersExport() {
   }, [jobId])
 
   const handleExport = async () => {
-    if (!stats || limit > stats.count) {
-      toast.error(`Cannot export more than ${stats?.count || 0} available records`)
+    const exportLimit = parseInt(limitInput) || 0
+    const exportMinDays = parseInt(minDaysInput) || 30
+
+    if (exportLimit <= 0) {
+      toast.error('Please enter a valid number of records')
+      return
+    }
+
+    if (!stats || exportLimit > stats.count) {
+      toast.error(`Cannot export more than ${stats?.count.toLocaleString() || 0} available records`)
       return
     }
 
@@ -74,7 +87,7 @@ export function CleanUsersExport() {
     setJobStatus(null)
 
     try {
-      const result = await api.exportCleanUsers(limit, minDays)
+      const result = await api.exportCleanUsers(exportLimit, exportMinDays)
 
       if (result instanceof Blob) {
         // Streaming download (small export)
@@ -104,16 +117,10 @@ export function CleanUsersExport() {
   const handleDownload = () => {
     if (!jobId) return
     
-    const token = localStorage.getItem('auth_token')
     const url = api.getCleanUsersDownloadUrl(jobId)
     
-    // Open in new tab with auth
-    const a = document.createElement('a')
-    a.href = url
-    a.target = '_blank'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    // Open download URL
+    window.open(url, '_blank')
   }
 
   const isLargeExport = stats && limit > stats.streaming_threshold
@@ -158,8 +165,9 @@ export function CleanUsersExport() {
                   type="number"
                   min={1}
                   max={365}
-                  value={minDays}
-                  onChange={(e) => setMinDays(Number(e.target.value))}
+                  value={minDaysInput}
+                  onChange={(e) => setMinDaysInput(e.target.value)}
+                  onBlur={fetchStats}
                   disabled={exporting}
                 />
               </div>
@@ -170,8 +178,8 @@ export function CleanUsersExport() {
                   type="number"
                   min={1}
                   max={100000}
-                  value={limit}
-                  onChange={(e) => setLimit(Number(e.target.value))}
+                  value={limitInput}
+                  onChange={(e) => setLimitInput(e.target.value)}
                   disabled={exporting}
                 />
               </div>
@@ -194,11 +202,11 @@ export function CleanUsersExport() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">
                     {jobStatus.status === 'pending' && 'Waiting to start...'}
-                    {jobStatus.status === 'processing' && `Processing... ${jobStatus.processed.toLocaleString()} / ${jobStatus.limit.toLocaleString()}`}
+                    {jobStatus.status === 'processing' && `Processing... ${jobStatus.processed?.toLocaleString()} / ${limit.toLocaleString()}`}
                     {jobStatus.status === 'completed' && (
                       <span className="flex items-center gap-1 text-green-600">
                         <CheckCircle className="h-4 w-4" />
-                        Completed
+                        Completed ({jobStatus.processed?.toLocaleString()} records)
                       </span>
                     )}
                     {jobStatus.status === 'failed' && (
@@ -212,7 +220,7 @@ export function CleanUsersExport() {
                 {jobStatus.status === 'completed' && (
                   <Button onClick={handleDownload} className="w-full mt-2">
                     <Download className="h-4 w-4 mr-2" />
-                    Download CSV
+                    Download CSV ({jobStatus.size ? (jobStatus.size / 1024 / 1024).toFixed(2) + ' MB' : ''})
                   </Button>
                 )}
               </div>
@@ -222,7 +230,7 @@ export function CleanUsersExport() {
             {!jobStatus && (
               <Button 
                 onClick={handleExport} 
-                disabled={exporting || !stats || stats.count === 0 || limit > stats.count}
+                disabled={exporting || !stats || stats.count === 0 || limit <= 0 || limit > stats.count}
                 className="w-full"
               >
                 {exporting ? (
@@ -233,7 +241,7 @@ export function CleanUsersExport() {
                 ) : (
                   <>
                     <Download className="h-4 w-4 mr-2" />
-                    Export {limit.toLocaleString()} Records
+                    Export {limit > 0 ? limit.toLocaleString() : '0'} Records
                   </>
                 )}
               </Button>

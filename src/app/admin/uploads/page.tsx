@@ -46,7 +46,8 @@ import {
   Archive,
   Trash2,
   Building2,
-  Filter
+  Filter,
+  CreditCard
  } from 'lucide-react'
 import type { Upload, SkippedCounts, PaginationLinks, PaginationLink, PaginationMeta as PaginationMetaType, EmpAccount } from '@/types'
 import {
@@ -72,6 +73,8 @@ function formatSkippedMessage(skipped: SkippedCounts): string {
 }
 
 interface UploadWithStats extends Upload {
+  approved_count?: number
+  approved_percentage?: number | null
   valid_count?: number
   invalid_count?: number
 }
@@ -639,6 +642,7 @@ export default function UploadsPage() {
                   <TableHead className="text-center">Records</TableHead>
                   <TableHead className="text-center">Valid</TableHead>
                   <TableHead className="text-center">Invalid</TableHead>
+                  <TableHead className="text-center">Approved</TableHead>
                   <TableHead className="text-center">CB %</TableHead>
                   <TableHead className="text-center">CB Amt %</TableHead>
                   <TableHead>Uploaded</TableHead>
@@ -648,13 +652,13 @@ export default function UploadsPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
                     </TableCell>
                   </TableRow>
                 ) : uploads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-slate-500">
+                    <TableCell colSpan={11} className="text-center py-8 text-slate-500">
                       No uploads yet
                     </TableCell>
                   </TableRow>
@@ -663,6 +667,8 @@ export default function UploadsPage() {
                     const total = upload.total_records || 0
                     const valid = upload.valid_count || 0
                     const invalid = upload.invalid_count || 0
+                    const approved = upload.approved_count || 0
+                    const approvedPercent = upload.approved_percentage
                     const skippedTotal = upload.skipped?.total || 0
                     const cbPercent = upload.cb_percentage
                     const cbAmtPercent = upload.cb_amount_percentage
@@ -714,6 +720,21 @@ export default function UploadsPage() {
                             <XCircle className="h-4 w-4" />
                             <span className="text-sm font-medium">{invalid}</span>
                           </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {approved > 0 || approvedPercent !== null ? (
+                            <div className="flex items-center justify-center gap-1 text-blue-600">
+                              <CreditCard className="h-4 w-4" />
+                              <span className="text-sm font-medium">
+                                {approved}
+                                {approvedPercent !== null && approvedPercent !== undefined && (
+                                  <span className="text-xs ml-1">({Math.round(approvedPercent)}%)</span>
+                                )}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-slate-400">-</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-center">
                           {cbPercent !== null && cbPercent !== undefined ? (

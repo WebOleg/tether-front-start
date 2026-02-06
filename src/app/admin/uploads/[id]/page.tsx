@@ -211,7 +211,7 @@ export default function UploadDetailPage() {
 
         const vopData = await api.getVopStats(uploadId)
         setVopStats(vopData)
-        setVerifyVopInProgress(vopData?.is_processing ?? false)
+        setVerifyVopInProgress(vopData?.is_processing ?? true)
 
         const billingData = await api.getBillingStats(uploadId)
         setBillingStats(billingData)
@@ -544,10 +544,10 @@ export default function UploadDetailPage() {
                       disabled={verifyingVop}
                       className="gap-2"
                   >
-                    {verifyingVop ? (
+                    {(verifyingVop || VerifyVopInProgress) ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          Starting...
+                          VOP in progress...
                         </>
                     ) : (
                         <>
@@ -579,29 +579,45 @@ export default function UploadDetailPage() {
           </div>
 
           {validationCompleted && vopPending > 0 && (stats?.ready_for_sync || 0) > 0 && (
-              <div className="mx-6 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
-                <ShieldCheck className="h-5 w-5 text-amber-600 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-amber-800">
-                    VOP verification required before billing
-                  </p>
-                  <p className="text-xs text-amber-600">
-                    {vopPending} of {vopTotalEligible} debtors pending verification. Complete VOP verification to enable billing.
-                  </p>
+              <div className="mx-6 mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="h-5 w-5 text-amber-600 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-amber-800">
+                      VOP verification required before billing
+                    </p>
+                    <p className="text-xs text-amber-600">
+                      {vopPending} of {vopTotalEligible} debtors pending verification. Complete VOP verification to enable billing.
+                    </p>
+                  </div>
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleVerifyVop}
+                      disabled={verifyingVop}
+                      className="border-amber-300 text-amber-700 hover:bg-amber-100"
+                  >
+                    {(verifyingVop || VerifyVopInProgress) ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                        'Verify Now'
+                    )}
+                  </Button>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleVerifyVop}
-                    disabled={verifyingVop}
-                    className="border-amber-300 text-amber-700 hover:bg-amber-100"
-                >
-                  {verifyingVop ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                      'Verify Now'
-                  )}
-                </Button>
+                {(verifyingVop || VerifyVopInProgress) && (
+                  <div className="mt-3">
+                    <Progress 
+                      value={vopTotalEligible - vopPending}
+                      max={vopTotalEligible}
+                      variant="yellow"
+                      height="md"
+                      className="bg-amber-200"
+                    />
+                    <p className="text-xs text-amber-600 mt-1 text-right">
+                      {Math.round((vopTotalEligible - vopPending) / vopTotalEligible * 100)}% complete
+                    </p>
+                  </div>
+                )}
               </div>
           )}
 

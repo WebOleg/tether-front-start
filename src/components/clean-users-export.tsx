@@ -14,6 +14,7 @@ export function CleanUsersExport() {
   const [stats, setStats] = useState<CleanUsersStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [limitInput, setLimitInput] = useState('1000')
   const [minDaysInput, setMinDaysInput] = useState('30')
   
@@ -39,7 +40,7 @@ export function CleanUsersExport() {
 
   useEffect(() => {
     fetchStats()
-  }, []) // Only on mount
+  }, [])
 
   // Poll job status
   useEffect(() => {
@@ -114,13 +115,34 @@ export function CleanUsersExport() {
     }
   }
 
-  const handleDownload = () => {
-    if (!jobId) return
+  const handleDownload = async () => {
+    if (!jobId || !jobStatus?.filename) return
     
-    const url = api.getCleanUsersDownloadUrl(jobId)
-    
-    // Open download URL
-    window.open(url, '_blank')
+    setDownloading(true)
+    try {
+      const blob = await api.downloadCleanUsersExport(jobId)
+      
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = jobStatus.filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      toast.success('Download started')
+    } catch (error) {
+      console.error('Download failed:', error)
+      toast.error('Download failed')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const handleReset = () => {
+    setJobId(null)
+    setJobStatus(null)
   }
 
   const isLargeExport = stats && limit > stats.streaming_threshold
@@ -186,7 +208,7 @@ export function CleanUsersExport() {
             </div>
 
             {/* Export info */}
-            {isLargeExport && (
+            {isLargeExport && !jobStatus && (
               <div className="flex items-start gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm">
                 <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
                 <span>
@@ -218,9 +240,29 @@ export function CleanUsersExport() {
                 <Progress value={jobStatus.progress} />
                 
                 {jobStatus.status === 'completed' && (
-                  <Button onClick={handleDownload} className="w-full mt-2">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download CSV ({jobStatus.size ? (jobStatus.size / 1024 / 1024).toFixed(2) + ' MB' : ''})
+                  <div className="flex gap-2 mt-2">
+                    <Button onClick={handleDownload} disabled={downloading} className="flex-1">
+                      {downloading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Downloading...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-4 w-4 mr-2" />
+                          Download CSV ({jobStatus.size ? (jobStatus.size / 1024 / 1024).toFixed(2) + ' MB' : ''})
+                        </>
+                      )}
+                    </Button>
+                    <Button variant="outline" onClick={handleReset}>
+                      New Export
+                    </Button>
+                  </div>
+                )}
+
+                {jobStatus.status === 'failed' && (
+                  <Button variant="outline" onClick={handleReset} className="w-full mt-2">
+                    Try Again
                   </Button>
                 )}
               </div>

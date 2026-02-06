@@ -847,8 +847,25 @@ class ApiClient {
     return response.data
   }
 
-  getCleanUsersDownloadUrl(jobId: string): string {
-    return `${API_BASE_URL}/admin/billing-attempts/clean-users/export/${jobId}/download`
+  async downloadCleanUsersExport(jobId: string): Promise<Blob> {
+    const token = this.getToken()
+    const headers: HeadersInit = {
+      'Accept': 'text/csv, application/octet-stream',
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/admin/billing-attempts/clean-users/export/${jobId}/download`,
+      { headers }
+    )
+
+    if (!response.ok) {
+      throw new ApiError('Download failed', [], response.status)
+    }
+
+    return response.blob()
   }
 }
 

@@ -40,6 +40,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger, // Added
 } from "@/components/ui/alert-dialog"
 import {
   Tooltip,
@@ -49,7 +50,6 @@ import {
 } from "@/components/ui/tooltip"
 import { api } from '@/lib/api'
 import type { Debtor, DebtorStatus, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
-// 1. UPDATED IMPORT: Added Pagination component
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { modelRowStyles, statusRowStyles } from '@/lib/styles'
 import { ModelBadge, StatusBadge, RiskBadge } from '@/components/ui/badges'
@@ -61,7 +61,8 @@ import {
   Loader2,
   TriangleAlert,
   FileText,
-  X
+  X,
+  Trash2, // Added
 } from 'lucide-react'
 import { formatCurrency, formatDateTime, getDaysRemaining } from '@/lib/utils'
 
@@ -85,8 +86,6 @@ function DebtorsContent() {
   const [loading, setLoading] = useState(true)
   const [meta, setMeta] = useState<PaginationMetaType | null>(null)
   const [links, setLinks] = useState<PaginationLinks | null>(null)
-
-  // 2. NEW STATE: For pagination links (numbered pages)
   const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
 
   // Local state for Search Input
@@ -97,6 +96,12 @@ function DebtorsContent() {
   const [formData, setFormData] = useState<EditDebtorForm>({ model: 'legacy' })
   const [isSaving, setIsSaving] = useState(false)
   const [showLegacyWarning, setShowLegacyWarning] = useState(false)
+
+  // --- NEW STATE: Pruning Orphans ---
+  const [showPruneDialog, setShowPruneDialog] = useState(false)
+  const [orphanCount, setOrphanCount] = useState<number | null>(null)
+  const [isCheckingOrphans, setIsCheckingOrphans] = useState(false)
+  const [isPruning, setIsPruning] = useState(false)
 
   const LIFETIME_LIMIT = 750;
 
@@ -136,7 +141,6 @@ function DebtorsContent() {
     return () => clearTimeout(timer)
   }, [searchInput, currentSearch, updateUrl])
 
-  // 3. UPDATED FETCH: Extract pagination links from response
   const fetchDebtors = useCallback(async () => {
     setLoading(true)
     try {
@@ -154,7 +158,6 @@ function DebtorsContent() {
       setMeta(response.meta || null)
       setLinks(response.links || null)
 
-      // Match the logic from BillingPage to get the array of page links
       if (response.meta && 'links' in response.meta) {
         setPaginationLinks((response.meta as PaginationMetaType & { links?: PaginationLink[] }).links || [])
       }
@@ -173,7 +176,6 @@ function DebtorsContent() {
   const handleStatusFilterChange = (status: string) => updateUrl({ status })
   const handleModelFilterChange = (model: string) => updateUrl({ model })
 
-  // 4. NEW HANDLERS: For pagination interactions
   const handlePageClick = (page: number) => updateUrl({ page })
   const handlePreviousPage = () => links?.prev && updateUrl({ page: currentPage - 1 })
   const handleNextPage = () => links?.next && updateUrl({ page: currentPage + 1 })
@@ -217,6 +219,33 @@ function DebtorsContent() {
       console.error('Failed to update debtor', error)
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  // --- NEW HANDLERS: Pruning Orphans ---
+  const handleCheckOrphans = async () => {
+    setIsCheckingOrphans(true)
+    try {
+      const res = await api.getOrphanCount() // Assumes this method exists in your API wrapper
+      setOrphanCount(res.orphaned_count)
+      setShowPruneDialog(true)
+    } catch (error) {
+      console.error("Failed to check orphans", error)
+    } finally {
+      setIsCheckingOrphans(false)
+    }
+  }
+
+  const handlePruneOrphans = async () => {
+    setIsPruning(true)
+    try {
+      await api.pruneOrphans() // Assumes this method exists
+      setShowPruneDialog(false)
+      fetchDebtors() // Refresh list
+    } catch (error) {
+      console.error("Failed to prune orphans", error)
+    } finally {
+      setIsPruning(false)
     }
   }
 
@@ -288,6 +317,24 @@ function DebtorsContent() {
                   </Button>
               )}
             </div>
+
+            {/* --- NEW BUTTON: Prune Orphans --- */}
+            <div className="flex-shrink-0">
+              <Button
+                  variant="outline"
+                  className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+                  onClick={handleCheckOrphans}
+                  disabled={isCheckingOrphans}
+              >
+                {isCheckingOrphans ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Clean Orphans
+              </Button>
+            </div>
+
           </div>
 
           <PaginationMeta
@@ -441,7 +488,7 @@ function DebtorsContent() {
                             </TableCell>
 
                             <TableCell>
-                              <div className="font-mono text-sm"> 
+                              <div className="font-mono text-sm">
                                 {debtor.iban_masked}
                               </div>
                             </TableCell>
@@ -511,7 +558,6 @@ function DebtorsContent() {
             </Table>
           </div>
 
-          {/* 5. ADDED PAGINATION COMPONENT (Matching BillingPage) */}
           <Pagination
               meta={meta}
               links={links}
@@ -561,6 +607,7 @@ function DebtorsContent() {
             </DialogContent>
           </Dialog>
 
+          {/* Model Change Confirmation Dialog */}
           <AlertDialog open={showLegacyWarning} onOpenChange={setShowLegacyWarning}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -582,6 +629,39 @@ function DebtorsContent() {
                 <AlertDialogAction onClick={executeSave} className="bg-red-600 hover:bg-red-700">
                   {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Confirm & Delete Profile
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* --- NEW DIALOG: Prune Orphans Confirmation --- */}
+          <AlertDialog open={showPruneDialog} onOpenChange={setShowPruneDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+                  <Trash2 className="h-5 w-5" />
+                  Clean Up Orphans?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  We found <strong className="text-slate-900">{orphanCount}</strong> debtor records that are not attached to any active upload.
+                  <br /><br />
+                  These are likely remnants of deleted uploads or failed processes. Removing them will clean up your database.
+                  <br /><br />
+                  This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isPruning}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                    onClick={(e) => {
+                      e.preventDefault(); // Prevent auto-close
+                      handlePruneOrphans();
+                    }}
+                    disabled={isPruning}
+                    className="bg-red-600 hover:bg-red-700"
+                >
+                  {isPruning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Delete {orphanCount} Orphans
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

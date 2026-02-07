@@ -193,6 +193,15 @@ export interface CleanUsersExportStatus {
   updated_at?: string
 }
 
+export interface OrphanCountResponse {
+  orphaned_count: number
+}
+
+export interface PruneOrphansResponse {
+  message: string
+  deleted_count: number
+}
+
 class ApiClient {
   private token: string | null = null
 
@@ -518,6 +527,16 @@ class ApiClient {
 
   async deleteDebtor(id: number): Promise<void> {
     await this.request(`/admin/debtors/${id}`, { method: 'DELETE' })
+  }
+
+  async getOrphanCount(): Promise<OrphanCountResponse> {
+    return this.request<OrphanCountResponse>('/admin/debtors/orphans/count')
+  }
+
+  async pruneOrphans(): Promise<PruneOrphansResponse> {
+    return this.request<PruneOrphansResponse>('/admin/debtors/orphans', {
+      method: 'DELETE',
+    })
   }
 
   async getVopLogs(filters?: VopLogFilters): Promise<ApiResponse<VopLog[]>> {

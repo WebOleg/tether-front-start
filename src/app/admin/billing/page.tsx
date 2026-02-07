@@ -339,7 +339,9 @@ function BillingContent() {
                             </TableCell>
 
                             <TableCell className="text-sm text-slate-500">
-                              {attempt.emp_created_at ? formatDate(attempt.emp_created_at) : (
+                              {attempt.status === 'approved' && attempt.emp_created_at ? (
+                                  formatDate(attempt.emp_created_at)
+                              ) : (
                                   <span className="text-slate-300">-</span>
                               )}
                             </TableCell>

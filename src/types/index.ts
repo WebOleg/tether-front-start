@@ -644,3 +644,46 @@ export interface EmpAccountStats {
     chargeback_rate: number
   }
 }
+
+// ==========================================================================
+// BAV Credits Types
+// ==========================================================================
+export interface BavCredits {
+  credits_total: number
+  credits_used: number
+  credits_remaining: number
+  expires_at: string | null
+  is_expired: boolean
+  last_refill_at: string | null
+  updated_at: string
+}
+
+export interface BavStats {
+  upload_id: number
+  eligible_count: number
+  credits_remaining: number
+  credits_total: number
+  is_expired: boolean
+  bav_status: 'idle' | 'processing' | 'completed' | 'failed'
+  can_start: boolean
+}
+
+export interface BavStartResponse {
+  success: boolean
+  data?: {
+    batch_id: string
+    total_count: number
+    message: string
+  }
+  error?: string
+}
+
+export interface BavStatusResponse {
+  success: boolean
+  data: {
+    status: 'idle' | 'processing' | 'completed' | 'failed'
+    total: number
+    processed: number
+    percentage: number
+  }
+}

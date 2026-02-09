@@ -47,6 +47,7 @@ import {
   ShieldX,
   CreditCard,
   Send,
+  UserCheck,
 } from 'lucide-react'
 import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
@@ -55,6 +56,7 @@ import { ModelTabs } from '@/components/ui/model-tabs'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { validationStatusConfig } from '@/lib/styles'
 import { ModelBadge, StatusBadge } from '@/components/ui/badges'
+import { BavVerificationModal } from '@/components/bav-verification-modal'
 
 type DebtorType = 'all' | 'legacy' | 'flywheel' | 'recovery'
 
@@ -97,6 +99,7 @@ export default function UploadDetailPage() {
   const [hasFetchedInitial, setHasFetchedInitial] = useState(false)
   const [VerifyVopInProgress, setVerifyVopInProgress] = useState(false)
   const [debtorType, setDebtorType] = useState<DebtorType>('all')
+  const [bavModalOpen, setBavModalOpen] = useState(false)
 
   const defaultCounts = { all: 0, flywheel: 0, recovery: 0, legacy: 0 }
   const modelCounts = stats?.model_counts || defaultCounts
@@ -457,6 +460,11 @@ export default function UploadDetailPage() {
     }
   }
 
+  const handleBavComplete = () => {
+    fetchVopStats()
+    fetchValidationStats()
+  }
+
   if (loading) {
     return (
         <div className="flex items-center justify-center min-h-screen">
@@ -537,7 +545,7 @@ export default function UploadDetailPage() {
         </div>
 
         <div className="">
-          <div className="px-6 pt-4 flex flex-col sm:flex-row justify-between gap-4">
+          <div className="px-6 pt-4 flexlex-col sm:flex-row justify-between gap-4">
             <div className="flex items-center gap-4 flex-wrap">
               <Link href="/admin/uploads">
                 <Button variant="outline" size="sm" className="gap-2">
@@ -581,6 +589,16 @@ export default function UploadDetailPage() {
                           Verify VOP ({vopPending})
                         </>
                     )}
+                  </Button>
+              )}
+              {validationCompleted && vopPassed > 0 && (
+                  <Button
+                      variant="outline"
+                      onClick={() => setBavModalOpen(true)}
+                      className="gap-2"
+                  >
+                    <UserCheck className="h-4 w-4" />
+                    BAV
                   </Button>
               )}
               <Button
@@ -738,7 +756,6 @@ export default function UploadDetailPage() {
                     <p className="text-2xl font-semibold mt-1">{upload.bav_excluded_count ?? 0}</p>
                   </CardContent>
                 </Card>
-                {/* VOP Passed - can be billed (verified + likely_verified) */}
                 <Card className={vopPassed > 0 ? 'border-green-300 bg-green-50' : ''}>
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-2">
@@ -748,7 +765,6 @@ export default function UploadDetailPage() {
                     <p className="text-2xl font-semibold mt-1">{vopPassed}</p>
                   </CardContent>
                 </Card>
-                {/* VOP Failed - cannot be billed (mismatch + rejected + inconclusive) */}
                 <Card className={vopFailed > 0 ? 'border-red-300 bg-red-50' : ''}>
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-2">
@@ -1034,7 +1050,7 @@ export default function UploadDetailPage() {
                     <Label htmlFor={`field-${idx}`}>{field}</Label>
                     <Input
                         id={`field-${idx}`}
-                        value={editForm[field] ?? ''}
+                      value={editForm[field] ?? ''}
                         onChange={(e) => setEditForm(prev => ({ ...prev, [field]: e.target.value }))}
                     />
                   </div>
@@ -1059,6 +1075,13 @@ export default function UploadDetailPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <BavVerificationModal
+            uploadId={uploadId}
+            open={bavModalOpen}
+            onOpenChange={setBavModalOpen}
+            onComplete={handleBavComplete}
+        />
       </>
   )
 }

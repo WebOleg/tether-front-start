@@ -35,6 +35,10 @@ import type {
   BicAnalyticsStats,
   EmpAccount,
   EmpAccountStats,
+  BavCredits,
+  BavStats,
+  BavStartResponse,
+  BavStatusResponse,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -866,6 +870,44 @@ class ApiClient {
     }
 
     return response.blob()
+  }
+
+  // BAV (Bank Account Verification) Methods
+  async getBavBalance(): Promise<BavCredits> {
+    const response = await this.request<{ success: boolean; data: BavCredits }>(
+      '/admin/bav/balance'
+    )
+    return response.data
+  }
+
+  async getBavStats(uploadId: number): Promise<BavStats> {
+    const response = await this.request<{ success: boolean; data: BavStats }>(
+      `/admin/uploads/${uploadId}/bav/stats`
+    )
+    return response.data
+  }
+
+  async startBavVerification(uploadId: number, limit: number): Promise<BavStartResponse> {
+    return this.request<BavStartResponse>(
+      `/admin/uploads/${uploadId}/bav/start`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ limit }),
+      }
+    )
+  }
+
+  async getBavStatus(uploadId: number): Promise<BavStatusResponse> {
+    return this.request<BavStatusResponse>(
+      `/admin/uploads/${uploadId}/bav/status`
+    )
+  }
+
+  async cancelBavVerification(uploadId: number): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(
+      `/admin/uploads/${uploadId}/bav/cancel`,
+      { method: 'POST' }
+    )
   }
 }
 

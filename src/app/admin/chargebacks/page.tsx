@@ -18,12 +18,13 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { api } from '@/lib/api'
-import { ChargebackCodes, Chargebacks, PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType } from '@/types';
+import { ChargebackCodes, Chargebacks, EmpAccount, PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType } from '@/types';
 import { CHARGEBACK_RULES, getChargebackRule } from '@/lib/chargebacks'
 import { useEffect, useState } from 'react'
 import { formatDate, formatDateNullable, formatCurrency } from '@/lib/utils'
 import { RiskBadge } from '@/components/ui/badges'
 import { Building2 } from 'lucide-react'
+import { Label } from '@/components/ui/label'
 
 export default function ChargebacksPage() {
   const [chargebackCodes, setChargebackCodes] = useState<ChargebackCodes[]>([])
@@ -34,6 +35,9 @@ export default function ChargebacksPage() {
   const [links, setLinks] = useState<PaginationLinks | null>(null)
   const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
   const [loading, setLoading] = useState(true)
+  // EMP Account filter
+  const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
+  const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<string>('all')
 
   useEffect(() => {
     const fetchChargebackCodes = async () => {
@@ -48,6 +52,19 @@ export default function ChargebacksPage() {
     fetchChargebackCodes()
   }, [])
 
+  // Fetch EMP accounts on mount
+    useEffect(() => {
+      const fetchEmpAccounts = async () => {
+        try {
+          const accounts = await api.getEmpAccounts()
+          setEmpAccounts(accounts)
+        } catch (err) {
+          console.error('Failed to fetch EMP accounts:', err)
+        }
+      }
+      fetchEmpAccounts()
+    }, [])
+
   useEffect(() => {
     const fetchChargebacks = async () => {
       try {
@@ -55,7 +72,8 @@ export default function ChargebacksPage() {
         const params = { 
           page: currentPage,
           per_page: 50,
-          code: selectedCode === 'all' ? undefined : selectedCode
+          code: selectedCode === 'all' ? undefined : selectedCode,
+          emp_account_id: selectedEmpAccountId === 'all' ? undefined : selectedEmpAccountId
         }
 
         const response = await api.getChargebacks(params)
@@ -75,7 +93,7 @@ export default function ChargebacksPage() {
     }
 
     fetchChargebacks()
-  }, [selectedCode, currentPage])
+  }, [selectedCode, selectedEmpAccountId, currentPage])
 
   const handlePreviousPage = () => {
     if (currentPage > 1) {
@@ -100,24 +118,54 @@ export default function ChargebacksPage() {
         description="List of chargebacks with debtors and bank details"
       />
       <div className="p-6">
-        {/** Filter Chargeback */}
-        {chargebackCodes && chargebackCodes.length > 1 && (
-          <div className="mb-4 flex gap-4">
-            <Select value={selectedCode} onValueChange={(val) => { setSelectedCode(val); setCurrentPage(1); }}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by code" />
+        
+        <div className="flex items-center gap-4 flex-wrap mb-4">
+          {/** Filter Chargeback */}
+          {chargebackCodes && chargebackCodes.length > 1 && (
+            <div className="flex gap-2 items-center">
+              <Label htmlFor="cb-codes" className="text-sm whitespace-nowrap">CB Codes:</Label>
+              <Select value={selectedCode} onValueChange={(val) => { setSelectedCode(val); setCurrentPage(1); }}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by code" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All CB Codes</SelectItem>
+                  {chargebackCodes.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* EMP Account Filter */}
+          <div className="flex items-center gap-2">
+            <Label htmlFor="emp-account" className="text-sm whitespace-nowrap">Account:</Label>
+            <Select value={selectedEmpAccountId} onValueChange={(val) => { setSelectedEmpAccountId(val); setCurrentPage(1); }}>
+              <SelectTrigger id="emp-account" className="w-44 h-8">
+                <SelectValue placeholder="All Accounts" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All CB Codes</SelectItem>
-                {chargebackCodes.map((code) => (
-                  <SelectItem key={code} value={code}>
-                    {code}
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-slate-500" />
+                    <span>All Accounts</span>
+                  </div>
+                </SelectItem>
+                {empAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-emerald-600" />
+                      <span>{account.name}</span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        )}
+        </div>
         
         {meta && (
           <PaginationMeta

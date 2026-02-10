@@ -531,6 +531,7 @@ export interface BillingSyncResponse {
 export interface BillingStats {
   upload_id: number
   is_processing: boolean
+  billing_status: string
   total_attempts: number
   approved: number
   approved_amount: number

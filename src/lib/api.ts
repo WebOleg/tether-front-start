@@ -676,6 +676,20 @@ class ApiClient {
     )
   }
 
+  async cancelBilling(uploadId: number): Promise<{ message: string; data: any }> {
+    return this.request<{ message: string; data: any }>(
+        `/admin/billing/${uploadId}/cancel`,
+        { method: 'POST' }
+    )
+  }
+
+  async voidBilling(uploadId: number): Promise<{ message: string; data: any }> {
+    return this.request<{ message: string; data: any }>(
+        `/admin/billing/${uploadId}/void`,
+        { method: 'POST' }
+    )
+  }
+
   async getBillingStats(uploadId: number, filters?: UploadScopedFilters): Promise<BillingStats> {
     const query = this.buildQuery(filters)
     const response = await this.request<{ data: BillingStats }>(

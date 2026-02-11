@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
-import { api, CleanUsersStats, CleanUsersExportStatus } from '@/lib/api'
+import { api, CleanUsersStats, CleanUsersExportStatus, CleanUsersMode } from '@/lib/api'
 import { Download, Loader2, Users, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -17,6 +17,7 @@ export function CleanUsersExport() {
   const [downloading, setDownloading] = useState(false)
   const [limitInput, setLimitInput] = useState('1000')
   const [minDaysInput, setMinDaysInput] = useState('30')
+  const [mode, setMode] = useState<CleanUsersMode>('broad')
   
   // Job tracking
   const [jobId, setJobId] = useState<string | null>(null)
@@ -29,18 +30,18 @@ export function CleanUsersExport() {
     setLoading(true)
     try {
       const days = parseInt(minDaysInput) || 30
-      const data = await api.getCleanUsersStats(days)
+      const data = await api.getCleanUsersStats(days, mode)
       setStats(data)
     } catch (error) {
       console.error('Failed to fetch clean users stats:', error)
     } finally {
       setLoading(false)
     }
-  }, [minDaysInput])
+  }, [minDaysInput, mode])
 
   useEffect(() => {
     fetchStats()
-  }, [])
+  }, [mode])
 
   // Poll job status
   useEffect(() => {
@@ -88,14 +89,14 @@ export function CleanUsersExport() {
     setJobStatus(null)
 
     try {
-      const result = await api.exportCleanUsers(exportLimit, exportMinDays)
+      const result = await api.exportCleanUsers(exportLimit, exportMinDays, mode)
 
       if (result instanceof Blob) {
         // Streaming download (small export)
         const url = URL.createObjectURL(result)
         const a = document.createElement('a')
         a.href = url
-        a.download = `clean_users_${new Date().toISOString().split('T')[0]}.csv`
+        a.download = `clean_users_${mode}_${new Date().toISOString().split('T')[0]}.csv`
         document.body.appendChild(a)
         a.click()
         document.body.removeChild(a)
@@ -155,7 +156,7 @@ export function CleanUsersExport() {
           <CardTitle>Clean Users Export</CardTitle>
         </div>
         <CardDescription>
-          Export users with approved transactions, no chargebacks, {minDays}+ days old
+          Export users with approved transactions, no chargebacks (lifetime), {minDays}+ days old
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -165,6 +166,36 @@ export function CleanUsersExport() {
           </div>
         ) : (
           <>
+            {/* Mode Toggle */}
+            <div className="space-y-2">
+              <Label>Export Mode</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={mode === 'broad' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setMode('broad')}
+                  disabled={exporting}
+                  className="flex-1"
+                >
+                  Broad (1+ charges)
+                </Button>
+                <Button
+                  variant={mode === 'strict' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setMode('strict')}
+                  disabled={exporting}
+                  className="flex-1"
+                >
+                  Strict (2+ charges)
+                </Button>
+              </div>
+              <p className="text-xs text-slate-400">
+                {mode === 'broad'
+                  ? 'All users with at least 1 approved charge and 0 lifetime chargebacks'
+                  : 'Users with 2+ approved charges and 0 lifetime chargebacks'}
+              </p>
+            </div>
+
             {/* Stats */}
             <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
               <div className="flex-1">
@@ -291,7 +322,7 @@ export function CleanUsersExport() {
 
             {/* CSV Format Info */}
             <p className="text-xs text-slate-400 text-center">
-              CSV format: name, iban, amount, currency
+              CSV format: first_name, last_name, iban, bic, amount, currency
             </p>
           </>
         )}

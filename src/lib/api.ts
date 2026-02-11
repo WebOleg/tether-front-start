@@ -170,9 +170,12 @@ export type AnalyticsFilters = {
 }
 
 // Clean Users Export
+export type CleanUsersMode = 'broad' | 'strict'
+
 export interface CleanUsersStats {
   count: number
   min_days: number
+  mode: string
   cutoff_date: string
   streaming_threshold: number
 }
@@ -189,6 +192,7 @@ export interface CleanUsersExportStatus {
   processed: number
   limit: number
   min_days: number
+  mode?: string
   filename?: string
   path?: string
   size?: number
@@ -833,14 +837,14 @@ class ApiClient {
   }
 
   // Clean Users Export
-  async getCleanUsersStats(minDays: number = 30): Promise<CleanUsersStats> {
+  async getCleanUsersStats(minDays: number = 30, mode: CleanUsersMode = 'broad'): Promise<CleanUsersStats> {
     const response = await this.request<{ data: CleanUsersStats }>(
-      `/admin/billing-attempts/clean-users/stats?min_days=${minDays}`
+      `/admin/billing-attempts/clean-users/stats?min_days=${minDays}&mode=${mode}`
     )
     return response.data
   }
 
-  async exportCleanUsers(limit: number, minDays: number = 30): Promise<Blob | CleanUsersExportJob> {
+  async exportCleanUsers(limit: number, minDays: number = 30, mode: CleanUsersMode = 'broad'): Promise<Blob | CleanUsersExportJob> {
     const token = this.getToken()
     const headers: HeadersInit = {
       'Accept': 'application/json, text/csv',
@@ -851,7 +855,7 @@ class ApiClient {
     }
 
     const response = await fetch(
-      `${API_BASE_URL}/admin/billing-attempts/clean-users/export?limit=${limit}&min_days=${minDays}`,
+      `${API_BASE_URL}/admin/billing-attempts/clean-users/export?limit=${limit}&min_days=${minDays}&mode=${mode}`,
       { headers }
     )
 

@@ -688,3 +688,53 @@ export interface BavStatusResponse {
     percentage: number
   }
 }
+
+export interface UploadCbkReason {
+  code: string
+  reason: string
+  cbk_count: number
+  cbk_percentage: number
+  total_percentage: number
+  cbk_amount: number
+  last_occurrence: string | null
+}
+
+export interface UploadCbkReasonSummary {
+  upload_id: number
+  upload_filename: string
+  total_records: number
+  total_successful: number
+  total_chargebacks: number
+  cbk_percentage: number
+  reasons: UploadCbkReason[]
+}
+
+export interface UploadCbkReasonRecord {
+  id: number
+  debtor_id: number
+  first_name: string
+  last_name: string
+  iban_masked: string
+  bic: string | null
+  transaction_id: string
+  amount: number
+  currency: string
+  error_code: string
+  error_message: string | null
+  chargebacked_at: string
+  emp_account_name: string | null
+}
+
+export interface UploadCbkReasonRecordsResponse {
+  upload_id: number
+  code: string
+  reason: string
+  records: UploadCbkReasonRecord[]
+}
+
+export interface UploadCbkReasonsFilters {
+  upload_id?: number
+  emp_account_id?: number
+  start_date?: string
+  end_date?: string
+}

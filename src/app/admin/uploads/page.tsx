@@ -62,6 +62,7 @@ import { toast } from 'sonner'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { formatCurrency, formatFileSize, formatDate } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/badges'
+import { FileText } from 'lucide-react' // or use an existing icon
 
 function formatSkippedMessage(skipped: SkippedCounts): string {
   const parts: string[] = []
@@ -777,6 +778,17 @@ export default function UploadsPage() {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
+                          <Link href={`/admin/uploads/cbk-reasons?upload_id=${upload.id}`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 text-xs"
+                              title="View CBK Reasons"
+                            >
+                              <RotateCcw className="h-4 w-4 mr-1" />
+                              CBK Reasons
+                            </Button>
+                          </Link>
                         </TableCell>
                       </TableRow>
                     )

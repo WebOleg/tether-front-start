@@ -39,6 +39,9 @@ import type {
   BavStats,
   BavStartResponse,
   BavStatusResponse,
+  UploadCbkReasonsFilters,
+  UploadCbkReasonSummary,
+  UploadCbkReasonRecordsResponse,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -945,6 +948,22 @@ class ApiClient {
       `/admin/uploads/${uploadId}/bav/cancel`,
       { method: 'POST' }
     )
+  }
+
+  // Upload CBK Reasons
+  async getUploadCbkReasons(filters: UploadCbkReasonsFilters): Promise<UploadCbkReasonSummary> {
+    const query = this.buildQuery(filters)
+    const response = await this.request<{ data: UploadCbkReasonSummary }>(
+      `/admin/uploads/cbk-reasons${query}`
+    )
+    return response.data
+  }
+
+  async getUploadCbkReasonRecords(uploadId: number, code: string): Promise<UploadCbkReasonRecordsResponse> {
+    const response = await this.request<{ data: UploadCbkReasonRecordsResponse }>(
+      `/admin/uploads/${uploadId}/cbk-reasons/${encodeURIComponent(code)}/records`
+    )
+    return response.data
   }
 }
 

@@ -84,6 +84,8 @@ export default function UploadDetailPage() {
   const [billingStats, setBillingStats] = useState<BillingStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [voiding, setVoiding] = useState(false)
   const [verifyingVop, setVerifyingVop] = useState(false)
   const [validating, setValidating] = useState(false)
   const [search, setSearch] = useState('')
@@ -100,6 +102,7 @@ export default function UploadDetailPage() {
   const [VerifyVopInProgress, setVerifyVopInProgress] = useState(false)
   const [debtorType, setDebtorType] = useState<DebtorType>('all')
   const [bavModalOpen, setBavModalOpen] = useState(false)
+  const [voidConfirmOpen, setVoidConfirmOpen] = useState(false)
 
   const defaultCounts = { all: 0, flywheel: 0, recovery: 0, legacy: 0 }
   const modelCounts = stats?.model_counts || defaultCounts
@@ -373,6 +376,47 @@ export default function UploadDetailPage() {
     }
   }
 
+  const handleVoidClick = () => {
+    setVoidConfirmOpen(true)
+  }
+
+  const handleVoidConfirm = async () => {
+    setVoidConfirmOpen(false) // Close modal immediately
+    setVoiding(true)
+
+    try {
+      await api.voidBilling(uploadId)
+      toast.success('Void process queued.')
+      await fetchBillingStats()
+    } catch (error: any) {
+      console.error(error)
+      const errorMessage = error.toString() || 'Failed to queue void process'
+
+      toast.error(errorMessage)
+    } finally {
+      setVoiding(false)
+    }
+  }
+
+  const handleCancelBilling = async () => {
+    if (!confirm('Are you sure you want to stop the billing process? This will stop the loop immediately.')) {
+      return
+    }
+
+    setCancelling(true)
+    try {
+      await api.cancelBilling(uploadId)
+      toast.success('Stop signal sent. Sync will terminate shortly.')
+
+      await fetchBillingStats()
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to cancel billing')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   const handleSync = async () => {
     if (vopPending > 0) {
       toast.error(`VOP verification must be completed first. ${vopPending} debtors pending.`, {
@@ -601,6 +645,49 @@ export default function UploadDetailPage() {
                     BAV
                   </Button>
               )}
+
+              {billingStats?.is_processing && (
+                  <Button
+                      variant="destructive"
+                      onClick={handleCancelBilling}
+                      disabled={cancelling}
+                      className="gap-2 mr-2 cursor-pointer"
+                  >
+                    {cancelling ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Stopping...
+                        </>
+                    ) : (
+                        <>
+                          <XCircle className="h-4 w-4" />
+                          Stop Billing
+                        </>
+                    )}
+                  </Button>
+              )}
+
+              {((billingStats?.billing_status === 'cancelling' || billingStats?.billing_status === 'cancelled') && (billingStats?.approved + billingStats?.pending) > 0) && (
+                  <Button
+                      variant="destructive"
+                      onClick={handleVoidClick}
+                      disabled={voiding || billingStats?.is_processing}
+                      className="gap-2 mr-2 cursor-pointer bg-red-900 hover:bg-red-950"
+                  >
+                    {voiding ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Voiding...
+                        </>
+                    ) : (
+                        <>
+                          <Ban className="h-4 w-4" />
+                          Void All ({(billingStats?.approved + billingStats?.pending)})
+                        </>
+                    )}
+                  </Button>
+              )}
+
               <Button
                   onClick={handleSync}
                   disabled={syncing || billingStats?.is_processing || (stats?.ready_for_sync || 0) === 0 || !canSync}
@@ -1082,6 +1169,43 @@ export default function UploadDetailPage() {
             onOpenChange={setBavModalOpen}
             onComplete={handleBavComplete}
         />
+
+        <Dialog open={voidConfirmOpen} onOpenChange={setVoidConfirmOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600">
+                <AlertTriangle className="h-5 w-5" />
+                Confirm Void Transaction
+              </DialogTitle>
+              <DialogDescription className="pt-2">
+                Are you sure you want to <strong>VOID all approved/pending transactions</strong> for this upload?
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="bg-red-50 border border-red-200 rounded-md p-3 my-2 text-sm text-red-800">
+              <p className="font-semibold">Warning:</p>
+              <ul className="list-disc list-inside mt-1 space-y-1">
+                <li>This action cannot be undone.</li>
+                <li>Only transactions from <strong>today</strong> can be voided.</li>
+                <li>Funds will not be transferred to your account.</li>
+              </ul>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button className="cursor-pointer mr-2" variant="outline" onClick={() => setVoidConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                  variant="destructive"
+                  onClick={handleVoidConfirm}
+                  className="bg-red-600 hover:bg-red-700 cursor-pointer"
+              >
+                Yes, Void All Transactions
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </>
   )
 }

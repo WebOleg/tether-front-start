@@ -40,7 +40,7 @@ import { Progress } from '@/components/ui/progress'
 import { toast } from 'sonner'
 import { getChargebackRule } from '@/lib/chargebacks'
 import { Badge } from '@/components/ui/badge'
-import { formatCurrency, formatIsoDate, formatPercent } from '@/lib/utils'
+import { formatCurrency, formatIsoDate, formatPercent, generateMonthOptions } from '@/lib/utils'
 import { ModelTabs } from '@/components/ui/model-tabs'
 
 interface EmpRefreshStats {
@@ -50,23 +50,6 @@ interface EmpRefreshStats {
   errors: number
   processed_pages?: number
   total_pages?: number
-}
-
-function generateMonthOptions() {
-  const options: { value: string; label: string; month: number; year: number }[] = []
-  const startDate = new Date(2025, 10, 1)
-  const endDate = new Date()
-
-  let current = new Date(startDate)
-  while (current <= endDate) {
-    const month = current.getMonth() + 1
-    const year = current.getFullYear()
-    const label = current.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    options.push({ value: `${year}-${month}`, label, month, year })
-    current.setMonth(current.getMonth() + 1)
-  }
-
-  return options.reverse()
 }
 
 export default function AnalyticsPage() {

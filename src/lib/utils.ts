@@ -155,3 +155,32 @@ export function formatPercent(value: number | undefined | null): string {
   if (value === undefined || value === null) return '0.00%'
   return `${value.toFixed(2)}%`
 }
+
+/**
+ * Generates an array of month options starting from November 2025 up to the current month.
+ * Each option includes a value (YYYY-MM format), a human-readable label (e.g., "January 2026"),
+ * and the numeric month and year.
+ * The options are returned in reverse chronological order (most recent first).
+ *
+ * @returns An array of objects, each containing:
+ *   - value: string (e.g., "2026-1")
+ *   - label: string (e.g., "January 2026")
+ *   - month: number (1-12)
+ *   - year: number
+ */
+export function generateMonthOptions() {
+  const options: { value: string; label: string; month: number; year: number }[] = []
+  const startDate = new Date(2025, 10, 1)
+  const endDate = new Date()
+
+  let current = new Date(startDate)
+  while (current <= endDate) {
+    const month = current.getMonth() + 1
+    const year = current.getFullYear()
+    const label = current.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    options.push({ value: `${year}-${month}`, label, month, year })
+    current.setMonth(current.getMonth() + 1)
+  }
+
+  return options.reverse()
+}

@@ -34,7 +34,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { api } from '@/lib/api'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, generateMonthOptions } from '@/lib/utils'
 import type { 
   Upload, 
   EmpAccount, 
@@ -50,23 +50,6 @@ import {
   Loader2,
   Eye 
 } from 'lucide-react'
-
-function generateMonthOptions() {
-  const options: { value: string; label: string; month: number; year: number }[] = []
-  const startDate = new Date(2025, 10, 1) // November 2025
-  const endDate = new Date()
-
-  let current = new Date(startDate)
-  while (current <= endDate) {
-    const month = current.getMonth() + 1
-    const year = current.getFullYear()
-    const label = current.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-    options.push({ value: `${year}-${month}`, label, month, year })
-    current.setMonth(current.getMonth() + 1)
-  }
-
-  return options.reverse()
-}
 
 export default function UploadCbkReasonsPage() {
   const [uploads, setUploads] = useState<Upload[]>([])

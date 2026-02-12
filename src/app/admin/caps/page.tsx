@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -74,7 +75,7 @@ export default function CapsPage() {
   }
 
   const formatEur = (value: number | null) => {
-    if (value === null) return '—'
+    if (value === null) return '\u2014'
     return '\u20AC' + value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
   }
 
@@ -100,172 +101,173 @@ export default function CapsPage() {
   const periodLabel = MONTHS[month - 1] + ' ' + year
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Account Caps</h1>
-          <p className="text-sm text-slate-500 mt-1">Monthly volume limits per EMP account</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Select value={month.toString()} onValueChange={(v) => setMonth(parseInt(v))}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MONTHS.map((name, i) => (
-                <SelectItem key={i + 1} value={(i + 1).toString()}>{name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={year.toString()} onValueChange={(v) => setYear(parseInt(v))}>
-            <SelectTrigger className="w-[100px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {[2025, 2026, 2027].map((y) => (
-                <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="icon" onClick={fetchCaps} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Total Cap</p>
-            <p className="text-2xl font-bold text-slate-900">{formatEur(totalCap)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Total Used</p>
-            <p className="text-2xl font-bold text-slate-900">{formatEur(totalUsed)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Total Remaining</p>
-            <p className="text-2xl font-bold text-emerald-600">{formatEur(totalRemaining)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">Overall Usage</p>
-            <p className={`text-2xl font-bold ${getUsageTextColor(totalPct)}`}>
-              {totalPct !== null ? `${totalPct}%` : '—'}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Accounts Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-slate-500" />
-            <span>{periodLabel}</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">Account</th>
-                    <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Monthly Cap</th>
-                    <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Used</th>
-                    <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Remaining</th>
-                    <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Transactions</th>
-                    <th className="py-3 px-4 text-sm font-medium text-slate-500 w-[200px]">Usage</th>
-                    <th className="py-3 px-4 text-sm font-medium text-slate-500 w-[80px]"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accounts.map((account) => (
-                    <tr key={account.id} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-3 px-4">
-                        <span className="font-medium text-slate-900">{account.name}</span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        {editingId === account.id ? (
-                          <div className="flex items-center justify-end gap-1">
-                            <span className="text-slate-400">{'\u20AC'}</span>
-                            <Input
-                              type="number"
-                              value={editValue}
-                              onChange={(e) => setEditValue(e.target.value)}
-                              className="w-[130px] h-8 text-right"
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSave(account.id)
-                                if (e.key === 'Escape') handleCancel()
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <span className="text-slate-900">
-                            {account.monthly_cap !== null ? formatEur(account.monthly_cap) : <span className="text-slate-400">Not set</span>}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right text-slate-900">{formatEur(account.used)}</td>
-                      <td className="py-3 px-4 text-right">
-                        <span className={account.remaining !== null && account.remaining < 50000 ? 'text-red-600 font-medium' : 'text-slate-900'}>
-                          {formatEur(account.remaining)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right text-slate-500">{account.tx_count.toLocaleString()}</td>
-                      <td className="py-3 px-4">
-                        {account.usage_percentage !== null ? (
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${getUsageColor(account.usage_percentage)}`}
-                                style={{ width: `${Math.min(account.usage_percentage, 100)}%` }}
-                              />
-                            </div>
-                            <span className={`text-sm font-medium w-[45px] text-right ${getUsageTextColor(account.usage_percentage)}`}>
-                              {account.usage_percentage}{'%'}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-slate-400">{'—'}</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        {editingId === account.id ? (
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleSave(account.id)} disabled={saving}>
-                              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-emerald-600" />}
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancel}>
-                              <X className="h-3.5 w-3.5 text-slate-400" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(account)}>
-                            <Pencil className="h-3.5 w-3.5 text-slate-400" />
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
+    <>
+      <Header title="Account Caps" description="Monthly volume limits per EMP account" />
+      <main className="container mx-auto px-6 py-8">
+        <div className="space-y-6">
+          <div className="flex items-center justify-end">
+            <div className="flex items-center gap-3">
+              <Select value={month.toString()} onValueChange={(v) => setMonth(parseInt(v))}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTHS.map((name, i) => (
+                    <SelectItem key={i + 1} value={(i + 1).toString()}>{name}</SelectItem>
                   ))}
-                </tbody>
-              </table>
+                </SelectContent>
+              </Select>
+              <Select value={year.toString()} onValueChange={(v) => setYear(parseInt(v))}>
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[2025, 2026, 2027].map((y) => (
+                    <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="icon" onClick={fetchCaps} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+          </div>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-slate-500">Total Cap</p>
+                <p className="text-2xl font-bold text-slate-900">{formatEur(totalCap)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-slate-500">Total Used</p>
+                <p className="text-2xl font-bold text-slate-900">{formatEur(totalUsed)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-slate-500">Total Remaining</p>
+                <p className="text-2xl font-bold text-emerald-600">{formatEur(totalRemaining)}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-slate-500">Overall Usage</p>
+                <p className={`text-2xl font-bold ${getUsageTextColor(totalPct)}`}>
+                  {totalPct !== null ? `${totalPct}%` : '\u2014'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Accounts Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-slate-500" />
+                <span>{periodLabel}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-200">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">Account</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Monthly Cap</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Used</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Remaining</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Transactions</th>
+                        <th className="py-3 px-4 text-sm font-medium text-slate-500 w-[200px]">Usage</th>
+                        <th className="py-3 px-4 text-sm font-medium text-slate-500 w-[80px]"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {accounts.map((account) => (
+                        <tr key={account.id} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="py-3 px-4">
+                            <span className="font-medium text-slate-900">{account.name}</span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {editingId === account.id ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="text-slate-400">{'\u20AC'}</span>
+                                <Input
+                                  type="number"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  className="w-[130px] h-8 text-right"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSave(account.id)
+                                    if (e.key === 'Escape') handleCancel()
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <span className="text-slate-900">
+                                {account.monthly_cap !== null ? formatEur(account.monthly_cap) : <span className="text-slate-400">Not set</span>}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right text-slate-900">{formatEur(account.used)}</td>
+                          <td className="py-3 px-4 text-right">
+                            <span className={account.remaining !== null && account.remaining < 50000 ? 'text-red-600 font-medium' : 'text-slate-900'}>
+                              {formatEur(account.remaining)}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right text-slate-500">{account.tx_count.toLocaleString()}</td>
+                          <td className="py-3 px-4">
+                            {account.usage_percentage !== null ? (
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${getUsageColor(account.usage_percentage)}`}
+                                    style={{ width: `${Math.min(account.usage_percentage, 100)}%` }}
+                                  />
+                                </div>
+                                <span className={`text-sm font-medium w-[45px] text-right ${getUsageTextColor(account.usage_percentage)}`}>
+                                  {account.usage_percentage}{'%'}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-slate-400">{'\u2014'}</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            {editingId === account.id ? (
+                              <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleSave(account.id)} disabled={saving}>
+                                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-emerald-600" />}
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancel}>
+                                  <X className="h-3.5 w-3.5 text-slate-400" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(account)}>
+                                <Pencil className="h-3.5 w-3.5 text-slate-400" />
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </>
   )
 }

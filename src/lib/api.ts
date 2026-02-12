@@ -453,6 +453,11 @@ class ApiClient {
     return response.data
   }
 
+  async searchUploads(query?: string): Promise<ApiResponse<Upload[]>> {
+    const queryString = this.buildQuery(query ? { query } : {})
+    return this.request<ApiResponse<Upload[]>>(`/admin/uploads/search${queryString}`)
+  }
+
   async getUploadDebtors(uploadId: number, filters?: DebtorFilters): Promise<ApiResponse<Debtor[]>> {
     const query = this.buildQuery(filters)
     return this.request<ApiResponse<Debtor[]>>(`/admin/uploads/${uploadId}/debtors${query}`)

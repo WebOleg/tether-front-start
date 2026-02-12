@@ -10,6 +10,7 @@ import { Header } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -50,7 +51,8 @@ import {
   Eye,
   CheckCircle2,
   XCircle,
-  Percent
+  Percent,
+  Search
 } from 'lucide-react'
 
 export default function UploadCbkReasonsPage() {
@@ -59,6 +61,7 @@ export default function UploadCbkReasonsPage() {
   const [selectedUploadId, setSelectedUploadId] = useState<string>('')
   const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<string>('all')
   const [selectedPeriod, setSelectedPeriod] = useState<string>('30d')
+  const [searchQuery, setSearchQuery] = useState<string>('')
   const [cbkData, setCbkData] = useState<UploadCbkReasonSummary | null>(null)
   const [loading, setLoading] = useState(false)
   const [drilldownOpen, setDrilldownOpen] = useState(false)
@@ -69,58 +72,27 @@ export default function UploadCbkReasonsPage() {
 
   const monthOptions = useMemo(() => generateMonthOptions(), [])
 
-  
-
-  // Fetch uploads
+  // Fetch uploads with search
   useEffect(() => {
     const fetchUploads = async () => {
       try {
-        const response = await api.getUploads({ per_page: 1000 })
+        const response = await api.searchUploads(searchQuery || undefined)
         setUploads(response.data)
         // Auto-select first upload if available
-        if (response.data.length > 0) {
+        if (response.data.length > 0 && !selectedUploadId) {
           setSelectedUploadId(response.data[0].id.toString())
         }
       } catch (error) {
         console.error('Failed to fetch uploads:', error)
       }
     }
-    fetchUploads()
-  }, [])
+    
+    const timeoutId = setTimeout(() => {
+      fetchUploads()
+    }, 300) // Debounce search
 
-  // Calculate date range based on selected period
-  const getDateRange = () => {
-    const today = new Date()
-    let startDate: Date
-    let endDate = new Date(today)
-
-    if (selectedPeriod === 'all') {
-      // Return a very old date for "all time"
-      startDate = new Date(2020, 0, 1)
-    } else if (selectedPeriod === '24h') {
-      startDate = new Date(today)
-      startDate.setDate(today.getDate() - 1)
-    } else if (selectedPeriod === '7d') {
-      startDate = new Date(today)
-      startDate.setDate(today.getDate() - 7)
-    } else if (selectedPeriod === '30d') {
-      startDate = new Date(today)
-      startDate.setDate(today.getDate() - 30)
-    } else if (selectedPeriod === '90d') {
-      startDate = new Date(today)
-      startDate.setDate(today.getDate() - 90)
-    } else {
-      // Month selection (e.g., "2026-1" or "2026-2")
-      const [year, month] = selectedPeriod.split('-').map(Number)
-      startDate = new Date(year, month - 1, 1)
-      endDate = new Date(year, month, 0) // Last day of the month
-    }
-
-    return {
-      start_date: startDate.toISOString().split('T')[0],
-      end_date: endDate.toISOString().split('T')[0]
-    }
-  }
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery])
 
   // Fetch CBK data when upload changes
   useEffect(() => {
@@ -180,28 +152,47 @@ export default function UploadCbkReasonsPage() {
       <div className="p-6">
         {/* Filters */}
         <div className="flex items-center gap-4 flex-wrap mb-6">
-          {/* Upload File Filter */}
+          {/* Upload File Select with Search */}
           <div className="flex gap-2 items-center">
             <Label htmlFor="upload" className="text-sm whitespace-nowrap">Upload File:</Label>
-            <Select value={selectedUploadId} onValueChange={setSelectedUploadId}>
-              <SelectTrigger id="upload" className="w-64 h-8">
-                <SelectValue placeholder="Select upload" />
-              </SelectTrigger>
-              <SelectContent>
-                {uploads.map((upload) => (
-                  <SelectItem key={upload.id} value={upload.id.toString()}>
-                    <div className="flex items-center gap-2">
-                      <FileSpreadsheet className="h-4 w-4 text-blue-600" />
-                      <span className="truncate max-w-[200px]">{upload.original_filename}</span>
+            <div className="relative w-64">
+              <Select value={selectedUploadId} onValueChange={setSelectedUploadId}>
+                <SelectTrigger id="upload" className="w-full h-8">
+                  <SelectValue placeholder="Search and select upload..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <div className="px-2 pb-2">
+                    <Input
+                      type="text"
+                      placeholder="Search uploads..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="h-8"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                  {uploads.length === 0 ? (
+                    <div className="p-2 text-sm text-slate-500 text-center">
+                      {searchQuery ? 'No uploads found' : 'Loading...'}
                     </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  ) : (
+                    uploads.map((upload) => (
+                      <SelectItem key={upload.id} value={upload.id.toString()} className="justify-start">
+                        <FileSpreadsheet className="h-4 w-4 text-blue-600 shrink-0" />
+                        <div className="flex flex-col min-w-0 items-start">
+                          <div className="text-sm truncate w-full text-left">{upload.original_filename}</div>
+                          <div className="text-xs text-slate-500 truncate w-full text-left">{upload.filename}</div>
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* EMP Account Filter */}
-          <div className="flex items-center gap-2">
+          <div className="flex gap-2 items-center">
             <Label htmlFor="emp-account" className="text-sm whitespace-nowrap">Account:</Label>
             <Select value={selectedEmpAccountId} onValueChange={setSelectedEmpAccountId}>
               <SelectTrigger id="emp-account" className="w-44 h-8">
@@ -227,7 +218,7 @@ export default function UploadCbkReasonsPage() {
           </div>
 
           {/* Period Filter */}
-          <div className="flex items-center gap-2">
+          <div className="flex gap-2 items-center">
             <Label htmlFor="period" className="text-sm whitespace-nowrap">Period:</Label>
             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
               <SelectTrigger id="period" className="w-44 h-8">

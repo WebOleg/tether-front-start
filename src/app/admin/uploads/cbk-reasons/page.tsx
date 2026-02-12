@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Header } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -50,15 +50,30 @@ import {
   Loader2,
   Eye 
 } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+
+function generateMonthOptions() {
+  const options: { value: string; label: string; month: number; year: number }[] = []
+  const startDate = new Date(2025, 10, 1) // November 2025
+  const endDate = new Date()
+
+  let current = new Date(startDate)
+  while (current <= endDate) {
+    const month = current.getMonth() + 1
+    const year = current.getFullYear()
+    const label = current.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    options.push({ value: `${year}-${month}`, label, month, year })
+    current.setMonth(current.getMonth() + 1)
+  }
+
+  return options.reverse()
+}
 
 export default function UploadCbkReasonsPage() {
   const [uploads, setUploads] = useState<Upload[]>([])
   const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
   const [selectedUploadId, setSelectedUploadId] = useState<string>('all')
   const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<string>('all')
-  const [startDate, setStartDate] = useState<string>('')
-  const [endDate, setEndDate] = useState<string>('')
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('30d')
   const [summary, setSummary] = useState<UploadCbkReasonSummary | null>(null)
   const [loading, setLoading] = useState(false)
   const [drilldownOpen, setDrilldownOpen] = useState(false)
@@ -67,15 +82,7 @@ export default function UploadCbkReasonsPage() {
   const [drilldownReason, setDrilldownReason] = useState<string>('')
   const [drilldownLoading, setDrilldownLoading] = useState(false)
 
-  // Set default date range to last 30 days
-  useEffect(() => {
-    const today = new Date()
-    const thirtyDaysAgo = new Date(today)
-    thirtyDaysAgo.setDate(today.getDate() - 30)
-    
-    setEndDate(today.toISOString().split('T')[0])
-    setStartDate(thirtyDaysAgo.toISOString().split('T')[0])
-  }, [])
+  const monthOptions = useMemo(() => generateMonthOptions(), [])
 
   // Fetch uploads and EMP accounts
   useEffect(() => {
@@ -94,16 +101,49 @@ export default function UploadCbkReasonsPage() {
     fetchData()
   }, [])
 
+  // Calculate date range based on selected period
+  const getDateRange = () => {
+    const today = new Date()
+    let startDate: Date
+    let endDate = new Date(today)
+
+    if (selectedPeriod === 'all') {
+      // Return a very old date for "all time"
+      startDate = new Date(2020, 0, 1)
+    } else if (selectedPeriod === '24h') {
+      startDate = new Date(today)
+      startDate.setDate(today.getDate() - 1)
+    } else if (selectedPeriod === '7d') {
+      startDate = new Date(today)
+      startDate.setDate(today.getDate() - 7)
+    } else if (selectedPeriod === '30d') {
+      startDate = new Date(today)
+      startDate.setDate(today.getDate() - 30)
+    } else if (selectedPeriod === '90d') {
+      startDate = new Date(today)
+      startDate.setDate(today.getDate() - 90)
+    } else {
+      // Month selection (e.g., "2026-1" or "2026-2")
+      const [year, month] = selectedPeriod.split('-').map(Number)
+      startDate = new Date(year, month - 1, 1)
+      endDate = new Date(year, month, 0) // Last day of the month
+    }
+
+    return {
+      start_date: startDate.toISOString().split('T')[0],
+      end_date: endDate.toISOString().split('T')[0]
+    }
+  }
+
   // Fetch CBK reasons when filters change
   useEffect(() => {
-    if (!startDate || !endDate) return
-
     const fetchReasons = async () => {
       setLoading(true)
       try {
+        const dateRange = getDateRange()
         const filters: any = {
-          start_date: startDate,
-          end_date: endDate,
+          start_date: dateRange.start_date,
+          end_date: dateRange.end_date,
         }
 
         if (selectedUploadId !== 'all') {
@@ -125,7 +165,7 @@ export default function UploadCbkReasonsPage() {
     }
 
     fetchReasons()
-  }, [selectedUploadId, selectedEmpAccountId, startDate, endDate])
+  }, [selectedUploadId, selectedEmpAccountId, selectedPeriod])
 
   const handleViewRecords = async (reason: UploadCbkReason) => {
     if (!summary || selectedUploadId === 'all') {
@@ -155,94 +195,87 @@ export default function UploadCbkReasonsPage() {
         title="Upload CBK Reasons"
         description="View chargeback reason breakdown per upload file"
       />
-      <div className="p-6 space-y-6">
-        {/* Filters */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Filters</CardTitle>
-            <CardDescription>Select upload and date range to view chargeback reasons</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Upload selector */}
-              <div className="space-y-2">
-                <Label htmlFor="upload">Upload File</Label>
-                <Select value={selectedUploadId} onValueChange={setSelectedUploadId}>
-                  <SelectTrigger id="upload">
-                    <SelectValue placeholder="Select upload" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <FileSpreadsheet className="h-4 w-4 text-slate-500" />
-                        <span>All Uploads</span>
-                      </div>
-                    </SelectItem>
-                    {uploads.map((upload) => (
-                      <SelectItem key={upload.id} value={upload.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <FileSpreadsheet className="h-4 w-4 text-blue-600" />
-                          <span className="truncate max-w-[200px]">{upload.original_filename}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      <div className="p-6">
+        {/* Filters - inline style like chargebacks/analytics */}
+        <div className="flex items-center gap-4 flex-wrap mb-4">
+          {/* Upload File Filter */}
+          <div className="flex gap-2 items-center">
+            <Label htmlFor="upload" className="text-sm whitespace-nowrap">Upload File:</Label>
+            <Select value={selectedUploadId} onValueChange={setSelectedUploadId}>
+              <SelectTrigger id="upload" className="w-64 h-8">
+                <SelectValue placeholder="Select upload" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="h-4 w-4 text-slate-500" />
+                    <span>All Uploads</span>
+                  </div>
+                </SelectItem>
+                {uploads.map((upload) => (
+                  <SelectItem key={upload.id} value={upload.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet className="h-4 w-4 text-blue-600" />
+                      <span className="truncate max-w-[200px]">{upload.original_filename}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-              {/* EMP Account filter */}
-              <div className="space-y-2">
-                <Label htmlFor="emp-account">Account</Label>
-                <Select value={selectedEmpAccountId} onValueChange={setSelectedEmpAccountId}>
-                  <SelectTrigger id="emp-account">
-                    <SelectValue placeholder="All Accounts" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-slate-500" />
-                        <span>All Accounts</span>
-                      </div>
-                    </SelectItem>
-                    {empAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-emerald-600" />
-                          <span>{account.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          {/* EMP Account Filter */}
+          <div className="flex items-center gap-2">
+            <Label htmlFor="emp-account" className="text-sm whitespace-nowrap">Account:</Label>
+            <Select value={selectedEmpAccountId} onValueChange={setSelectedEmpAccountId}>
+              <SelectTrigger id="emp-account" className="w-44 h-8">
+                <SelectValue placeholder="All Accounts" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-slate-500" />
+                    <span>All Accounts</span>
+                  </div>
+                </SelectItem>
+                {empAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-emerald-600" />
+                      <span>{account.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-              {/* Date range */}
-              <div className="space-y-2">
-                <Label htmlFor="start-date">Start Date</Label>
-                <Input
-                  id="start-date"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="end-date">End Date</Label>
-                <Input
-                  id="end-date"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          {/* Period Filter */}
+          <div className="flex items-center gap-2">
+            <Label htmlFor="period" className="text-sm whitespace-nowrap">Period:</Label>
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger id="period" className="w-44 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="24h">Last 24h</SelectItem>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+                <SelectItem value="90d">Last 90 days</SelectItem>
+                {monthOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         {/* Summary Cards */}
         {summary && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-slate-600">Total Records</CardTitle>

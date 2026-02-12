@@ -7,8 +7,8 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'  // ADD THIS LINE
+import Link from 'next/link'
 import { Header } from '@/components/layout'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -520,14 +520,16 @@ export default function UploadCbReasonsPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => handleViewRecords(reason)}
-                            className="h-8 px-3"
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                          </Button>
+                          <Link href={`/admin/uploads/cb-reasons/${reason.code}?upload_id=${selectedUploadId}`}>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleViewRecords(reason)}
+                              className="h-8 px-3"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                            </Button>
+                          </Link>
                         </TableCell>
                       </TableRow>
                     ))

@@ -985,7 +985,7 @@ class ApiClient {
 
   async getUploadCbReasonRecords(uploadId: number, code: string): Promise<UploadCbReasonRecordsResponse> {
     const response = await this.request<{ data: UploadCbReasonRecordsResponse }>(
-      `/admin/upload/${uploadId}/cbk-reasons/${encodeURIComponent(code)}/records`
+      `/admin/chargebacks/upload/${uploadId}/${encodeURIComponent(code)}/records`
     )
     return response.data
   }

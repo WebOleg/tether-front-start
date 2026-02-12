@@ -951,17 +951,17 @@ class ApiClient {
   }
 
   // Upload CBK Reasons
-  async getUploadCbkReasons(filters: UploadCbkReasonsFilters): Promise<UploadCbkReasonSummary> {
+  async getUploadCbkReasons(uploadId: number, filters: UploadCbkReasonsFilters): Promise<UploadCbkReasonSummary> {
     const query = this.buildQuery(filters)
     const response = await this.request<{ data: UploadCbkReasonSummary }>(
-      `/admin/uploads/cbk-reasons${query}`
+      `/admin/chargebacks/upload/${uploadId}.${query}`
     )
     return response.data
   }
 
   async getUploadCbkReasonRecords(uploadId: number, code: string): Promise<UploadCbkReasonRecordsResponse> {
     const response = await this.request<{ data: UploadCbkReasonRecordsResponse }>(
-      `/admin/uploads/${uploadId}/cbk-reasons/${encodeURIComponent(code)}/records`
+      `/admin/upload/${uploadId}/cbk-reasons/${encodeURIComponent(code)}/records`
     )
     return response.data
   }

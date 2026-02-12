@@ -705,6 +705,8 @@ export interface UploadCbkReasonSummary {
   total_records: number
   total_successful: number
   total_chargebacks: number
+  approved_amount: number
+  chargeback_amount: number
   cbk_percentage: number
   reasons: UploadCbkReason[]
 }

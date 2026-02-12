@@ -36,28 +36,30 @@ import {
 import { api } from '@/lib/api'
 import { formatCurrency, formatDate, generateMonthOptions } from '@/lib/utils'
 import type { 
+  EmpAccount,
   Upload, 
-  EmpAccount, 
-  UploadCbkReasonSummary, 
   UploadCbkReason,
-  UploadCbkReasonRecord
+  UploadCbkReasonRecord,
+  UploadCbkReasonSummary
 } from '@/types'
 import { 
   Building2, 
   FileSpreadsheet, 
-  TrendingUp, 
   AlertCircle,
   Loader2,
-  Eye 
+  Eye,
+  CheckCircle2,
+  XCircle,
+  Percent
 } from 'lucide-react'
 
 export default function UploadCbkReasonsPage() {
   const [uploads, setUploads] = useState<Upload[]>([])
   const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
-  const [selectedUploadId, setSelectedUploadId] = useState<string>('all')
+  const [selectedUploadId, setSelectedUploadId] = useState<string>('')
   const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<string>('all')
   const [selectedPeriod, setSelectedPeriod] = useState<string>('30d')
-  const [summary, setSummary] = useState<UploadCbkReasonSummary | null>(null)
+  const [cbkData, setCbkData] = useState<UploadCbkReasonSummary | null>(null)
   const [loading, setLoading] = useState(false)
   const [drilldownOpen, setDrilldownOpen] = useState(false)
   const [drilldownRecords, setDrilldownRecords] = useState<UploadCbkReasonRecord[]>([])
@@ -67,21 +69,23 @@ export default function UploadCbkReasonsPage() {
 
   const monthOptions = useMemo(() => generateMonthOptions(), [])
 
-  // Fetch uploads and EMP accounts
+  
+
+  // Fetch uploads
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchUploads = async () => {
       try {
-        const [uploadsResponse, accountsResponse] = await Promise.all([
-          api.getUploads({ per_page: 1000 }),
-          api.getEmpAccounts()
-        ])
-        setUploads(uploadsResponse.data)
-        setEmpAccounts(accountsResponse)
+        const response = await api.getUploads({ per_page: 1000 })
+        setUploads(response.data)
+        // Auto-select first upload if available
+        if (response.data.length > 0) {
+          setSelectedUploadId(response.data[0].id.toString())
+        }
       } catch (error) {
-        console.error('Failed to fetch data:', error)
+        console.error('Failed to fetch uploads:', error)
       }
     }
-    fetchData()
+    fetchUploads()
   }, [])
 
   // Calculate date range based on selected period
@@ -118,51 +122,44 @@ export default function UploadCbkReasonsPage() {
     }
   }
 
-  // Fetch CBK reasons when filters change
+  // Fetch CBK data when upload changes
   useEffect(() => {
-    const fetchReasons = async () => {
+    const fetchCbkData = async () => {
+      if (!selectedUploadId) {
+        setCbkData(null)
+        return
+      }
+
       setLoading(true)
       try {
-        const dateRange = getDateRange()
-        const filters: any = {
-          start_date: dateRange.start_date,
-          end_date: dateRange.end_date,
-        }
-
-        if (selectedUploadId !== 'all') {
-          filters.upload_id = Number(selectedUploadId)
-        }
-
-        if (selectedEmpAccountId !== 'all') {
-          filters.emp_account_id = Number(selectedEmpAccountId)
-        }
-
-        const data = await api.getUploadCbkReasons(filters)
-        setSummary(data)
+        const data = await api.getUploadCbkReasons(Number(selectedUploadId), {})
+        setCbkData(data)
       } catch (error) {
-        console.error('Failed to fetch CBK reasons:', error)
-        setSummary(null)
+        console.error('Failed to fetch CBK data:', error)
+        setCbkData(null)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchReasons()
-  }, [selectedUploadId, selectedEmpAccountId, selectedPeriod])
+    fetchCbkData()
+  }, [selectedUploadId])
 
   const handleViewRecords = async (reason: UploadCbkReason) => {
-    if (!summary || selectedUploadId === 'all') {
-      alert('Please select a specific upload file to view records')
+    if (!selectedUploadId) {
       return
     }
 
-    setDrilldownCode(reason.code)
-    setDrilldownReason(reason.reason)
+    setDrilldownCode(reason.code || 'Unknown')
+    setDrilldownReason(reason.reason || 'No reason provided')
     setDrilldownOpen(true)
     setDrilldownLoading(true)
 
     try {
-      const response = await api.getUploadCbkReasonRecords(Number(selectedUploadId), reason.code)
+      const response = await api.getUploadCbkReasonRecords(
+        Number(selectedUploadId), 
+        reason.code || ''
+      )
       setDrilldownRecords(response.records)
     } catch (error) {
       console.error('Failed to fetch records:', error)
@@ -172,6 +169,8 @@ export default function UploadCbkReasonsPage() {
     }
   }
 
+  const selectedUpload = uploads.find(u => u.id.toString() === selectedUploadId)
+
   return (
     <>
       <Header
@@ -179,8 +178,8 @@ export default function UploadCbkReasonsPage() {
         description="View chargeback reason breakdown per upload file"
       />
       <div className="p-6">
-        {/* Filters - inline style like chargebacks/analytics */}
-        <div className="flex items-center gap-4 flex-wrap mb-4">
+        {/* Filters */}
+        <div className="flex items-center gap-4 flex-wrap mb-6">
           {/* Upload File Filter */}
           <div className="flex gap-2 items-center">
             <Label htmlFor="upload" className="text-sm whitespace-nowrap">Upload File:</Label>
@@ -189,12 +188,6 @@ export default function UploadCbkReasonsPage() {
                 <SelectValue placeholder="Select upload" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">
-                  <div className="flex items-center gap-2">
-                    <FileSpreadsheet className="h-4 w-4 text-slate-500" />
-                    <span>All Uploads</span>
-                  </div>
-                </SelectItem>
                 {uploads.map((upload) => (
                   <SelectItem key={upload.id} value={upload.id.toString()}>
                     <div className="flex items-center gap-2">
@@ -256,146 +249,183 @@ export default function UploadCbkReasonsPage() {
           </div>
         </div>
 
-        {/* Summary Cards */}
-        {summary && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-slate-600">Total Records</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{summary.total_records.toLocaleString()}</div>
-              </CardContent>
-            </Card>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          </div>
+        ) : cbkData ? (
+          <>
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Total Records in File
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{cbkData.total_records.toLocaleString()}</div>
+                  <p className="text-xs text-slate-500 mt-1">All records in upload</p>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-slate-600">Successful Charges</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-green-600">{summary.total_successful.toLocaleString()}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-slate-600">Total Chargebacks</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-rose-600">{summary.total_chargebacks.toLocaleString()}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium text-slate-600">CBK Percentage</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <div className="text-2xl font-bold text-orange-600">
-                    {summary.cbk_percentage.toFixed(2)}%
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Total Successful Charges
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">
+                    {cbkData.total_successful.toLocaleString()}
                   </div>
-                  {summary.cbk_percentage > 1 && (
-                    <AlertCircle className="h-5 w-5 text-orange-600" />
-                  )}
-                </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {cbkData.approved_amount ? formatCurrency(cbkData.approved_amount, 'EUR') : '-'}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+                    <XCircle className="h-4 w-4" />
+                    Total Chargebacks
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-rose-600">
+                    {cbkData.total_chargebacks.toLocaleString()}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {cbkData.chargeback_amount ? formatCurrency(cbkData.chargeback_amount, 'EUR') : '-'}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+                    <Percent className="h-4 w-4" />
+                    CB % for File
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2">
+                    <div className={`text-2xl font-bold ${
+                      cbkData.cbk_percentage > 1 ? 'text-rose-600' : 'text-orange-600'
+                    }`}>
+                      {cbkData.cbk_percentage.toFixed(2)}%
+                    </div>
+                    {cbkData.cbk_percentage > 1 && (
+                      <AlertCircle className="h-5 w-5 text-rose-600" />
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Chargeback rate</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Reasons Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Chargeback Reason Breakdown</CardTitle>
+                <CardDescription>
+                  {selectedUpload 
+                    ? `Showing reasons for: ${selectedUpload.original_filename}`
+                    : 'Select an upload file to view breakdown'
+                  }
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {cbkData.reasons.length > 0 ? (
+                  <div className="rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Code</TableHead>
+                          <TableHead>Reason</TableHead>
+                          <TableHead className="text-right">CBK Count</TableHead>
+                          <TableHead className="text-right">% of CBKs</TableHead>
+                          <TableHead className="text-right">% of Total</TableHead>
+                          <TableHead className="text-right">CBK Amount</TableHead>
+                          <TableHead>Last Occurrence</TableHead>
+                          <TableHead className="text-center">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {cbkData.reasons.map((reason, idx) => (
+                          <TableRow key={reason.code || `unknown-${idx}`}>
+                            <TableCell>
+                              {reason.code ? (
+                                <Badge variant="outline" className="font-mono text-rose-600 border-rose-300">
+                                  {reason.code}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="font-mono text-slate-500 border-slate-300">
+                                  N/A
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="max-w-[300px]">
+                              <div className="text-sm">{reason.reason || 'No reason provided'}</div>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {reason.cbk_count.toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <div className="text-sm font-medium">{reason.cbk_percentage.toFixed(2)}%</div>
+                                <div className="w-16 bg-slate-200 rounded-full h-2">
+                                  <div 
+                                    className="bg-rose-500 h-2 rounded-full" 
+                                    style={{ width: `${Math.min(reason.cbk_percentage, 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className="text-sm text-slate-600">{reason.total_percentage.toFixed(2)}%</span>
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {formatCurrency(reason.cbk_amount, 'EUR')}
+                            </TableCell>
+                            <TableCell className="text-sm text-slate-600">
+                              {reason.last_occurrence ? formatDate(reason.last_occurrence) : '-'}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleViewRecords(reason)}
+                                className="h-8"
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-slate-500">
+                    No chargeback data available for this upload
+                  </div>
+                )}
               </CardContent>
             </Card>
+          </>
+        ) : (
+          <div className="text-center py-12 text-slate-500">
+            {selectedUploadId 
+              ? 'No data available for the selected upload file'
+              : 'Select an upload file to view chargeback breakdown'
+            }
           </div>
         )}
-
-        {/* Reasons Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Chargeback Reason Breakdown</CardTitle>
-            <CardDescription>
-              {selectedUploadId !== 'all' 
-                ? `Showing reasons for: ${uploads.find(u => u.id.toString() === selectedUploadId)?.original_filename}`
-                : 'Showing aggregated reasons across all uploads'
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-              </div>
-            ) : summary && summary.reasons.length > 0 ? (
-              <div className="rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead className="text-right">CBK Count</TableHead>
-                      <TableHead className="text-right">% of CBKs</TableHead>
-                      <TableHead className="text-right">% of Total</TableHead>
-                      <TableHead className="text-right">CBK Amount</TableHead>
-                      <TableHead>Last Occurrence</TableHead>
-                      <TableHead className="text-center">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {summary.reasons.map((reason) => (
-                      <TableRow key={reason.code}>
-                        <TableCell>
-                          <Badge variant="outline" className="font-mono text-rose-600 border-rose-300">
-                            {reason.code}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="max-w-[300px]">
-                          <div className="text-sm">{reason.reason}</div>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {reason.cbk_count.toLocaleString()}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <div className="text-sm font-medium">{reason.cbk_percentage.toFixed(2)}%</div>
-                            <div className="w-16 bg-slate-200 rounded-full h-2">
-                              <div 
-                                className="bg-rose-500 h-2 rounded-full" 
-                                style={{ width: `${Math.min(reason.cbk_percentage, 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="text-sm text-slate-600">{reason.total_percentage.toFixed(2)}%</span>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(reason.cbk_amount, 'EUR')}
-                        </TableCell>
-                        <TableCell className="text-sm text-slate-600">
-                          {reason.last_occurrence ? formatDate(reason.last_occurrence) : '-'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleViewRecords(reason)}
-                            disabled={selectedUploadId === 'all'}
-                            className="h-8"
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <div className="text-center py-12 text-slate-500">
-                {selectedUploadId === 'all' 
-                  ? 'No chargeback data available for the selected filters'
-                  : 'Select an upload file and date range to view chargeback reasons'
-                }
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       {/* Drill-down Modal */}

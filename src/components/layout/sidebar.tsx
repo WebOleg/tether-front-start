@@ -52,7 +52,7 @@ const navigation = [
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
   { name: 'BIC Analytics', href: '/admin/bic-analytics', icon: Building2 },
   { name: 'Uploads', href: '/admin/uploads', icon: Upload },
-  { name: 'Upload CBK Reasons', href: '/admin/uploads/cbk-reasons', icon: ChargebackUploadIcon },
+  { name: 'Upload CB Reasons', href: '/admin/uploads/cb-reasons', icon: ChargebackUploadIcon },
   { name: 'Debtors', href: '/admin/debtors', icon: Users },
   { name: 'Chargebacks', href: '/admin/chargebacks', icon: ChargebackIcon },
   { name: 'VOP Logs', href: '/admin/vop-logs', icon: ShieldCheck },

@@ -689,29 +689,29 @@ export interface BavStatusResponse {
   }
 }
 
-export interface UploadCbkReason {
+export interface UploadCbReason {
   code: string
   reason: string
-  cbk_count: number
-  cbk_percentage: number
+  cb_count: number
+  cb_percentage: number
   total_percentage: number
-  cbk_amount: number
+  cb_amount: number
   last_occurrence: string | null
 }
 
-export interface UploadCbkReasonSummary {
+export interface UploadCbReasonSummary {
   upload_id: number
   upload_filename: string
   total_records: number
   total_successful: number
   total_chargebacks: number
   approved_amount: number
-  chargeback_amount: number
-  cbk_percentage: number
-  reasons: UploadCbkReason[]
+  cb_amount: number
+  cb_percentage: number
+  reasons: UploadCbReason[]
 }
 
-export interface UploadCbkReasonRecord {
+export interface UploadCbReasonRecord {
   id: number
   debtor_id: number
   first_name: string
@@ -727,14 +727,14 @@ export interface UploadCbkReasonRecord {
   emp_account_name: string | null
 }
 
-export interface UploadCbkReasonRecordsResponse {
+export interface UploadCbReasonRecordsResponse {
   upload_id: number
   code: string
   reason: string
-  records: UploadCbkReasonRecord[]
+  records: UploadCbReasonRecord[]
 }
 
-export interface UploadCbkReasonsFilters {
+export interface UploadCbReasonsFilters {
   upload_id?: number
   emp_account_id?: number
   start_date?: string

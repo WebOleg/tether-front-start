@@ -39,9 +39,9 @@ import type {
   BavStats,
   BavStartResponse,
   BavStatusResponse,
-  UploadCbkReasonsFilters,
-  UploadCbkReasonSummary,
-  UploadCbkReasonRecordsResponse,
+  UploadCbReasonsFilters,
+  UploadCbReasonSummary,
+  UploadCbReasonRecordsResponse,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -956,15 +956,35 @@ class ApiClient {
   }
 
   // Upload CBK Reasons
-  async getUploadCbkReasons(uploadId: number, filters: UploadCbkReasonsFilters): Promise<UploadCbkReasonSummary> {
-    const query = this.buildQuery(filters)
-    const response = await this.request<{ data: UploadCbkReasonSummary }>(
-      `/admin/chargebacks/upload/${uploadId}${query}`
-    )
-    return response.data
+  async getUploadCbReasons(uploadId: number, filters: UploadCbReasonsFilters): Promise<UploadCbReasonSummary> {
+  const query = this.buildQuery(filters)
+  const response = await this.request<{ data: { summary: any; reasons: any[] } }>(
+    `/admin/chargebacks/upload/${uploadId}${query}`
+  )
+  const { summary, reasons } = response.data
+    return {
+      upload_id: uploadId,
+      upload_filename: '', // Add if available in response
+      total_records: summary.total_records,
+      total_successful: summary.billed_count,
+      total_chargebacks: summary.total_chargebacks,
+      approved_amount: summary.approved_amount,
+      cb_amount: summary.cb_amount,
+      cb_percentage: summary.cb_rate,
+      reasons: reasons.map((r: any) => ({
+        code: r.code || '',
+        reason: r.reason || '',
+        cb_count: r.cb_count,
+        cb_percentage: r.cb_percentage,
+        total_percentage: r.total_percentage,
+        cb_amount: r.cb_amount,
+        last_occurrence: r.last_occurrence
+      }))
+    }
   }
-  async getUploadCbkReasonRecords(uploadId: number, code: string): Promise<UploadCbkReasonRecordsResponse> {
-    const response = await this.request<{ data: UploadCbkReasonRecordsResponse }>(
+
+  async getUploadCbReasonRecords(uploadId: number, code: string): Promise<UploadCbReasonRecordsResponse> {
+    const response = await this.request<{ data: UploadCbReasonRecordsResponse }>(
       `/admin/upload/${uploadId}/cbk-reasons/${encodeURIComponent(code)}/records`
     )
     return response.data

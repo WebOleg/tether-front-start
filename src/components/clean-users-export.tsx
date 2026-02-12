@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { api, CleanUsersStats, CleanUsersExportStatus, CleanUsersMode } from '@/lib/api'
+import type { EmpAccount } from '@/types'
 import { Download, Loader2, Users, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -18,6 +20,8 @@ export function CleanUsersExport() {
   const [limitInput, setLimitInput] = useState('1000')
   const [minDaysInput, setMinDaysInput] = useState('30')
   const [mode, setMode] = useState<CleanUsersMode>('broad')
+  const [accounts, setAccounts] = useState<EmpAccount[]>([])
+  const [selectedAccountId, setSelectedAccountId] = useState<number | undefined>(undefined)
   
   // Job tracking
   const [jobId, setJobId] = useState<string | null>(null)
@@ -26,22 +30,27 @@ export function CleanUsersExport() {
   const limit = parseInt(limitInput) || 0
   const minDays = parseInt(minDaysInput) || 30
 
+  // Load accounts on mount
+  useEffect(() => {
+    api.getEmpAccounts().then(setAccounts).catch(console.error)
+  }, [])
+
   const fetchStats = useCallback(async () => {
     setLoading(true)
     try {
       const days = parseInt(minDaysInput) || 30
-      const data = await api.getCleanUsersStats(days, mode)
+      const data = await api.getCleanUsersStats(days, mode, selectedAccountId)
       setStats(data)
     } catch (error) {
       console.error('Failed to fetch clean users stats:', error)
     } finally {
       setLoading(false)
     }
-  }, [minDaysInput, mode])
+  }, [minDaysInput, mode, selectedAccountId])
 
   useEffect(() => {
     fetchStats()
-  }, [mode])
+  }, [mode, selectedAccountId])
 
   // Poll job status
   useEffect(() => {
@@ -89,14 +98,14 @@ export function CleanUsersExport() {
     setJobStatus(null)
 
     try {
-      const result = await api.exportCleanUsers(exportLimit, exportMinDays, mode)
+      const result = await api.exportCleanUsers(exportLimit, exportMinDays, mode, selectedAccountId)
 
       if (result instanceof Blob) {
-        // Streaming download (small export)
         const url = URL.createObjectURL(result)
         const a = document.createElement('a')
         a.href = url
-        a.download = `clean_users_${mode}_${new Date().toISOString().split('T')[0]}.csv`
+        const accountName = accounts.find(a => a.id === selectedAccountId)?.name || 'all'
+        a.download = `clean_users_${mode}_${accountName}_${new Date().toISOString().split('T')[0]}.csv`
         document.body.appendChild(a)
         a.click()
         document.body.removeChild(a)
@@ -105,7 +114,6 @@ export function CleanUsersExport() {
         toast.success('Export downloaded successfully')
         setExporting(false)
       } else {
-        // Job queued (large export)
         setJobId(result.job_id)
         toast.info('Large export queued. Please wait...')
       }
@@ -147,6 +155,7 @@ export function CleanUsersExport() {
   }
 
   const isLargeExport = stats && limit > stats.streaming_threshold
+  const selectedAccountName = accounts.find(a => a.id === selectedAccountId)?.name
 
   return (
     <Card>
@@ -156,16 +165,39 @@ export function CleanUsersExport() {
           <CardTitle>Clean Users Export</CardTitle>
         </div>
         <CardDescription>
-          Export users with approved transactions, no chargebacks (lifetime), {minDays}+ days old
+          Export users with approved transactions, no chargebacks (lifetime), not charged in last {minDays} days
+          {selectedAccountName && ` — ${selectedAccountName}`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {loading ? (
+        {loading && !stats ? (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
           </div>
         ) : (
           <>
+            {/* Account Filter */}
+            <div className="space-y-2">
+              <Label>EMP Account</Label>
+            <Select
+                value={selectedAccountId?.toString() || 'all'}
+                onValueChange={(val) => setSelectedAccountId(val === 'all' ? undefined : parseInt(val))}
+                disabled={exporting}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Accounts" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Accounts</SelectItem>
+                  {accounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id.toString()}>
+                      {account.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Mode Toggle */}
             <div className="space-y-2">
               <Label>Export Mode</Label>
@@ -191,8 +223,8 @@ export function CleanUsersExport() {
               </div>
               <p className="text-xs text-slate-400">
                 {mode === 'broad'
-                  ? 'All users with at least 1 approved charge and 0 lifetime chargebacks'
-                  : 'Users with 2+ approved charges and 0 lifetime chargebacks'}
+                  ? 'All users with at least 1 approved charge, 0 lifetime chargebacks, not charged recently'
+                  : 'Users with 2+ approved charges, 0 lifetime chargebacks, not charged recently'}
               </p>
             </div>
 
@@ -201,18 +233,18 @@ export function CleanUsersExport() {
               <div className="flex-1">
                 <p className="text-sm text-slate-500">Available Clean Users</p>
                 <p className="text-2xl font-bold text-slate-900">
-                  {stats?.count.toLocaleString() || 0}
+                  {loading ? '...' : stats?.count.toLocaleString() || 0}
                 </p>
               </div>
-              <Button variant="ghost" size="icon" onClick={fetchStats}>
-                <RefreshCw className="h-4 w-4" />
+              <Button variant="ghost" size="icon" onClick={fetchStats} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
 
             {/* Settings */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="min-days">Minimum Days</Label>
+                <Label htmlFor="min-days">Not Charged In (Days)</Label>
                 <Input
                   id="min-days"
                   type="number"

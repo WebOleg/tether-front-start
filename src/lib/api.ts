@@ -176,7 +176,7 @@ export interface CleanUsersStats {
   count: number
   min_days: number
   mode: string
-  cutoff_date: string
+  account_id: number | null
   streaming_threshold: number
 }
 
@@ -193,6 +193,7 @@ export interface CleanUsersExportStatus {
   limit: number
   min_days: number
   mode?: string
+  account_id?: number | null
   filename?: string
   path?: string
   size?: number
@@ -851,14 +852,17 @@ class ApiClient {
   }
 
   // Clean Users Export
-  async getCleanUsersStats(minDays: number = 30, mode: CleanUsersMode = 'broad'): Promise<CleanUsersStats> {
+  async getCleanUsersStats(minDays: number = 30, mode: CleanUsersMode = 'broad', accountId?: number): Promise<CleanUsersStats> {
+    const params: Record<string, any> = { min_days: minDays, mode }
+    if (accountId) params.account_id = accountId
+    const query = this.buildQuery(params)
     const response = await this.request<{ data: CleanUsersStats }>(
-      `/admin/billing-attempts/clean-users/stats?min_days=${minDays}&mode=${mode}`
+      `/admin/billing-attempts/clean-users/stats${query}`
     )
     return response.data
   }
 
-  async exportCleanUsers(limit: number, minDays: number = 30, mode: CleanUsersMode = 'broad'): Promise<Blob | CleanUsersExportJob> {
+  async exportCleanUsers(limit: number, minDays: number = 30, mode: CleanUsersMode = 'broad', accountId?: number): Promise<Blob | CleanUsersExportJob> {
     const token = this.getToken()
     const headers: HeadersInit = {
       'Accept': 'application/json, text/csv',
@@ -868,8 +872,12 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`
     }
 
+    const params: Record<string, any> = { limit, min_days: minDays, mode }
+    if (accountId) params.account_id = accountId
+    const queryStr = Object.entries(params).map(([k,v]) => `${k}=${encodeURIComponent(v)}`).join('&')
+
     const response = await fetch(
-      `${API_BASE_URL}/admin/billing-attempts/clean-users/export?limit=${limit}&min_days=${minDays}&mode=${mode}`,
+      `${API_BASE_URL}/admin/billing-attempts/clean-users/export?${queryStr}`,
       { headers }
     )
 

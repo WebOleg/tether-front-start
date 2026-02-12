@@ -959,11 +959,10 @@ class ApiClient {
   async getUploadCbkReasons(uploadId: number, filters: UploadCbkReasonsFilters): Promise<UploadCbkReasonSummary> {
     const query = this.buildQuery(filters)
     const response = await this.request<{ data: UploadCbkReasonSummary }>(
-      `/admin/chargebacks/upload/${uploadId}.${query}`
+      `/admin/chargebacks/upload/${uploadId}${query}`
     )
     return response.data
   }
-
   async getUploadCbkReasonRecords(uploadId: number, code: string): Promise<UploadCbkReasonRecordsResponse> {
     const response = await this.request<{ data: UploadCbkReasonRecordsResponse }>(
       `/admin/upload/${uploadId}/cbk-reasons/${encodeURIComponent(code)}/records`

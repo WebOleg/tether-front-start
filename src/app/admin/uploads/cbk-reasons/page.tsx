@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { Header } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -41,6 +41,7 @@ import type {
   Upload, 
   UploadCbkReason,
   UploadCbkReasonRecord,
+  UploadCbkReasonsFilters,
   UploadCbkReasonSummary
 } from '@/types'
 import { 
@@ -69,6 +70,7 @@ export default function UploadCbkReasonsPage() {
   const [drilldownCode, setDrilldownCode] = useState<string>('')
   const [drilldownReason, setDrilldownReason] = useState<string>('')
   const [drilldownLoading, setDrilldownLoading] = useState(false)
+  const initialSelectDoneRef = useRef(false)
 
   const monthOptions = useMemo(() => generateMonthOptions(), [])
 
@@ -78,9 +80,10 @@ export default function UploadCbkReasonsPage() {
       try {
         const response = await api.searchUploads(searchQuery || undefined)
         setUploads(response.data)
-        // Auto-select first upload if available
-        if (response.data.length > 0 && !selectedUploadId) {
+        // Auto-select first upload only on initial load
+        if (response.data.length > 0 && !initialSelectDoneRef.current) {
           setSelectedUploadId(response.data[0].id.toString())
+          initialSelectDoneRef.current = true
         }
       } catch (error) {
         console.error('Failed to fetch uploads:', error)
@@ -94,7 +97,36 @@ export default function UploadCbkReasonsPage() {
     return () => clearTimeout(timeoutId)
   }, [searchQuery])
 
-  // Fetch CBK data when upload changes
+  // Convert period to start_date and end_date
+  const getFilterDates = (period: string): { start_date?: string; end_date?: string } => {
+    const endDate = new Date()
+    const startDate = new Date()
+
+    if (period === 'all') {
+      return {}
+    }
+    if (period === '24h') {
+      startDate.setDate(endDate.getDate() - 1)
+    } else if (period === '7d') {
+      startDate.setDate(endDate.getDate() - 7)
+    } else if (period === '30d') {
+      startDate.setDate(endDate.getDate() - 30)
+    } else if (period === '90d') {
+      startDate.setDate(endDate.getDate() - 90)
+    } else if (period.includes('-')) {
+      // Month format: "2026-1"
+      const [year, month] = period.split('-').map(Number)
+      startDate.setFullYear(year, month - 1, 1)
+      endDate.setFullYear(year, month, 0) // Last day of month
+    }
+
+    return {
+      start_date: startDate.toISOString().split('T')[0],
+      end_date: endDate.toISOString().split('T')[0],
+    }
+  }
+
+  // Fetch CBK data when upload or filters change
   useEffect(() => {
     const fetchCbkData = async () => {
       if (!selectedUploadId) {
@@ -104,7 +136,11 @@ export default function UploadCbkReasonsPage() {
 
       setLoading(true)
       try {
-        const data = await api.getUploadCbkReasons(Number(selectedUploadId), {})
+        const filters: UploadCbkReasonsFilters = {
+          ...getFilterDates(selectedPeriod),
+          ...(selectedEmpAccountId !== 'all' && { emp_account_id: Number(selectedEmpAccountId) }),
+        }
+        const data = await api.getUploadCbkReasons(Number(selectedUploadId), filters)
         setCbkData(data)
       } catch (error) {
         console.error('Failed to fetch CBK data:', error)
@@ -115,7 +151,7 @@ export default function UploadCbkReasonsPage() {
     }
 
     fetchCbkData()
-  }, [selectedUploadId])
+  }, [selectedUploadId, selectedEmpAccountId, selectedPeriod])
 
   const handleViewRecords = async (reason: UploadCbkReason) => {
     if (!selectedUploadId) {
@@ -142,6 +178,19 @@ export default function UploadCbkReasonsPage() {
   }
 
   const selectedUpload = uploads.find(u => u.id.toString() === selectedUploadId)
+
+  // Fetch EMP accounts on mount
+  useEffect(() => {
+    const fetchEmpAccounts = async () => {
+      try {
+        const accounts = await api.getEmpAccounts()
+        setEmpAccounts(accounts)
+      } catch (err) {
+        console.error('Failed to fetch EMP accounts:', err)
+      }
+    }
+    fetchEmpAccounts()
+  }, [])
 
   return (
     <>

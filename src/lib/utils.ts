@@ -158,7 +158,7 @@ export function formatPercent(value: number | undefined | null): string {
 
 /**
  * Generates an array of month options starting from November 2025 up to the current month.
- * Each option includes a value (YYYY-MM format), a human-readable label (e.g., "January 2026"),
+ * Each option includes a value (YYYY-M format), a human-readable label (e.g., "January 2026"),
  * and the numeric month and year.
  * The options are returned in reverse chronological order (most recent first).
  *

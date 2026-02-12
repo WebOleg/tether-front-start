@@ -33,6 +33,7 @@ import {
   Search,
   X,
   Filter,
+  Ban,
 } from 'lucide-react'
 import type { BicAnalyticsStats, EmpAccount } from '@/types'
 import { toast } from 'sonner'
@@ -484,6 +485,7 @@ export default function BicAnalyticsPage() {
                             <TableCell className="font-mono text-sm">
                               {bic.bic}
                               {bic.is_high_risk && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2" />}
+                              {bic.is_blacklisted && <Ban className="h-4 w-4 text-black inline ml-2" />}
                             </TableCell>
                             <TableCell>{bic.bank_country}</TableCell>
                             <TableCell className="text-right">{bic.total_transactions}</TableCell>

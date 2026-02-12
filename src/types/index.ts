@@ -594,6 +594,7 @@ export interface BicAnalyticsDetail {
   cb_rate_count: number
   cb_rate_volume: number
   is_high_risk: boolean
+  is_blacklisted: boolean
 }
 
 export interface BicAnalyticsTotals {

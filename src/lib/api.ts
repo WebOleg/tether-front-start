@@ -39,6 +39,7 @@ import type {
   BavStats,
   BavStartResponse,
   BavStatusResponse,
+  CapsData,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -953,6 +954,25 @@ class ApiClient {
       `/admin/uploads/${uploadId}/bav/cancel`,
       { method: 'POST' }
     )
+  }
+
+  // Caps Methods
+  async getCaps(month?: number, year?: number): Promise<CapsData> {
+    const params: Record<string, any> = {}
+    if (month) params.month = month
+    if (year) params.year = year
+    const query = this.buildQuery(params)
+    const response = await this.request<{ success: boolean; data: CapsData }>(
+      `/admin/emp/caps${query}`
+    )
+    return response.data
+  }
+
+  async updateAccountCap(accountId: number, monthlyCap: number): Promise<void> {
+    await this.request(`/admin/emp/accounts/${accountId}/cap`, {
+      method: 'PUT',
+      body: JSON.stringify({ monthly_cap: monthlyCap }),
+    })
   }
 }
 

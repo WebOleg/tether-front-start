@@ -625,6 +625,7 @@ export interface EmpAccount {
   slug: string
   is_active: boolean
   sort_order: number
+  monthly_cap: number | null
   created_at: string
 }
 
@@ -647,8 +648,30 @@ export interface EmpAccountStats {
 }
 
 // ==========================================================================
+// Caps Types
+// ==========================================================================
+
+export interface AccountCap {
+  id: number
+  name: string
+  slug: string
+  monthly_cap: number | null
+  used: number
+  remaining: number | null
+  usage_percentage: number | null
+  tx_count: number
+}
+
+export interface CapsData {
+  month: number
+  year: number
+  accounts: AccountCap[]
+}
+
+// ==========================================================================
 // BAV Credits Types
 // ==========================================================================
+
 export interface BavCredits {
   credits_total: number
   credits_used: number

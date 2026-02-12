@@ -19,7 +19,8 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Settings
+  Settings,
+  Gauge
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
@@ -48,6 +49,7 @@ const navigation = [
   { name: 'VOP Logs', href: '/admin/vop-logs', icon: ShieldCheck },
   { name: 'Billing', href: '/admin/billing', icon: CreditCard },
   { name: 'Descriptors', href: '/admin/billing/descriptors', icon: Settings },
+  { name: 'Caps', href: '/admin/caps', icon: Gauge },
 ]
 
 interface SidebarProps {

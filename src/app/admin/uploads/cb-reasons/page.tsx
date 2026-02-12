@@ -49,6 +49,7 @@ import {
   RotateCcw
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from 'sonner'
 
 export default function UploadCbReasonsPage() {
   const searchParams = useSearchParams()  // ADD THIS LINE
@@ -81,8 +82,14 @@ export default function UploadCbReasonsPage() {
         if (uploadIdParam && !initialSelectDoneRef.current) {
           try {
             specificUpload = await api.getUpload(Number(uploadIdParam))
-          } catch (error) {
-            console.error('Failed to fetch specific upload:', error)
+          } catch (error: any) {
+            console.error('Failed to fetch specific upload')
+            // Show toast error for 404
+            if (error.status === 404) {
+              toast.error(`Upload with ID ${uploadIdParam} not found`)
+            } else {
+              toast.error(error.message ?? 'Failed to load upload')
+            }
           }
         }
 
@@ -108,7 +115,8 @@ export default function UploadCbReasonsPage() {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch uploads:', error)
+        console.error('Failed to fetch uploads')
+        toast.error('Failed to load uploads')
       }
     }
     

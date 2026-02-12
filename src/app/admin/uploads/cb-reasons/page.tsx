@@ -47,6 +47,7 @@ import {
   Percent,
   RotateCcw
 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function UploadCbReasonsPage() {
   const [uploads, setUploads] = useState<Upload[]>([])
@@ -282,9 +283,71 @@ export default function UploadCbReasonsPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-          </div>
+          <>
+            {/* Skeleton Cards */}
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-6">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i} className="py-2 gap-1">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-9 w-9 rounded-lg" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-9 w-24 mb-2" />
+                    <Skeleton className="h-4 w-32" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Skeleton Table */}
+            <div className="rounded-lg border bg-white">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead className="text-right">CB Count</TableHead>
+                    <TableHead className="text-right">CB %</TableHead>
+                    <TableHead className="text-right">Total %</TableHead>
+                    <TableHead className="text-right">CB Amount</TableHead>
+                    <TableHead>Last Occurrence</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Skeleton className="h-4 w-16" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-48" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-4 w-12 ml-auto" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-4 w-16 ml-auto" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-4 w-16 ml-auto" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Skeleton className="h-4 w-20 ml-auto" />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton className="h-4 w-24" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Skeleton className="h-8 w-16 mx-auto" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         ) : cbData ? (
           <>
             {/* Summary Cards */}
@@ -437,7 +500,7 @@ export default function UploadCbReasonsPage() {
             </div>
           </>
         ) : (
-          <div className="text-center py-12 text-slate-500">
+          <div className="text-center py-12 text-slate-500 bg-white">
             No chargeback data available for this upload
           </div>
         )}

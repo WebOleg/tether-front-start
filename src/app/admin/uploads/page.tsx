@@ -47,7 +47,8 @@ import {
   Trash2,
   Building2,
   Filter,
-  CreditCard
+  CreditCard,
+  Euro
  } from 'lucide-react'
 import type { Upload, SkippedCounts, PaginationLinks, PaginationLink, PaginationMeta as PaginationMetaType, EmpAccount } from '@/types'
 import {
@@ -760,34 +761,33 @@ export default function UploadsPage() {
                         <TableCell>
                           <Link href={`/admin/uploads/${upload.id}`} >
                             <Button
-                              variant="ghost"
+                              variant="default"
                               size="icon"
-                              className="h-8 w-8 text-blue-600 hover:text-blue-700"
+                              className="h-8 w-8 mr-2"
                             >
                                 <Eye className="h-4 w-4" />
                             </Button>
                           </Link>
+                          <Link href={`/admin/uploads/cb-reasons?upload_id=${upload.id}`}>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="h-8 w-8 mr-2"
+                              title="View CB Reasons"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          </Link>
                           {upload.is_deletable && (
                             <Button
-                              variant="ghost"
+                              variant="destructive"
                               size="icon"
-                              className="h-8 w-8 text-red-600 hover:text-red-700"
+                              className="h-8 w-8"
                               onClick={() => handleDeleteClick(upload.id)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
-                          <Link href={`/admin/uploads/cbk-reasons?upload_id=${upload.id}`}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 text-xs"
-                              title="View CBK Reasons"
-                            >
-                              <RotateCcw className="h-4 w-4 mr-1" />
-                              CBK Reasons
-                            </Button>
-                          </Link>
                         </TableCell>
                       </TableRow>
                     )

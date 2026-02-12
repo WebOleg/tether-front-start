@@ -6,6 +6,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'  // ADD THIS LINE
 import { Header } from '@/components/layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -50,6 +51,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 
 export default function UploadCbReasonsPage() {
+  const searchParams = useSearchParams()  // ADD THIS LINE
   const [uploads, setUploads] = useState<Upload[]>([])
   const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
   const [selectedUploadId, setSelectedUploadId] = useState<string>('')
@@ -67,16 +69,43 @@ export default function UploadCbReasonsPage() {
 
   const monthOptions = useMemo(() => generateMonthOptions(), [])
 
-  // Fetch uploads with search
+  // Fetch uploads with search and handle URL upload_id parameter
   useEffect(() => {
     const fetchUploads = async () => {
       try {
+        // Check for upload_id in URL parameters first
+        const uploadIdParam = searchParams.get('upload_id')
+        
+        // Fetch the specific upload if URL parameter exists
+        let specificUpload: Upload | null = null
+        if (uploadIdParam && !initialSelectDoneRef.current) {
+          try {
+            specificUpload = await api.getUpload(Number(uploadIdParam))
+          } catch (error) {
+            console.error('Failed to fetch specific upload:', error)
+          }
+        }
+
+        // Fetch all uploads with search
         const response = await api.searchUploads(searchQuery || undefined)
-        setUploads(response.data)
-        // Auto-select first upload only on initial load
-        if (response.data.length > 0 && !initialSelectDoneRef.current) {
-          setSelectedUploadId(response.data[0].id.toString())
+        let uploadsList = response.data
+
+        // If we have a specific upload from URL, add it to the beginning if not already in list
+        if (specificUpload && !initialSelectDoneRef.current) {
+          const exists = uploadsList.some(u => u.id === specificUpload!.id)
+          if (!exists) {
+            uploadsList = [specificUpload, ...uploadsList]
+          }
+          setUploads(uploadsList)
+          setSelectedUploadId(uploadIdParam!)
           initialSelectDoneRef.current = true
+        } else {
+          setUploads(uploadsList)
+          // Auto-select first upload only on initial load if no URL parameter
+          if (uploadsList.length > 0 && !initialSelectDoneRef.current) {
+            setSelectedUploadId(uploadsList[0].id.toString())
+            initialSelectDoneRef.current = true
+          }
         }
       } catch (error) {
         console.error('Failed to fetch uploads:', error)
@@ -88,7 +117,7 @@ export default function UploadCbReasonsPage() {
     }, 300) // Debounce search
 
     return () => clearTimeout(timeoutId)
-  }, [searchQuery])
+  }, [searchQuery, searchParams])  // ADD searchParams TO DEPENDENCIES
 
   // Convert period to start_date and end_date
   const getFilterDates = (period: string): { start_date?: string; end_date?: string } => {

@@ -1,5 +1,6 @@
 /**
  * BIC Analytics page - Bank-level transaction metrics for risk monitoring
+ * Updated to include Price Point Segmentation & Custom Price Filtering
  */
 'use client'
 
@@ -33,6 +34,9 @@ import {
   Search,
   X,
   Filter,
+  Ban,
+  Tag,
+  DollarSign,
 } from 'lucide-react'
 import type { BicAnalyticsStats, EmpAccount } from '@/types'
 import { toast } from 'sonner'
@@ -40,7 +44,7 @@ import { ModelTabs } from '@/components/ui/model-tabs'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatPercent } from '@/lib/utils'
 
-type SortField = 'cb_rate_count' | 'cb_rate_volume' | 'chargeback_count' | 'total_transactions' | 'total_volume'
+type SortField = 'cb_rate_count' | 'cb_rate_volume' | 'chargeback_count' | 'total_transactions' | 'total_volume' | 'amount'
 
 export default function BicAnalyticsPage() {
   const [bicStats, setBicStats] = useState<BicAnalyticsStats | null>(null)
@@ -54,6 +58,8 @@ export default function BicAnalyticsPage() {
 
   // Filters
   const [countryFilter, setCountryFilter] = useState<string>('all')
+  const [priceFilter, setPriceFilter] = useState<string>('all')
+  const [customPrice, setCustomPrice] = useState<string>('')
   const [bicSearch, setBicSearch] = useState('')
   const [highRiskOnly, setHighRiskOnly] = useState(false)
   const [hideSmallBics, setHideSmallBics] = useState(false)
@@ -79,7 +85,7 @@ export default function BicAnalyticsPage() {
         const filters: { model?: string; emp_account_id?: number } = {}
         if (activeModel !== 'all') filters.model = activeModel
         if (selectedEmpAccountId !== 'all') filters.emp_account_id = Number(selectedEmpAccountId)
-        
+
         const stats = await api.getBicAnalytics(bicPeriod, filters)
         setBicStats(stats)
       } catch (err) {
@@ -92,11 +98,19 @@ export default function BicAnalyticsPage() {
     fetchBicStats()
   }, [bicPeriod, activeModel, selectedEmpAccountId])
 
-  // Extract unique countries from data
+  // Extract unique countries
   const countries = useMemo(() => {
     if (!bicStats?.bics) return []
     const uniqueCountries = [...new Set(bicStats.bics.map(b => b.bank_country))]
     return uniqueCountries.sort()
+  }, [bicStats])
+
+  // Extract unique prices for the filter dropdown
+  const uniquePrices = useMemo(() => {
+    if (!bicStats?.bics) return []
+    // @ts-ignore
+    const prices = [...new Set(bicStats.bics.map(b => Number(b.amount || 0)))]
+    return prices.filter(p => p > 0).sort((a, b) => a - b)
   }, [bicStats])
 
   // Filter and sort BICs
@@ -108,6 +122,19 @@ export default function BicAnalyticsPage() {
     // Country filter
     if (countryFilter !== 'all') {
       result = result.filter(b => b.bank_country === countryFilter)
+    }
+
+    // Price Filter Logic: Check Custom first, then Dropdown
+    if (customPrice.trim() !== '') {
+      const targetPrice = Number(customPrice)
+      if (!isNaN(targetPrice)) {
+        // @ts-ignore
+        result = result.filter(b => Math.abs(Number(b.amount || 0) - targetPrice) < 0.01)
+      }
+    } else if (priceFilter !== 'all') {
+      const targetPrice = Number(priceFilter)
+      // @ts-ignore
+      result = result.filter(b => Math.abs(Number(b.amount || 0) - targetPrice) < 0.01)
     }
 
     // BIC search
@@ -128,13 +155,16 @@ export default function BicAnalyticsPage() {
 
     // Sort
     result.sort((a, b) => {
-      const aVal = a[sortField] ?? 0
-      const bVal = b[sortField] ?? 0
+      // @ts-ignore
+      const aVal = sortField === 'amount' ? (Number(a.amount) || 0) : (a[sortField] ?? 0)
+      // @ts-ignore
+      const bVal = sortField === 'amount' ? (Number(b.amount) || 0) : (b[sortField] ?? 0)
+
       return bVal - aVal // desc
     })
 
     return result
-  }, [bicStats, countryFilter, bicSearch, highRiskOnly, hideSmallBics, sortField])
+  }, [bicStats, countryFilter, priceFilter, customPrice, bicSearch, highRiskOnly, hideSmallBics, sortField])
 
   // Calculate filtered totals
   const filteredTotals = useMemo(() => {
@@ -168,7 +198,6 @@ export default function BicAnalyticsPage() {
       chargeback_volume: 0,
     })
 
-    // Bank KPI formula: chargebacks / approved
     const cbRateCount = totals.total_transactions > 0
         ? (totals.chargeback_count / totals.total_transactions) * 100
         : 0
@@ -194,7 +223,7 @@ export default function BicAnalyticsPage() {
       const filters: { model?: string; emp_account_id?: number } = {}
       if (activeModel !== 'all') filters.model = activeModel
       if (selectedEmpAccountId !== 'all') filters.emp_account_id = Number(selectedEmpAccountId)
-      
+
       const blob = await api.getBicAnalyticsExport(bicPeriod, filters)
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -214,12 +243,15 @@ export default function BicAnalyticsPage() {
   // Calculate active filters count
   const activeFilterCount =
       (countryFilter !== 'all' ? 1 : 0) +
+      (priceFilter !== 'all' || customPrice !== '' ? 1 : 0) +
       (bicSearch !== '' ? 1 : 0) +
       (highRiskOnly ? 1 : 0) +
       (hideSmallBics ? 1 : 0)
 
   const clearFilters = () => {
     setCountryFilter('all')
+    setPriceFilter('all')
+    setCustomPrice('')
     setBicSearch('')
     setHighRiskOnly(false)
     setHideSmallBics(false)
@@ -230,7 +262,7 @@ export default function BicAnalyticsPage() {
 
   return (
       <div className="min-h-screen bg-slate-50">
-        <Header title="BIC Analytics" description="Bank-level transaction metrics and risk monitoring" />
+        <Header title="BIC Analytics" description="Price Point Segmentation & Risk Monitoring" />
         <main className="container mx-auto px-6 py-8">
 
           {/* Model Tabs */}
@@ -299,6 +331,50 @@ export default function BicAnalyticsPage() {
                 </Select>
               </div>
 
+              {/* Price Filters Group */}
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-md border border-slate-200">
+                <Label className="text-sm whitespace-nowrap px-2">Price:</Label>
+
+                {/* Quick Select Dropdown */}
+                <Select
+                    value={priceFilter}
+                    onValueChange={(val) => {
+                      setPriceFilter(val)
+                      if(val !== 'all') setCustomPrice('') // Clear custom if dropdown used
+                    }}
+                >
+                  <SelectTrigger className="w-24 h-8 bg-white border-slate-200">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any</SelectItem>
+                    {uniquePrices.map(p => (
+                        <SelectItem key={p} value={p.toString()}>
+                          {p.toFixed(2)}
+                        </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <span className="text-slate-400 text-xs">or</span>
+
+                {/* Custom Price Input */}
+                <div className="relative">
+                  <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
+                  <Input
+                      placeholder="Custom..."
+                      value={customPrice}
+                      onChange={(e) => {
+                        setCustomPrice(e.target.value)
+                        if(e.target.value) setPriceFilter('all') // Reset dropdown if custom typing
+                      }}
+                      className="pl-6 h-8 w-24 bg-white border-slate-200 text-xs"
+                      type="number"
+                      step="0.01"
+                  />
+                </div>
+              </div>
+
               {/* BIC Search */}
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -343,6 +419,7 @@ export default function BicAnalyticsPage() {
                     <SelectItem value="cb_rate_volume">CB % Volume</SelectItem>
                     <SelectItem value="chargeback_count">Chargebacks</SelectItem>
                     <SelectItem value="total_transactions">Total TX</SelectItem>
+                    <SelectItem value="amount">Price Point</SelectItem>
                     <SelectItem value="total_volume">Volume</SelectItem>
                   </SelectContent>
                 </Select>
@@ -399,7 +476,7 @@ export default function BicAnalyticsPage() {
               <div className="grid gap-4 md:grid-cols-5 mb-6">
                 <Card>
                   <CardContent className="pt-4">
-                    <div className="text-sm text-slate-500">Total BICs</div>
+                    <div className="text-sm text-slate-500">Segments (BIC+Price)</div>
                     <div className="text-2xl font-bold">{filteredTotals.total_bics}</div>
                     {activeFilterCount > 0 && bicStats && (
                         <div className="text-xs text-slate-400">of {bicStats.totals.total_bics}</div>
@@ -409,7 +486,7 @@ export default function BicAnalyticsPage() {
                 <Card className={hasHighRisk ? 'border-red-300' : ''}>
                   <CardContent className="pt-4">
                     <div className="text-sm text-slate-500 flex items-center gap-1">
-                      High Risk BICs
+                      High Risk Segments
                       {hasHighRisk && <AlertTriangle className="h-4 w-4 text-red-500" />}
                     </div>
                     <div className={`text-2xl font-bold ${hasHighRisk ? 'text-red-600' : ''}`}>
@@ -449,7 +526,7 @@ export default function BicAnalyticsPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-slate-500" />
-                <CardTitle className="text-lg">Transactions by BIC</CardTitle>
+                <CardTitle className="text-lg">Transactions by BIC & Price</CardTitle>
                 {hasHighRisk && <AlertTriangle className="h-5 w-5 text-red-500" />}
                 {activeModel !== 'all' && (
                     <Badge variant="outline" className="ml-2 capitalize">
@@ -468,6 +545,7 @@ export default function BicAnalyticsPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>BIC</TableHead>
+                        <TableHead>Price Point</TableHead>
                         <TableHead>Country</TableHead>
                         <TableHead className="text-right">Total TX</TableHead>
                         <TableHead className="text-right">Approved</TableHead>
@@ -479,29 +557,58 @@ export default function BicAnalyticsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredBics.map((bic) => (
-                          <TableRow key={bic.bic} className={bic.is_high_risk ? 'bg-red-50' : ''}>
-                            <TableCell className="font-mono text-sm">
-                              {bic.bic}
-                              {bic.is_high_risk && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2" />}
-                            </TableCell>
-                            <TableCell>{bic.bank_country}</TableCell>
-                            <TableCell className="text-right">{bic.total_transactions}</TableCell>
-                            <TableCell className="text-right text-green-600">{bic.approved_count}</TableCell>
-                            <TableCell className="text-right text-amber-600">{bic.declined_count}</TableCell>
-                            <TableCell className="text-right text-red-600">{bic.chargeback_count}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(bic.total_volume)}</TableCell>
-                            <TableCell className={`text-right font-medium ${(bic.cb_rate_count ?? 0) >= 25 ? 'text-red-600' : ''}`}>
-                              {formatPercent(bic.cb_rate_count)}
-                            </TableCell>
-                            <TableCell className={`text-right font-medium ${(bic.cb_rate_volume ?? 0) >= 25 ? 'text-red-600' : ''}`}>
-                              {formatPercent(bic.cb_rate_volume)}
-                            </TableCell>
-                          </TableRow>
-                      ))}
+                      {filteredBics.map((bic) => {
+                        // Typescript safe access for potentially missing fields if types not updated
+                        // @ts-ignore
+                        const amount = Number(bic.amount) || 0;
+                        // @ts-ignore
+                        const currency = bic.currency || 'EUR';
+
+                        // Card Testing Risk: Small Amount (< 5) + High CB Rate (> 35%)
+                        const isCardTesting = amount > 0 && amount < 5 && (bic.cb_rate_count ?? 0) >= 35;
+
+                        // Fix for React keys to be unique per row
+                        const rowKey = `${bic.bic}-${currency}-${amount}`;
+
+                        return (
+                            <TableRow key={rowKey} className={bic.is_high_risk ? 'bg-red-50' : ''}>
+                              <TableCell className="font-mono text-sm">
+                                {bic.bic}
+                                {bic.is_high_risk && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2" />}
+                                {bic.is_blacklisted && <Ban className="h-4 w-4 text-black inline ml-2" />}
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {amount > 0 ? (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-slate-600">{currency}</span>
+                                      <span>{amount.toFixed(2)}</span>
+                                      {isCardTesting && (
+                                          <Badge variant="destructive" className="ml-2 h-5 px-1 text-[10px] bg-red-600 hover:bg-red-700">
+                                            BAD
+                                          </Badge>
+                                      )}
+                                    </div>
+                                ) : (
+                                    <span className="text-slate-400 italic text-xs">Mixed / N/A</span>
+                                )}
+                              </TableCell>
+                              <TableCell>{bic.bank_country}</TableCell>
+                              <TableCell className="text-right">{bic.total_transactions}</TableCell>
+                              <TableCell className="text-right text-green-600">{bic.approved_count}</TableCell>
+                              <TableCell className="text-right text-amber-600">{bic.declined_count}</TableCell>
+                              <TableCell className="text-right text-red-600">{bic.chargeback_count}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(bic.total_volume)}</TableCell>
+                              <TableCell className={`text-right font-medium ${(bic.cb_rate_count ?? 0) >= 25 ? 'text-red-600' : ''}`}>
+                                {formatPercent(bic.cb_rate_count)}
+                              </TableCell>
+                              <TableCell className={`text-right font-medium ${(bic.cb_rate_volume ?? 0) >= 25 ? 'text-red-600' : ''}`}>
+                                {formatPercent(bic.cb_rate_volume)}
+                              </TableCell>
+                            </TableRow>
+                        )})}
                       {/* Total Row */}
                       <TableRow className={`${hasHighRisk ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
-                        <TableCell colSpan={2}>Total ({filteredTotals.total_bics} BICs)</TableCell>
+                        <TableCell colSpan={3}>Total ({filteredTotals.total_bics} Segments)</TableCell>
                         <TableCell className="text-right">{filteredTotals.total_transactions.toLocaleString()}</TableCell>
                         <TableCell className="text-right">-</TableCell>
                         <TableCell className="text-right">-</TableCell>

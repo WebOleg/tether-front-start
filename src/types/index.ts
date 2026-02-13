@@ -135,6 +135,7 @@ export interface DebtorProfile {
 export interface Debtor {
   id: number
   upload_id: number
+  iban: string
   iban_masked: string
   iban_valid: boolean
   first_name: string
@@ -165,6 +166,7 @@ export interface Debtor {
   bic: string | null
   bank_name_reference: string | null
   bank_country_iso_reference: string | null
+  emp_account_name: string | null
   raw_data: Record<string, string> | null
   created_at: string
   updated_at: string
@@ -582,6 +584,8 @@ export interface Chargebacks {
 export interface BicAnalyticsDetail {
   bic: string
   bank_country: string
+  currency: string
+  amount: number
   total_transactions: number
   approved_count: number
   declined_count: number
@@ -594,6 +598,7 @@ export interface BicAnalyticsDetail {
   cb_rate_count: number
   cb_rate_volume: number
   is_high_risk: boolean
+  is_blacklisted: boolean
 }
 
 export interface BicAnalyticsTotals {
@@ -625,6 +630,7 @@ export interface EmpAccount {
   slug: string
   is_active: boolean
   sort_order: number
+  monthly_cap: number | null
   created_at: string
 }
 
@@ -647,8 +653,30 @@ export interface EmpAccountStats {
 }
 
 // ==========================================================================
+// Caps Types
+// ==========================================================================
+
+export interface AccountCap {
+  id: number
+  name: string
+  slug: string
+  monthly_cap: number | null
+  used: number
+  remaining: number | null
+  usage_percentage: number | null
+  tx_count: number
+}
+
+export interface CapsData {
+  month: number
+  year: number
+  accounts: AccountCap[]
+}
+
+// ==========================================================================
 // BAV Credits Types
 // ==========================================================================
+
 export interface BavCredits {
   credits_total: number
   credits_used: number
@@ -687,6 +715,45 @@ export interface BavStatusResponse {
     processed: number
     percentage: number
   }
+}
+
+// ==========================================================================
+// Price Point Analytics Types
+// ==========================================================================
+
+export interface PricePointDetail {
+  price_point: number
+  total: number
+  approved: number
+  declined: number
+  errors: number
+  chargebacks: number
+  approved_volume: number
+  chargeback_volume: number
+  cb_rate: number | null
+  alert: boolean
+}
+
+export interface PricePointTotals {
+  total: number
+  approved: number
+  declined: number
+  errors: number
+  chargebacks: number
+  approved_volume: number
+  chargeback_volume: number
+  cb_rate: number | null
+  alert: boolean
+}
+
+export interface PricePointStats {
+  period: string
+  start_date: string | null
+  end_date: string | null
+  date_mode: string
+  threshold: number
+  price_points: PricePointDetail[]
+  totals: PricePointTotals
 }
 
 export interface UploadCbData {

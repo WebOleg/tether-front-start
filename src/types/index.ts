@@ -249,6 +249,11 @@ export interface BillingAttempt {
   emp_account?: EmpAccountRef | null
 }
 
+export interface AnalyticsFilters {
+  model?: string;
+  emp_account_id?: number;
+}
+
 export type BillingStatus = 'pending' | 'approved' | 'declined' | 'error' | 'voided' | 'chargebacked'
 
 export interface User {

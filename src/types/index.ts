@@ -757,7 +757,7 @@ export interface PricePointStats {
 }
 
 export interface UploadCbData {
-  summary: UploadCbCardData[]
+  summary: UploadCbCardData
   codes: UploadCbCodeData[]
 }
 
@@ -815,6 +815,6 @@ export interface CbReasonRecord {
 
 export interface CbReasonResponse {
   data: CbReasonRecord[]
-  links: PaginationLink
+  links: PaginationLinks
   meta: PaginationMeta
 }

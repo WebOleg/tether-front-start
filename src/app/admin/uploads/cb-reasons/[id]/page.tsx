@@ -38,7 +38,7 @@ export default function UploadCbReasonsPage() {
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [meta, setMeta] = useState<PaginationMetaType | null>(null)
-  const [links, setLinks] = useState<PaginationLinks[]>([])
+  const [links, setLinks] = useState<PaginationLinks | null>(null)
   const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
 
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function UploadCbReasonsPage() {
         const response = await api.getUploadCbReasonRecords(uploadId, code, currentPage, 100)
         setRecords(response.data || [])
         setMeta(response.meta || null)
-        setLinks(response.links || [])
+        setLinks(response.links || null)
 
         // Extract pagination links from meta if they exist
         if (response.meta && 'links' in response.meta) {

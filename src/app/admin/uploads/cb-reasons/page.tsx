@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'  // ADD THIS LINE
 import Link from 'next/link'
 import { Header } from '@/components/layout'
@@ -50,6 +50,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 
 export default function UploadCbReasonsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+      <UploadCbReasonsPageContent />
+    </Suspense>
+  )
+}
+
+function UploadCbReasonsPageContent() {
   const searchParams = useSearchParams()  // ADD THIS LINE
   const [uploads, setUploads] = useState<Upload[]>([])
   const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
@@ -452,14 +460,14 @@ export default function UploadCbReasonsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(cbData?.reasons ?? []).length === 0 ? (
+                  {(cbData?.codes ?? []).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-12 text-slate-500">
                         No chargeback reasons found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    (cbData?.reasons ?? []).map((reason) => (
+                    (cbData?.codes ?? []).map((reason) => (
                       <TableRow key={reason.code}>
                         <TableCell>
                           <span className="font-mono text-rose-600">

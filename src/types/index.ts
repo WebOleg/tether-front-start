@@ -582,6 +582,8 @@ export interface Chargebacks {
 export interface BicAnalyticsDetail {
   bic: string
   bank_country: string
+  currency: string
+  amount: number
   total_transactions: number
   approved_count: number
   declined_count: number

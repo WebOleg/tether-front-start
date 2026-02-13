@@ -135,6 +135,7 @@ export interface DebtorProfile {
 export interface Debtor {
   id: number
   upload_id: number
+  iban: string
   iban_masked: string
   iban_valid: boolean
   first_name: string
@@ -165,6 +166,7 @@ export interface Debtor {
   bic: string | null
   bank_name_reference: string | null
   bank_country_iso_reference: string | null
+  emp_account_name: string | null
   raw_data: Record<string, string> | null
   created_at: string
   updated_at: string

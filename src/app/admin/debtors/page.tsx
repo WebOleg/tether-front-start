@@ -40,7 +40,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger, // Added
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import {
   Tooltip,
@@ -62,7 +62,7 @@ import {
   TriangleAlert,
   FileText,
   X,
-  Trash2, // Added
+  Trash2,
 } from 'lucide-react'
 import { formatCurrency, formatDateTime, getDaysRemaining } from '@/lib/utils'
 
@@ -75,29 +75,24 @@ function DebtorsContent() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  // Get initial state from URL
   const currentStatus = searchParams.get('status') || 'all'
   const currentModel = searchParams.get('model') || 'all'
   const currentSearch = searchParams.get('search') || ''
   const currentPage = Number(searchParams.get('page')) || 1
 
-  // Local state for API data
   const [debtors, setDebtors] = useState<Debtor[]>([])
   const [loading, setLoading] = useState(true)
   const [meta, setMeta] = useState<PaginationMetaType | null>(null)
   const [links, setLinks] = useState<PaginationLinks | null>(null)
   const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
 
-  // Local state for Search Input
   const [searchInput, setSearchInput] = useState(currentSearch)
 
-  // Edit State
   const [editingDebtor, setEditingDebtor] = useState<Debtor | null>(null)
   const [formData, setFormData] = useState<EditDebtorForm>({ model: 'legacy' })
   const [isSaving, setIsSaving] = useState(false)
   const [showLegacyWarning, setShowLegacyWarning] = useState(false)
 
-  // --- NEW STATE: Pruning Orphans ---
   const [showPruneDialog, setShowPruneDialog] = useState(false)
   const [orphanCount, setOrphanCount] = useState<number | null>(null)
   const [isCheckingOrphans, setIsCheckingOrphans] = useState(false)
@@ -172,7 +167,6 @@ function DebtorsContent() {
     fetchDebtors()
   }, [fetchDebtors])
 
-  // Handlers
   const handleStatusFilterChange = (status: string) => updateUrl({ status })
   const handleModelFilterChange = (model: string) => updateUrl({ model })
 
@@ -222,11 +216,10 @@ function DebtorsContent() {
     }
   }
 
-  // --- NEW HANDLERS: Pruning Orphans ---
   const handleCheckOrphans = async () => {
     setIsCheckingOrphans(true)
     try {
-      const res = await api.getOrphanCount() // Assumes this method exists in your API wrapper
+      const res = await api.getOrphanCount()
       setOrphanCount(res.orphaned_count)
       setShowPruneDialog(true)
     } catch (error) {
@@ -239,9 +232,9 @@ function DebtorsContent() {
   const handlePruneOrphans = async () => {
     setIsPruning(true)
     try {
-      await api.pruneOrphans() // Assumes this method exists
+      await api.pruneOrphans()
       setShowPruneDialog(false)
-      fetchDebtors() // Refresh list
+      fetchDebtors()
     } catch (error) {
       console.error("Failed to prune orphans", error)
     } finally {
@@ -257,11 +250,9 @@ function DebtorsContent() {
         />
         <div className="p-6">
 
-          {/* Filters Bar */}
           <div className="mb-4 flex flex-col xl:flex-row gap-4 xl:items-center">
             <div className="flex flex-wrap gap-3 flex-1 w-full items-center">
 
-              {/* Search */}
               <div className="relative w-full sm:w-72">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
@@ -272,7 +263,6 @@ function DebtorsContent() {
                 />
               </div>
 
-              {/* Model Select */}
               <Select value={currentModel} onValueChange={handleModelFilterChange}>
                 <SelectTrigger className="w-full sm:w-48 bg-white">
                   <SelectValue placeholder="Model" />
@@ -285,7 +275,6 @@ function DebtorsContent() {
                 </SelectContent>
               </Select>
 
-              {/* Status Select */}
               <Select value={currentStatus} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="w-full sm:w-48 bg-white">
                   <SelectValue placeholder="Status" />
@@ -301,7 +290,6 @@ function DebtorsContent() {
                 </SelectContent>
               </Select>
 
-              {/* Reset Button */}
               {activeFilterCount > 0 && (
                   <Button
                       variant="outline"
@@ -318,7 +306,6 @@ function DebtorsContent() {
               )}
             </div>
 
-            {/* --- NEW BUTTON: Prune Orphans --- */}
             <div className="flex-shrink-0">
               <Button
                   variant="outline"
@@ -358,6 +345,7 @@ function DebtorsContent() {
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Bank Name</TableHead>
                   <TableHead>Bank Country</TableHead>
+                  <TableHead>Account</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Risk</TableHead>
                   <TableHead className="w-[100px]"></TableHead>
@@ -366,13 +354,13 @@ function DebtorsContent() {
               <TableBody>
                 {loading ? (
                     <TableRow>
-                      <TableCell colSpan={14} className="text-center py-8">
+                      <TableCell colSpan={15} className="text-center py-8">
                         Loading...
                       </TableCell>
                     </TableRow>
                 ) : debtors.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={14} className="text-center py-8">
+                      <TableCell colSpan={15} className="text-center py-8">
                         No debtors found
                       </TableCell>
                     </TableRow>
@@ -488,8 +476,8 @@ function DebtorsContent() {
                             </TableCell>
 
                             <TableCell>
-                              <div className="font-mono text-sm">
-                                {debtor.iban_masked}
+                              <div className="font-mono text-xs">
+                                {debtor.iban}
                               </div>
                             </TableCell>
                             <TableCell>{debtor.country}</TableCell>
@@ -498,6 +486,13 @@ function DebtorsContent() {
                             </TableCell>
                             <TableCell>{debtor.bank_name_reference}</TableCell>
                             <TableCell>{debtor.bank_country_iso_reference}</TableCell>
+                            <TableCell>
+                              {debtor.emp_account_name ? (
+                                <span className="text-xs text-slate-600">{debtor.emp_account_name}</span>
+                              ) : (
+                                <span className="text-slate-300">-</span>
+                              )}
+                            </TableCell>
                             <TableCell>
                               <StatusBadge status={debtor.status} />
                             </TableCell>
@@ -607,7 +602,6 @@ function DebtorsContent() {
             </DialogContent>
           </Dialog>
 
-          {/* Model Change Confirmation Dialog */}
           <AlertDialog open={showLegacyWarning} onOpenChange={setShowLegacyWarning}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -634,7 +628,6 @@ function DebtorsContent() {
             </AlertDialogContent>
           </AlertDialog>
 
-          {/* --- NEW DIALOG: Prune Orphans Confirmation --- */}
           <AlertDialog open={showPruneDialog} onOpenChange={setShowPruneDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -654,7 +647,7 @@ function DebtorsContent() {
                 <AlertDialogCancel disabled={isPruning}>Cancel</AlertDialogCancel>
                 <AlertDialogAction
                     onClick={(e) => {
-                      e.preventDefault(); // Prevent auto-close
+                      e.preventDefault();
                       handlePruneOrphans();
                     }}
                     disabled={isPruning}

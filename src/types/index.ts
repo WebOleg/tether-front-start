@@ -758,7 +758,7 @@ export interface PricePointStats {
 
 export interface UploadCbData {
   summary: UploadCbCardData
-  codes: UploadCbCodeData[]
+  reasons: UploadCbCodeData[]
 }
 
 export interface UploadCbCodeData {

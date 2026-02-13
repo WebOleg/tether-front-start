@@ -460,14 +460,14 @@ function UploadCbReasonsPageContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(cbData?.codes ?? []).length === 0 ? (
+                  {(cbData?.reasons ?? []).length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} className="text-center py-12 text-slate-500">
                         No chargeback reasons found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    (cbData?.codes ?? []).map((reason) => (
+                    (cbData?.reasons ?? []).map((reason) => (
                       <TableRow key={reason.code}>
                         <TableCell>
                           <span className="font-mono text-rose-600">

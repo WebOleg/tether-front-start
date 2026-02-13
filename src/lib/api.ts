@@ -964,9 +964,10 @@ class ApiClient {
     return response
   }
 
-  async getUploadCbReasonRecords(uploadId: number, code: string): Promise<CbReasonResponse> {
+  async getUploadCbReasonRecords(uploadId: number, code: string, page: number = 1, perPage: number = 100): Promise<CbReasonResponse> {
+    const query = this.buildQuery({ page, per_page: perPage })
     const response = await this.request<CbReasonResponse>(
-      `/admin/chargebacks/upload/${uploadId}/${encodeURIComponent(code)}/records`
+      `/admin/chargebacks/upload/${uploadId}/${encodeURIComponent(code)}/records${query}`
     )
     return response
   }

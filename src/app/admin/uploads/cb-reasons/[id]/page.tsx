@@ -20,9 +20,10 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import { formatDate, formatCurrency, formatDateNullable } from '@/lib/utils'
-import { CbReasonResponse, CbReasonRecord, Upload } from '@/types'
+import { CbReasonResponse, CbReasonRecord, Upload, PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType } from '@/types'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Building2 } from 'lucide-react'
+import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 
 export default function UploadCbReasonsPage() {
   const params = useParams()
@@ -35,6 +36,10 @@ export default function UploadCbReasonsPage() {
   const [uploadOriginalFilename, setUploadOriginalFilename] = useState<string>('')
   const [records, setRecords] = useState<CbReasonRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [meta, setMeta] = useState<PaginationMetaType | null>(null)
+  const [links, setLinks] = useState<PaginationLinks[]>([])
+  const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
 
   useEffect(() => {
     const fetchUpload = async () => {
@@ -59,8 +64,15 @@ export default function UploadCbReasonsPage() {
 
       try {
         setLoading(true)
-        const response = await api.getUploadCbReasonRecords(uploadId, code)
+        const response = await api.getUploadCbReasonRecords(uploadId, code, currentPage, 100)
         setRecords(response.data || [])
+        setMeta(response.meta || null)
+        setLinks(response.links || [])
+
+        // Extract pagination links from meta if they exist
+        if (response.meta && 'links' in response.meta) {
+          setPaginationLinks((response.meta as any).links || [])
+        }
       } catch (error) {
         setRecords([])
       } finally {
@@ -69,7 +81,23 @@ export default function UploadCbReasonsPage() {
     }
 
     fetchRecords()
-  }, [uploadId, code])
+  }, [uploadId, code, currentPage])  // Add currentPage to dependency array
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1)
+    }
+  }
+
+  const handleNextPage = () => {
+    if (meta && currentPage < meta.last_page) {
+      setCurrentPage(prev => prev + 1)
+    }
+  }
+
+  const handlePageClick = (page: number) => {
+    setCurrentPage(page)
+  }
 
   return (
     <>
@@ -86,6 +114,14 @@ export default function UploadCbReasonsPage() {
             </Button>
           </Link>
         </div>
+
+        {meta && (
+          <PaginationMeta
+            meta={meta}
+            label="Chargebacks"
+            containerClassName='px-2'
+          />
+        )}
 
         <div className="rounded-lg border bg-white">
           <Table>
@@ -160,11 +196,14 @@ export default function UploadCbReasonsPage() {
           </Table>
         </div>
 
-        {records.length > 0 && (
-          <div className="mt-4 text-sm text-slate-600">
-            Showing {records.length} record{records.length !== 1 ? 's' : ''}
-          </div>
-        )}
+        <Pagination
+          meta={meta}
+          links={links}
+          paginationLinks={paginationLinks}
+          onPageChange={handlePageClick}
+          onPreviousClick={handlePreviousPage}
+          onNextClick={handleNextPage}
+        />
       </div>
     </>
   )

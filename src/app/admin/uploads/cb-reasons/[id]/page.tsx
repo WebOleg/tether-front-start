@@ -20,40 +20,9 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { Upload } from '@/types'
+import { CbReasonResponse, CbReasonRecord, Upload } from '@/types'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
-
-interface CbReasonRecord {
-  id: number
-  error_code: string
-  error_message: string | null
-  amount: number
-  currency: string
-  bank_name: string | null
-  bank_country: string | null
-  processed_at: string
-  emp_created_at: string
-  chargebacked_at: string
-  debtor: {
-    id: number
-    first_name: string
-    last_name: string
-    email: string
-    iban: string
-  }
-  emp_account: {
-    id: number
-    name: string
-    slug: string
-  }
-}
-
-interface CbReasonResponse {
-  data: CbReasonRecord[]
-  links: any
-  meta: any
-}
 
 export default function UploadCbReasonsPage() {
   const params = useParams()
@@ -90,10 +59,10 @@ export default function UploadCbReasonsPage() {
 
       try {
         setLoading(true)
-        const response = await api.getUploadCbReasonRecords(uploadId, code) as any as CbReasonResponse
+        const response = await api.getUploadCbReasonRecords(uploadId, code)
+        console.log('CB reason records response:', response)
         setRecords(response.data || [])
       } catch (error) {
-        console.error('Error fetching CB reason records:', error)
         setRecords([])
       } finally {
         setLoading(false)
@@ -110,13 +79,14 @@ export default function UploadCbReasonsPage() {
         description={uploadFilename ? ` ${uploadFilename} (${uploadOriginalFilename})` : `Showing CB reasons of ${code}`}
       />
       <div className="p-6">
-
-        <Link href={`/admin/uploads/cb-reasons?upload_id=${uploadId}`}>
-          <Button variant="outline" size="sm" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-        </Link>
+        <div className="mb-2">
+          <Link href={`/admin/uploads/cb-reasons?upload_id=${uploadId}`}>
+            <Button variant="outline" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </Link>
+        </div>
 
         <div className="rounded-lg border bg-white">
           <Table>

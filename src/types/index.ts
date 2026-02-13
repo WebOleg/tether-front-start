@@ -689,54 +689,64 @@ export interface BavStatusResponse {
   }
 }
 
-export interface UploadCbReason {
+export interface UploadCbData {
+  summary: UploadCbCardData[]
+  codes: UploadCbCodeData[]
+}
+
+export interface UploadCbCodeData {
   code: string
   reason: string
   cb_count: number
   cb_percentage: number
   total_percentage: number
-  cb_amount: number
   last_occurrence: string | null
-}
-
-export interface UploadCbReasonSummary {
-  upload_id: number
-  upload_filename: string
-  total_records: number
-  total_successful: number
-  total_chargebacks: number
-  approved_amount: number
   cb_amount: number
-  cb_percentage: number
-  reasons: UploadCbReason[]
 }
 
-export interface UploadCbReasonRecord {
-  id: number
-  debtor_id: number
-  first_name: string
-  last_name: string
-  iban_masked: string
-  bic: string | null
-  transaction_id: string
-  amount: number
-  currency: string
-  error_code: string
-  error_message: string | null
-  chargebacked_at: string
-  emp_account_name: string | null
-}
-
-export interface UploadCbReasonRecordsResponse {
-  upload_id: number
-  code: string
-  reason: string
-  records: UploadCbReasonRecord[]
+export interface  UploadCbCardData {
+  total_records: number
+  valid_count: number
+  billed_count: number
+  total_chargebacks: number
+  cb_amount: number
+  approved_amount: number
+  cb_rate: number
 }
 
 export interface UploadCbReasonsFilters {
-  upload_id?: number
-  emp_account_id?: number
   start_date?: string
   end_date?: string
+  emp_account_id?: number
+}
+
+export interface CbReasonRecord {
+  id: number
+  error_code: string
+  error_message: string | null
+  amount: number
+  currency: string
+  bank_name: string | null
+  bank_country: string | null
+  processed_at: string | null
+  emp_created_at: string | null
+  chargebacked_at: string | null
+  debtor: {
+    id: number
+    first_name: string
+    last_name: string
+    email: string
+    iban: string
+  } | null
+  emp_account: {
+    id: number
+    name: string
+    slug: string
+  } | null
+}
+
+export interface CbReasonResponse {
+  data: CbReasonRecord[]
+  links: PaginationLink
+  meta: PaginationMeta
 }

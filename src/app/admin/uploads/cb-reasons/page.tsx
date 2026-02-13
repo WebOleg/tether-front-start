@@ -29,14 +29,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { api } from '@/lib/api'
-import { formatCurrency, formatDate, formatDateNullable, generateMonthOptions } from '@/lib/utils'
+import { formatCurrency, formatDateNullable, generateMonthOptions } from '@/lib/utils'
 import type { 
   EmpAccount,
   Upload, 
-  UploadCbReason,
-  UploadCbReasonRecord,
-  UploadCbReasonsFilters,
-  UploadCbReasonSummary
+  UploadCbData, 
+  UploadCbReasonsFilters
 } from '@/types'
 import { 
   Building2, 
@@ -59,13 +57,8 @@ export default function UploadCbReasonsPage() {
   const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<string>('all')
   const [selectedPeriod, setSelectedPeriod] = useState<string>('30d')
   const [searchQuery, setSearchQuery] = useState<string>('')
-  const [cbData, setcbData] = useState<UploadCbReasonSummary | null>(null)
+  const [cbData, setCbData] = useState<UploadCbData | null>(null)
   const [loading, setLoading] = useState(false)
-  const [drilldownOpen, setDrilldownOpen] = useState(false)
-  const [drilldownRecords, setDrilldownRecords] = useState<UploadCbReasonRecord[]>([])
-  const [drilldownCode, setDrilldownCode] = useState<string>('')
-  const [drilldownReason, setDrilldownReason] = useState<string>('')
-  const [drilldownLoading, setDrilldownLoading] = useState(false)
   const initialSelectDoneRef = useRef(false)
 
   const monthOptions = useMemo(() => generateMonthOptions(), [])
@@ -160,7 +153,7 @@ export default function UploadCbReasonsPage() {
   useEffect(() => {
     const fetchcbData = async () => {
       if (!selectedUploadId) {
-        setcbData(null)
+        setCbData(null)
         return
       }
 
@@ -171,10 +164,12 @@ export default function UploadCbReasonsPage() {
           ...(selectedEmpAccountId !== 'all' && { emp_account_id: Number(selectedEmpAccountId) }),
         }
         const data = await api.getUploadCbReasons(Number(selectedUploadId), filters)
-        setcbData(data)
+        console.log('Fetched CBK data:', data)
+        setCbData(data)
+        console.log('CBK reasons data set in state:', cbData)
       } catch (error) {
         console.error('Failed to fetch CBK data:', error)
-        setcbData(null)
+        setCbData(null)
       } finally {
         setLoading(false)
       }
@@ -182,30 +177,6 @@ export default function UploadCbReasonsPage() {
 
     fetchcbData()
   }, [selectedUploadId, selectedEmpAccountId, selectedPeriod])
-
-  const handleViewRecords = async (reason: UploadCbReason) => {
-    if (!selectedUploadId) {
-      return
-    }
-
-    setDrilldownCode(reason.code || 'Unknown')
-    setDrilldownReason(reason.reason || 'No reason provided')
-    setDrilldownOpen(true)
-    setDrilldownLoading(true)
-
-    try {
-      const response = await api.getUploadCbReasonRecords(
-        Number(selectedUploadId), 
-        reason.code || ''
-      )
-      setDrilldownRecords(response.records)
-    } catch (error) {
-      console.error('Failed to fetch records:', error)
-      setDrilldownRecords([])
-    } finally {
-      setDrilldownLoading(false)
-    }
-  }
 
   const selectedUpload = uploads.find(u => u.id.toString() === selectedUploadId)
 
@@ -399,7 +370,7 @@ export default function UploadCbReasonsPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{(cbData?.total_records ?? 0).toLocaleString()}</div>
+                  <div className="text-3xl font-bold">{(cbData?.summary?.total_records ?? 0).toLocaleString()}</div>
                   <p className="text-sm text-slate-500 mt-1">All records in upload</p>
                 </CardContent>
               </Card>
@@ -415,10 +386,10 @@ export default function UploadCbReasonsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-green-600">
-                    {(cbData?.total_successful ?? 0).toLocaleString()}
+                    {(cbData?.summary?.billed_count ?? 0).toLocaleString()}
                   </div>
                   <p className="text-sm text-slate-500 mt-1">
-                    {cbData?.approved_amount ? formatCurrency(cbData.approved_amount, 'EUR') : '€'}
+                    {cbData?.summary?.approved_amount ? formatCurrency(cbData.summary.approved_amount, 'EUR') : '€'}
                   </p>
                 </CardContent>
               </Card>
@@ -434,10 +405,10 @@ export default function UploadCbReasonsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold text-rose-600">
-                    {(cbData?.total_chargebacks ?? 0).toLocaleString()}
+                    {(cbData?.summary?.total_chargebacks ?? 0).toLocaleString()}
                   </div>
                   <p className="text-sm text-slate-500 mt-1">
-                    {cbData?.cb_amount ? formatCurrency(cbData.cb_amount, 'EUR') : '€'}
+                    {cbData?.summary?.cb_amount ? formatCurrency(cbData.summary.cb_amount, 'EUR') : '€'}
                   </p>
                 </CardContent>
               </Card>
@@ -454,11 +425,11 @@ export default function UploadCbReasonsPage() {
                 <CardContent>
                   <div className="flex items-center gap-2">
                     <div className={`text-3xl font-bold ${
-                      (cbData?.cb_percentage ?? 0) > 1 ? 'text-rose-600' : 'text-orange-600'
+                      (cbData?.summary?.cb_rate ?? 0) > 1 ? 'text-rose-600' : 'text-orange-600'
                     }`}>
-                      {(cbData?.cb_percentage ?? 0).toFixed(2)}%
+                      {(cbData?.summary?.cb_rate ?? 0).toFixed(2)}%
                     </div>
-                    {(cbData?.cb_percentage ?? 0) > 1 && (
+                    {(cbData?.summary?.cb_rate ?? 0) > 1 && (
                       <AlertCircle className="h-5 w-5 text-rose-600" />
                     )}
                   </div>
@@ -524,7 +495,6 @@ export default function UploadCbReasonsPage() {
                             <Button
                               size="sm"
                               variant="default"
-                              onClick={() => handleViewRecords(reason)}
                               className="h-8 px-3"
                             >
                               <Eye className="h-4 w-4 mr-1" />

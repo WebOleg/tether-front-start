@@ -44,6 +44,31 @@ import type {
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+export interface PricePointData {
+  bic: string
+  bank_country: string
+  currency: string
+  amount: number
+  total_transactions: number
+  approved_count: number
+  declined_count: number
+  chargeback_count: number
+  error_count: number
+  pending_count: number
+  total_volume: number
+  approved_volume: number
+  chargeback_volume: number
+  cb_rate_count: number
+  cb_rate_volume: number
+  is_high_risk: boolean
+  is_blacklisted: boolean
+}
+
+interface BicBreakdownResponse {
+  bic: string
+  period: string
+  segments: PricePointData[]
+}
 
 export interface DescriptorParams {
   descriptor_name: string
@@ -794,6 +819,22 @@ class ApiClient {
     const response = await this.request<{ data: BicAnalyticsStats }>(
         `/admin/analytics/bic${query}`
     )
+    return response.data
+  }
+
+  async getBicPricePoints(
+      bic: string,
+      period: string = '30d',
+      filters?: AnalyticsFilters
+  ): Promise<BicBreakdownResponse> {
+    // Ensure the query includes the BIC if your controller expects it as a query param
+    const query = this.buildQuery({ period, bic, ...filters })
+
+    const response = await this.request<{ data: BicBreakdownResponse }>(
+        `/admin/analytics/bic/price-points${query}`
+    )
+
+    // Return the data object directly
     return response.data
   }
 

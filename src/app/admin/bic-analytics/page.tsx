@@ -1,6 +1,6 @@
 /**
  * BIC Analytics page - Bank-level transaction metrics for risk monitoring
- * Updated to include Price Point Segmentation & Custom Price Filtering
+ * Updated to remove Price Point Segmentation & Custom Price Filtering
  */
 'use client'
 
@@ -35,8 +35,8 @@ import {
   X,
   Filter,
   Ban,
-  Tag,
-  DollarSign,
+  BarChart3,
+  Loader2
 } from 'lucide-react'
 import type { BicAnalyticsStats, EmpAccount } from '@/types'
 import { toast } from 'sonner'
@@ -44,7 +44,42 @@ import { ModelTabs } from '@/components/ui/model-tabs'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatPercent } from '@/lib/utils'
 
-type SortField = 'cb_rate_count' | 'cb_rate_volume' | 'chargeback_count' | 'total_transactions' | 'total_volume' | 'amount'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+
+
+export interface PricePointData {
+  bic: string
+  bank_country: string
+  currency: string
+  amount: number
+  total_transactions: number
+  approved_count: number
+  declined_count: number
+  chargeback_count: number
+  error_count: number
+  pending_count: number
+  total_volume: number
+  approved_volume: number
+  chargeback_volume: number
+  cb_rate_count: number
+  cb_rate_volume: number
+  is_high_risk: boolean
+  is_blacklisted: boolean
+}
+
+interface BicBreakdownResponse {
+  bic: string
+  period: string
+  segments: PricePointData[]
+}
+
+// Removed 'amount' from sort fields
+type SortField = 'cb_rate_count' | 'cb_rate_volume' | 'chargeback_count' | 'total_transactions' | 'total_volume'
 
 export default function BicAnalyticsPage() {
   const [bicStats, setBicStats] = useState<BicAnalyticsStats | null>(null)
@@ -52,18 +87,42 @@ export default function BicAnalyticsPage() {
   const [loading, setLoading] = useState(true)
   const [activeModel, setActiveModel] = useState<string>('all')
 
+  const [breakdownBic, setBreakdownBic] = useState<string | null>(null)
+  const [breakdownData, setBreakdownData] = useState<any>(null)
+  const [loadingBreakdown, setLoadingBreakdown] = useState(false)
+
   // EMP Account filter
   const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
   const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<string>('all')
 
   // Filters
   const [countryFilter, setCountryFilter] = useState<string>('all')
-  const [priceFilter, setPriceFilter] = useState<string>('all')
-  const [customPrice, setCustomPrice] = useState<string>('')
+  // Removed priceFilter and customPrice states
   const [bicSearch, setBicSearch] = useState('')
   const [highRiskOnly, setHighRiskOnly] = useState(false)
   const [hideSmallBics, setHideSmallBics] = useState(false)
   const [sortField, setSortField] = useState<SortField>('cb_rate_count')
+
+
+  const fetchBreakdown = async (bic: string) => {
+    setBreakdownBic(bic)
+    setLoadingBreakdown(true)
+    try {
+      const filters: any = {}
+      if (activeModel !== 'all') filters.model = activeModel
+      if (selectedEmpAccountId !== 'all') filters.emp_account_id = Number(selectedEmpAccountId)
+
+      const response = await api.getBicPricePoints(bic, bicPeriod, filters)
+
+      setBreakdownData(response)
+
+    } catch (err) {
+      toast.error('Failed to load price point breakdown')
+      setBreakdownBic(null)
+    } finally {
+      setLoadingBreakdown(false)
+    }
+  }
 
   // Fetch EMP accounts on mount
   useEffect(() => {
@@ -105,13 +164,7 @@ export default function BicAnalyticsPage() {
     return uniqueCountries.sort()
   }, [bicStats])
 
-  // Extract unique prices for the filter dropdown
-  const uniquePrices = useMemo(() => {
-    if (!bicStats?.bics) return []
-    // @ts-ignore
-    const prices = [...new Set(bicStats.bics.map(b => Number(b.amount || 0)))]
-    return prices.filter(p => p > 0).sort((a, b) => a - b)
-  }, [bicStats])
+  // Removed uniquePrices memo
 
   // Filter and sort BICs
   const filteredBics = useMemo(() => {
@@ -124,18 +177,7 @@ export default function BicAnalyticsPage() {
       result = result.filter(b => b.bank_country === countryFilter)
     }
 
-    // Price Filter Logic: Check Custom first, then Dropdown
-    if (customPrice.trim() !== '') {
-      const targetPrice = Number(customPrice)
-      if (!isNaN(targetPrice)) {
-        // @ts-ignore
-        result = result.filter(b => Math.abs(Number(b.amount || 0) - targetPrice) < 0.01)
-      }
-    } else if (priceFilter !== 'all') {
-      const targetPrice = Number(priceFilter)
-      // @ts-ignore
-      result = result.filter(b => Math.abs(Number(b.amount || 0) - targetPrice) < 0.01)
-    }
+    // Removed Price Filter Logic
 
     // BIC search
     if (bicSearch.trim()) {
@@ -156,15 +198,15 @@ export default function BicAnalyticsPage() {
     // Sort
     result.sort((a, b) => {
       // @ts-ignore
-      const aVal = sortField === 'amount' ? (Number(a.amount) || 0) : (a[sortField] ?? 0)
+      const aVal = a[sortField] ?? 0
       // @ts-ignore
-      const bVal = sortField === 'amount' ? (Number(b.amount) || 0) : (b[sortField] ?? 0)
+      const bVal = b[sortField] ?? 0
 
       return bVal - aVal // desc
     })
 
     return result
-  }, [bicStats, countryFilter, priceFilter, customPrice, bicSearch, highRiskOnly, hideSmallBics, sortField])
+  }, [bicStats, countryFilter, bicSearch, highRiskOnly, hideSmallBics, sortField])
 
   // Calculate filtered totals
   const filteredTotals = useMemo(() => {
@@ -220,11 +262,19 @@ export default function BicAnalyticsPage() {
 
   const handleExport = async () => {
     try {
-      const filters: { model?: string; emp_account_id?: number } = {}
+      // Using Record<string, any> to avoid strict typing issues if types aren't updated
+      const filters: Record<string, any> = {}
       if (activeModel !== 'all') filters.model = activeModel
       if (selectedEmpAccountId !== 'all') filters.emp_account_id = Number(selectedEmpAccountId)
 
       const blob = await api.getBicAnalyticsExport(bicPeriod, filters)
+
+      // Basic check if the response is actually an error (HTML/JSON) masquerading as a blob
+      if (blob.type === 'text/html' || blob.type === 'application/json') {
+        toast.error('Export failed: Server returned an error');
+        return;
+      }
+
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -243,15 +293,13 @@ export default function BicAnalyticsPage() {
   // Calculate active filters count
   const activeFilterCount =
       (countryFilter !== 'all' ? 1 : 0) +
-      (priceFilter !== 'all' || customPrice !== '' ? 1 : 0) +
       (bicSearch !== '' ? 1 : 0) +
       (highRiskOnly ? 1 : 0) +
       (hideSmallBics ? 1 : 0)
 
   const clearFilters = () => {
     setCountryFilter('all')
-    setPriceFilter('all')
-    setCustomPrice('')
+    // Removed price reset logic
     setBicSearch('')
     setHighRiskOnly(false)
     setHideSmallBics(false)
@@ -262,7 +310,7 @@ export default function BicAnalyticsPage() {
 
   return (
       <div className="min-h-screen bg-slate-50">
-        <Header title="BIC Analytics" description="Price Point Segmentation & Risk Monitoring" />
+        <Header title="BIC Analytics" description="Risk Monitoring" />
         <main className="container mx-auto px-6 py-8">
 
           {/* Model Tabs */}
@@ -331,49 +379,7 @@ export default function BicAnalyticsPage() {
                 </Select>
               </div>
 
-              {/* Price Filters Group */}
-              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-md border border-slate-200">
-                <Label className="text-sm whitespace-nowrap px-2">Price:</Label>
-
-                {/* Quick Select Dropdown */}
-                <Select
-                    value={priceFilter}
-                    onValueChange={(val) => {
-                      setPriceFilter(val)
-                      if(val !== 'all') setCustomPrice('') // Clear custom if dropdown used
-                    }}
-                >
-                  <SelectTrigger className="w-24 h-8 bg-white border-slate-200">
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Any</SelectItem>
-                    {uniquePrices.map(p => (
-                        <SelectItem key={p} value={p.toString()}>
-                          {p.toFixed(2)}
-                        </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <span className="text-slate-400 text-xs">or</span>
-
-                {/* Custom Price Input */}
-                <div className="relative">
-                  <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
-                  <Input
-                      placeholder="Custom..."
-                      value={customPrice}
-                      onChange={(e) => {
-                        setCustomPrice(e.target.value)
-                        if(e.target.value) setPriceFilter('all') // Reset dropdown if custom typing
-                      }}
-                      className="pl-6 h-8 w-24 bg-white border-slate-200 text-xs"
-                      type="number"
-                      step="0.01"
-                  />
-                </div>
-              </div>
+              {/* Removed Price Filters Group */}
 
               {/* BIC Search */}
               <div className="relative">
@@ -419,8 +425,8 @@ export default function BicAnalyticsPage() {
                     <SelectItem value="cb_rate_volume">CB % Volume</SelectItem>
                     <SelectItem value="chargeback_count">Chargebacks</SelectItem>
                     <SelectItem value="total_transactions">Total TX</SelectItem>
-                    <SelectItem value="amount">Price Point</SelectItem>
                     <SelectItem value="total_volume">Volume</SelectItem>
+                    {/* Removed Price Point sort option */}
                   </SelectContent>
                 </Select>
               </div>
@@ -476,7 +482,7 @@ export default function BicAnalyticsPage() {
               <div className="grid gap-4 md:grid-cols-5 mb-6">
                 <Card>
                   <CardContent className="pt-4">
-                    <div className="text-sm text-slate-500">Segments (BIC+Price)</div>
+                    <div className="text-sm text-slate-500">Segments</div>
                     <div className="text-2xl font-bold">{filteredTotals.total_bics}</div>
                     {activeFilterCount > 0 && bicStats && (
                         <div className="text-xs text-slate-400">of {bicStats.totals.total_bics}</div>
@@ -526,7 +532,7 @@ export default function BicAnalyticsPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-slate-500" />
-                <CardTitle className="text-lg">Transactions by BIC & Price</CardTitle>
+                <CardTitle className="text-lg">Transactions by BIC</CardTitle>
                 {hasHighRisk && <AlertTriangle className="h-5 w-5 text-red-500" />}
                 {activeModel !== 'all' && (
                     <Badge variant="outline" className="ml-2 capitalize">
@@ -545,7 +551,7 @@ export default function BicAnalyticsPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>BIC</TableHead>
-                        <TableHead>Price Point</TableHead>
+                        {/* Removed Price Point Column Header */}
                         <TableHead>Country</TableHead>
                         <TableHead className="text-right">Total TX</TableHead>
                         <TableHead className="text-right">Approved</TableHead>
@@ -558,40 +564,31 @@ export default function BicAnalyticsPage() {
                     </TableHeader>
                     <TableBody>
                       {filteredBics.map((bic) => {
-                        // Typescript safe access for potentially missing fields if types not updated
+                        // We still read amount/currency to generate the key, even if we don't display them.
                         // @ts-ignore
                         const amount = Number(bic.amount) || 0;
                         // @ts-ignore
                         const currency = bic.currency || 'EUR';
 
-                        // Card Testing Risk: Small Amount (< 5) + High CB Rate (> 35%)
-                        const isCardTesting = amount > 0 && amount < 5 && (bic.cb_rate_count ?? 0) >= 35;
-
-                        // Fix for React keys to be unique per row
+                        // Key must remain unique if the backend returns split data
                         const rowKey = `${bic.bic}-${currency}-${amount}`;
 
                         return (
                             <TableRow key={rowKey} className={bic.is_high_risk ? 'bg-red-50' : ''}>
                               <TableCell className="font-mono text-sm">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-slate-400 hover:text-blue-600 cursor-pointer"
+                                    onClick={() => fetchBreakdown(bic.bic)}
+                                >
+                                  <BarChart3 className="h-4 w-4" />
+                                </Button>
                                 {bic.bic}
                                 {bic.is_high_risk && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2" />}
                                 {bic.is_blacklisted && <Ban className="h-4 w-4 text-black inline ml-2" />}
                               </TableCell>
-                              <TableCell className="font-medium">
-                                {amount > 0 ? (
-                                    <div className="flex items-center gap-1">
-                                      <span className="text-slate-600">{currency}</span>
-                                      <span>{amount.toFixed(2)}</span>
-                                      {isCardTesting && (
-                                          <Badge variant="destructive" className="ml-2 h-5 px-1 text-[10px] bg-red-600 hover:bg-red-700">
-                                            BAD
-                                          </Badge>
-                                      )}
-                                    </div>
-                                ) : (
-                                    <span className="text-slate-400 italic text-xs">Mixed / N/A</span>
-                                )}
-                              </TableCell>
+                              {/* Removed Price Point Cell */}
                               <TableCell>{bic.bank_country}</TableCell>
                               <TableCell className="text-right">{bic.total_transactions}</TableCell>
                               <TableCell className="text-right text-green-600">{bic.approved_count}</TableCell>
@@ -608,7 +605,8 @@ export default function BicAnalyticsPage() {
                         )})}
                       {/* Total Row */}
                       <TableRow className={`${hasHighRisk ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
-                        <TableCell colSpan={3}>Total ({filteredTotals.total_bics} Segments)</TableCell>
+                        {/* Adjusted colSpan from 3 to 2 since one column was removed */}
+                        <TableCell colSpan={2}>Total ({filteredTotals.total_bics} Segments)</TableCell>
                         <TableCell className="text-right">{filteredTotals.total_transactions.toLocaleString()}</TableCell>
                         <TableCell className="text-right">-</TableCell>
                         <TableCell className="text-right">-</TableCell>
@@ -631,6 +629,119 @@ export default function BicAnalyticsPage() {
             </CardContent>
           </Card>
         </main>
+
+        <Dialog open={!!breakdownBic} onOpenChange={(open) => !open && setBreakdownBic(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <Building2 className="h-5 w-5 text-slate-500" />
+                Price Point Risk Analysis: <span className="font-mono text-blue-600">{breakdownBic}</span>
+              </DialogTitle>
+            </DialogHeader>
+
+            {loadingBreakdown ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-300 mb-4" />
+                  <p className="text-slate-500 font-medium">Analyzing segments...</p>
+                </div>
+            ) : breakdownData ? (
+                <div className="space-y-6">
+                  {/* Header Stats */}
+                  <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div className="space-y-1">
+                      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Analysis Period</p>
+                      <p className="text-sm font-semibold text-slate-700">{bicPeriod} - {activeModel} Model</p>
+                    </div>
+                    <div className="space-y-1 text-right">
+                      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Alert Threshold</p>
+                      <p className="text-sm font-bold text-red-600">{breakdownData.threshold || 35}% CB Rate</p>
+                    </div>
+                  </div>
+
+                  {/* Block List */}
+                  <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+                    {breakdownData.segments.map((segment: PricePointData, idx: number) => {
+                      const isLowValue = Number(segment.amount) < 5;
+                      const isHighCbk = segment.cb_rate_count >= (breakdownData.threshold || 35);
+
+                      return (
+                          <div
+                              key={idx}
+                              className={`p-4 rounded-xl border-2 transition-all ${
+                                  isHighCbk
+                                      ? 'border-red-100 bg-red-50/30'
+                                      : 'border-slate-100 bg-white hover:border-slate-200'
+                              }`}
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h4 className="text-lg font-bold text-slate-900">
+                                  {formatCurrency(Number(segment.amount), segment.currency)}
+                                </h4>
+                                <p className="text-xs text-slate-500 font-medium">
+                                  {segment.total_transactions} Total Transactions
+                                </p>
+                              </div>
+
+                              {isHighCbk && isLowValue ? (
+                                  <Badge className="bg-red-600 text-white border-none px-3 py-1">
+                                    <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+                                    PROBABLE BAD BIC
+                                  </Badge>
+                              ) : isHighCbk ? (
+                                  <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100 px-3 py-1">
+                                    HIGH RISK VOLUME
+                                  </Badge>
+                              ) : (
+                                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-50 px-3 py-1">
+                                    HEALTHY
+                                  </Badge>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2 text-center">
+                              <div className="bg-white/50 rounded-lg p-2 border border-slate-100">
+                                <p className="text-[10px] text-slate-400 uppercase font-bold">Approved</p>
+                                <p className="text-sm font-semibold text-emerald-600">{segment.approved_count}</p>
+                              </div>
+                              <div className="bg-white/50 rounded-lg p-2 border border-slate-100">
+                                <p className="text-[10px] text-slate-400 uppercase font-bold">Chargebacks</p>
+                                <p className="text-sm font-semibold text-red-600">{segment.chargeback_count}</p>
+                              </div>
+                              <div className="bg-white/50 rounded-lg p-2 border border-slate-100">
+                                <p className="text-[10px] text-slate-400 uppercase font-bold">CB Rate</p>
+                                <p className={`text-sm font-bold ${isHighCbk ? 'text-red-600' : 'text-slate-700'}`}>
+                                  {formatPercent(segment.cb_rate_count)}
+                                </p>
+                              </div>
+                            </div>
+
+                            {isHighCbk && (
+                                <div className="mt-3 pt-3 border-t border-red-100/50 flex justify-between items-center">
+                    <span className="text-[11px] text-red-700 font-medium">
+                      {isLowValue ? '⚠️ Card testing pattern detected' : 'ℹ️ High value dispute risk'}
+                    </span>
+                                  <span className="text-[11px] text-slate-400 font-mono">
+                      Loss: {formatCurrency(segment.chargeback_volume, segment.currency)}
+                    </span>
+                                </div>
+                            )}
+                          </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg flex gap-3">
+                    <Search className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+                    <p className="text-xs text-blue-900 leading-snug">
+                      <strong>Logic:</strong> High CB% on <strong>99.99</strong> is a financial risk, but high CB% on <strong>1.99</strong> is a structural risk (likely automated card testing). Block BICs with multiple Micro-Tx alerts.
+                    </p>
+                  </div>
+                </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+
       </div>
   )
 }

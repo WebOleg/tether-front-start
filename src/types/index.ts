@@ -55,6 +55,7 @@ export interface SkippedCounts {
   chargebacked: number
   already_recovered: number
   recently_attempted: number
+  skipped_locked: number
 }
 
 export interface SkippedRow {
@@ -247,6 +248,11 @@ export interface BillingAttempt {
   processed_at: string | null
   created_at: string
   emp_account?: EmpAccountRef | null
+}
+
+export interface AnalyticsFilters {
+  model?: string;
+  emp_account_id?: number;
 }
 
 export type BillingStatus = 'pending' | 'approved' | 'declined' | 'error' | 'voided' | 'chargebacked'

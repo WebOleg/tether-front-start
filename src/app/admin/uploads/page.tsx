@@ -1,8 +1,3 @@
-/**
- * Uploads list page.
- * Shows upload form and list of CSV uploads with status.
- */
-
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
@@ -48,8 +43,9 @@ import {
   Building2,
   Filter,
   CreditCard,
-  Euro
- } from 'lucide-react'
+  Euro,
+  Lock
+} from 'lucide-react'
 import type { Upload, SkippedCounts, PaginationLinks, PaginationLink, PaginationMeta as PaginationMetaType, EmpAccount } from '@/types'
 import {
   Dialog,
@@ -70,9 +66,11 @@ function formatSkippedMessage(skipped: SkippedCounts): string {
   if (skipped.chargebacked > 0) parts.push(`${skipped.chargebacked} chargebacked`)
   if (skipped.already_recovered > 0) parts.push(`${skipped.already_recovered} recovered`)
   if (skipped.recently_attempted > 0) parts.push(`${skipped.recently_attempted} recent`)
+  if (skipped.skipped_locked > 0) parts.push(`${skipped.skipped_locked} locked`)
   return parts.join(', ')
 }
 
+// ... [Interfaces and helper functions remain unchanged] ...
 interface UploadWithStats extends Upload {
   approved_count?: number
   approved_percentage?: number | null
@@ -96,7 +94,7 @@ const isValidFileType = (file: File): boolean => {
   ]
 
   const hasValidExtension = validExtensions.some(ext =>
-    file.name.toLowerCase().endsWith(ext)
+      file.name.toLowerCase().endsWith(ext)
   )
   const hasValidMimeType = validMimeTypes.includes(file.type)
 
@@ -115,6 +113,9 @@ export default function UploadsPage() {
   const [isDragActive, setIsDragActive] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [uploadToDelete, setUploadToDelete] = useState<number | null>(null)
+  // [NEW] State for Lock Confirmation
+  const [showLockConfirmation, setShowLockConfirmation] = useState(false)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -272,7 +273,8 @@ export default function UploadsPage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  // [NEW] Interceptor: Validates file and triggers modal instead of uploading immediately
+  const handleStartUploadClick = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (!file) {
@@ -290,6 +292,16 @@ export default function UploadsPage() {
       return
     }
 
+    // Trigger confirmation modal
+    setShowLockConfirmation(true)
+  }
+
+  // [NEW] Executor: Performs the actual upload with the lock flag
+  const executeUpload = async (applyGlobalLock: boolean) => {
+    setShowLockConfirmation(false)
+
+    if (!file) return
+
     setIsUploading(true)
     setUploadStatus(null)
     setActiveUploadId(null)
@@ -297,7 +309,8 @@ export default function UploadsPage() {
     completedUploadsRef.current.clear()
 
     try {
-      const result = await api.uploadFile(file, billingModel, selectedEmpAccountId)
+      // Pass the lock flag to the API
+      const result = await api.uploadFile(file, billingModel, selectedEmpAccountId, applyGlobalLock)
       setActiveUploadId(result.upload.id)
 
       if (result.skipped && result.skipped.total > 0) {
@@ -385,455 +398,486 @@ export default function UploadsPage() {
   }
 
   return (
-    <>
-      <Header
-        title="Uploads"
-        description="Upload and manage CSV/TXT/XLSX files for debt processing"
-      />
-      <div className="p-6">
-        <Card className="mb-4">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileUp className="h-5 w-5 text-slate-500" />
-                <CardTitle>Upload File</CardTitle>
-              </div>
-            </div>
-            <CardDescription>
-              Select a CSV, TXT or XLSX file to upload debtor records (max 50MB)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
-
-              <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between p-4 rounded-lg border bg-slate-50/50">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <Settings2 className="h-4 w-4 text-slate-500" />
-                    <Label htmlFor="billing-model" className="text-base font-medium text-slate-900">
-                      Configuration
-                    </Label>
-                  </div>
-                  <p className="text-sm text-slate-500">
-                    Select billing model and EMP account
-                  </p>
+      <>
+        <Header
+            title="Uploads"
+            description="Upload and manage CSV/TXT/XLSX files for debt processing"
+        />
+        <div className="p-6">
+          <Card className="mb-4">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileUp className="h-5 w-5 text-slate-500" />
+                  <CardTitle>Upload File</CardTitle>
                 </div>
+              </div>
+              <CardDescription>
+                Select a CSV, TXT or XLSX file to upload debtor records (max 50MB)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <form onSubmit={handleStartUploadClick} className="space-y-4">
 
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <div className="w-full sm:w-[200px]">
-                    <Select
-                        value={billingModel}
-                        onValueChange={setBillingModel}
-                        disabled={isUploading}
-                    >
-                      <SelectTrigger id="billing-model" className="bg-white">
-                        <SelectValue placeholder="Select model" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="legacy">
-                          <div className="flex items-center gap-2">
-                            <Archive className="h-4 w-4 text-slate-500" />
-                            <span>Legacy</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="flywheel">
-                          <div className="flex items-center gap-2">
-                            <Zap className="h-4 w-4 text-blue-600" />
-                            <span>Flywheel</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="recovery">
-                          <div className="flex items-center gap-2">
-                            <RotateCcw className="h-4 w-4 text-purple-600" />
-                            <span>Recovery</span>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between p-4 rounded-lg border bg-slate-50/50">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <Settings2 className="h-4 w-4 text-slate-500" />
+                      <Label htmlFor="billing-model" className="text-base font-medium text-slate-900">
+                        Configuration
+                      </Label>
+                    </div>
+                    <p className="text-sm text-slate-500">
+                      Select billing model and EMP account
+                    </p>
                   </div>
 
-                  <div className="w-full sm:w-[200px]">
-                    <Select
-                        key={selectedEmpAccountId}
-                        value={selectedEmpAccountId?.toString() || undefined}
-                        onValueChange={(value) => setSelectedEmpAccountId(Number(value))}
-                        disabled={isUploading || empAccounts.length === 0}
-                    >
-                      <SelectTrigger className="bg-white">
-                        <SelectValue placeholder="Select EMP Account" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {empAccounts.map((account) => (
-                          <SelectItem key={account.id} value={account.id.toString()}>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="w-full sm:w-[200px]">
+                      <Select
+                          value={billingModel}
+                          onValueChange={setBillingModel}
+                          disabled={isUploading}
+                      >
+                        <SelectTrigger id="billing-model" className="bg-white">
+                          <SelectValue placeholder="Select model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="legacy">
                             <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4 text-emerald-600" />
-                              <span>{account.name}</span>
-                              {account.is_active && (
-                                <Badge variant="outline" className="ml-1 text-xs">Active</Badge>
-                              )}
+                              <Archive className="h-4 w-4 text-slate-500" />
+                              <span>Legacy</span>
                             </div>
                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          <SelectItem value="flywheel">
+                            <div className="flex items-center gap-2">
+                              <Zap className="h-4 w-4 text-blue-600" />
+                              <span>Flywheel</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="recovery">
+                            <div className="flex items-center gap-2">
+                              <RotateCcw className="h-4 w-4 text-purple-600" />
+                              <span>Recovery</span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="w-full sm:w-[200px]">
+                      <Select
+                          key={selectedEmpAccountId}
+                          value={selectedEmpAccountId?.toString() || undefined}
+                          onValueChange={(value) => setSelectedEmpAccountId(Number(value))}
+                          disabled={isUploading || empAccounts.length === 0}
+                      >
+                        <SelectTrigger className="bg-white">
+                          <SelectValue placeholder="Select EMP Account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {empAccounts.map((account) => (
+                              <SelectItem key={account.id} value={account.id.toString()}>
+                                <div className="flex items-center gap-2">
+                                  <Building2 className="h-4 w-4 text-emerald-600" />
+                                  <span>{account.name}</span>
+                                  {account.is_active && (
+                                      <Badge variant="outline" className="ml-1 text-xs">Active</Badge>
+                                  )}
+                                </div>
+                              </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div
-                  ref={dropZoneRef}
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragEnter={handleDragEnter}
-                  onDragLeave={handleDragLeave}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
-                  className={`flex flex-col items-center justify-center gap-4 p-10 border-2 border-dashed rounded-lg transition-all duration-200 cursor-pointer ${
-                      isDragActive
-                          ? 'border-blue-500 bg-blue-50/50 scale-[0.99]'
-                          : 'border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-100/50'
-                  }`}
-              >
-                <div className={`p-4 rounded-full ${isDragActive ? 'bg-blue-100' : 'bg-white shadow-sm ring-1 ring-slate-200'}`}>
-                  <FileUp className={`h-8 w-8 ${isDragActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                <div
+                    ref={dropZoneRef}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragEnter={handleDragEnter}
+                    onDragLeave={handleDragLeave}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    className={`flex flex-col items-center justify-center gap-4 p-10 border-2 border-dashed rounded-lg transition-all duration-200 cursor-pointer ${
+                        isDragActive
+                            ? 'border-blue-500 bg-blue-50/50 scale-[0.99]'
+                            : 'border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-100/50'
+                    }`}
+                >
+                  <div className={`p-4 rounded-full ${isDragActive ? 'bg-blue-100' : 'bg-white shadow-sm ring-1 ring-slate-200'}`}>
+                    <FileUp className={`h-8 w-8 ${isDragActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                  </div>
+
+                  <div className="text-center space-y-1">
+                    <p className={`font-medium text-lg ${isDragActive ? 'text-blue-700' : 'text-slate-700'}`}>
+                      {isDragActive ? 'Drop your file here' : 'Click to upload or drag and drop'}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      CSV, TXT or XLSX (max 50MB)
+                    </p>
+                  </div>
+
+                  <Input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv,.txt,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      disabled={isUploading}
+                  />
                 </div>
 
-                <div className="text-center space-y-1">
-                  <p className={`font-medium text-lg ${isDragActive ? 'text-blue-700' : 'text-slate-700'}`}>
-                    {isDragActive ? 'Drop your file here' : 'Click to upload or drag and drop'}
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    CSV, TXT or XLSX (max 50MB)
-                  </p>
-                </div>
-
-                <Input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv,.txt,.xlsx,.xls,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    disabled={isUploading}
-                />
-              </div>
-
-              {file && !uploadStatus && !activeUploadId && (
-                  <div className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg shadow-sm animate-in fade-in slide-in-from-top-2">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 rounded-md">
-                        <FileSpreadsheet className="h-5 w-5 text-green-700" />
+                {file && !uploadStatus && !activeUploadId && (
+                    <div className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg shadow-sm animate-in fade-in slide-in-from-top-2">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 rounded-md">
+                          <FileSpreadsheet className="h-5 w-5 text-green-700" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-900">{file.name}</p>
+                          <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-slate-900">{file.name}</p>
-                        <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
-                      </div>
+                      <Button
+                          type="submit"
+                          disabled={isUploading}
+                          className="gap-2 min-w-[120px]"
+                      >
+                        {isUploading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Uploading...
+                            </>
+                        ) : (
+                            <>
+                              <LucideUpload className="h-4 w-4" />
+                              Start Upload
+                            </>
+                        )}
+                      </Button>
                     </div>
-                    <Button
-                        type="submit"
-                        disabled={isUploading}
-                        className="gap-2 min-w-[120px]"
+                )}
+              </form>
+
+              {activeUploadId && (
+                  <div className="relative">
+                    <button
+                        onClick={dismissProgress}
+                        className="absolute -top-2 -right-2 z-10 p-1 bg-white rounded-full shadow-md hover:bg-slate-100"
                     >
-                      {isUploading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Uploading...
-                          </>
-                      ) : (
-                          <>
-                            <LucideUpload className="h-4 w-4" />
-                            Start Upload
-                          </>
-                      )}
-                    </Button>
+                      <X className="h-4 w-4 text-slate-500" />
+                    </button>
+                    <UploadProgress
+                        uploadId={activeUploadId}
+                        onComplete={handleProgressComplete}
+                        onError={handleProgressError}
+                    />
                   </div>
               )}
-            </form>
 
-            {activeUploadId && (
-              <div className="relative">
-                <button
-                  onClick={dismissProgress}
-                  className="absolute -top-2 -right-2 z-10 p-1 bg-white rounded-full shadow-md hover:bg-slate-100"
-                >
-                  <X className="h-4 w-4 text-slate-500" />
-                </button>
-                <UploadProgress
-                  uploadId={activeUploadId}
-                  onComplete={handleProgressComplete}
-                  onError={handleProgressError}
-                />
-              </div>
-            )}
-
-            {uploadStatus && !activeUploadId && (
-              <div className={`p-3 rounded-lg border ${
-                uploadStatus.type === 'success'
-                  ? 'bg-green-50 text-green-700 border-green-200'
-                  : uploadStatus.type === 'warning'
-                  ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                  : 'bg-red-50 text-red-700 border-red-200'
-              }`}>
-                <div className="flex items-center gap-2">
-                  {uploadStatus.type === 'success' ? (
-                    <CheckCircle className="h-4 w-4 flex-shrink-0" />
-                  ) : uploadStatus.type === 'warning' ? (
-                    <Ban className="h-4 w-4 flex-shrink-0" />
-                  ) : (
-                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                  )}
-                  <span className="text-sm font-medium">{uploadStatus.message}</span>
-                </div>
-                {uploadStatus.errors && uploadStatus.errors.length > 0 && (
-                  <ul className="mt-2 ml-6 text-sm list-disc space-y-1">
-                    {uploadStatus.errors.map((error, index) => (
-                      <li key={index}>{error}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="flex items-center justify-between mb-4">
-          <PaginationMeta
-            meta={meta}
-            label="uploads"
-            containerClassName="px-0 py-0"
-          />
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-slate-500" />
-            <Select value={filterEmpAccountId} onValueChange={handleFilterChange}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filter by account" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-slate-500" />
-                    <span>All Accounts</span>
-                  </div>
-                </SelectItem>
-                {empAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id.toString()}>
+              {uploadStatus && !activeUploadId && (
+                  <div className={`p-3 rounded-lg border ${
+                      uploadStatus.type === 'success'
+                          ? 'bg-green-50 text-green-700 border-green-200'
+                          : uploadStatus.type === 'warning'
+                              ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                              : 'bg-red-50 text-red-700 border-red-200'
+                  }`}>
                     <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-emerald-600" />
-                      <span>{account.name}</span>
+                      {uploadStatus.type === 'success' ? (
+                          <CheckCircle className="h-4 w-4 flex-shrink-0" />
+                      ) : uploadStatus.type === 'warning' ? (
+                          <Ban className="h-4 w-4 flex-shrink-0" />
+                      ) : (
+                          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      )}
+                      <span className="text-sm font-medium">{uploadStatus.message}</span>
+                    </div>
+                    {uploadStatus.errors && uploadStatus.errors.length > 0 && (
+                        <ul className="mt-2 ml-6 text-sm list-disc space-y-1">
+                          {uploadStatus.errors.map((error, index) => (
+                              <li key={index}>{error}</li>
+                          ))}
+                        </ul>
+                    )}
+                  </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="flex items-center justify-between mb-4">
+            <PaginationMeta
+                meta={meta}
+                label="uploads"
+                containerClassName="px-0 py-0"
+            />
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-500" />
+              <Select value={filterEmpAccountId} onValueChange={handleFilterChange}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filter by account" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-slate-500" />
+                      <span>All Accounts</span>
                     </div>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  {empAccounts.map((account) => (
+                      <SelectItem key={account.id} value={account.id.toString()}>
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-emerald-600" />
+                          <span>{account.name}</span>
+                        </div>
+                      </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </div>
 
-        <Card className="py-6">
-          <CardHeader>
-            <CardTitle>Upload History</CardTitle>
-            <CardDescription>
-              View all uploaded files and their validation status
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="px-0">File</TableHead>
-                  <TableHead>Account</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-center">Records</TableHead>
-                  <TableHead className="text-center">Valid</TableHead>
-                  <TableHead className="text-center">Invalid</TableHead>
-                  <TableHead className="text-center">Approved</TableHead>
-                  <TableHead className="text-center">CB %</TableHead>
-                  <TableHead className="text-center">CB Amt %</TableHead>
-                  <TableHead>Uploaded</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+          <Card className="py-6">
+            <CardHeader>
+              <CardTitle>Upload History</CardTitle>
+              <CardDescription>
+                View all uploaded files and their validation status
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-6">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
-                    </TableCell>
+                    <TableHead className="px-0">File</TableHead>
+                    <TableHead>Account</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-center">Records</TableHead>
+                    <TableHead className="text-center">Valid</TableHead>
+                    <TableHead className="text-center">Invalid</TableHead>
+                    <TableHead className="text-center">Approved</TableHead>
+                    <TableHead className="text-center">CB %</TableHead>
+                    <TableHead className="text-center">CB Amt %</TableHead>
+                    <TableHead>Uploaded</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ) : uploads.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-slate-500">
-                      No uploads yet
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  uploads.map((upload) => {
-                    const total = upload.total_records || 0
-                    const valid = upload.valid_count || 0
-                    const invalid = upload.invalid_count || 0
-                    const approved = upload.approved_count || 0
-                    const approvedPercent = upload.approved_percentage
-                    const skippedTotal = upload.skipped?.total || 0
-                    const cbPercent = upload.cb_percentage
-                    const cbAmtPercent = upload.cb_amount_percentage
-                    const cbCount = upload.chargeback_count || 0
-                    const cbAmount = upload.chargeback_amount || 0
-
-                    return (
-                      <TableRow key={upload.id} className="hover:bg-slate-50">
-                        <TableCell className="px-0">
-                          <Link href={`/admin/uploads/${upload.id}`} className="hover:underline">
-                            <div className="flex items-center gap-2">
-                              <FileSpreadsheet className="h-5 w-5 text-slate-400" />
-                              <div>
-                                <p className="font-medium text-blue-600">{upload.original_filename}</p>
-                                <p className="text-xs text-slate-500">{formatFileSize(upload.file_size)}</p>
-                              </div>
-                            </div>
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          {upload.emp_account ? (
-                            <div className="flex items-center gap-1.5">
-                              <Building2 className="h-3.5 w-3.5 text-emerald-600" />
-                              <span className="text-sm font-medium text-slate-700">
-                                {upload.emp_account.name}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-slate-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={upload.status} />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className="font-medium">{total}</span>
-                          {skippedTotal > 0 && (
-                            <span className="text-xs text-slate-400 ml-1">(-{skippedTotal})</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-1 text-green-600">
-                            <CheckCircle className="h-4 w-4" />
-                            <span className="text-sm font-medium">{valid}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-1 text-orange-500">
-                            <XCircle className="h-4 w-4" />
-                            <span className="text-sm font-medium">{invalid}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {approved > 0 || approvedPercent !== null ? (
-                            <div className="flex items-center justify-center gap-1 text-blue-600">
-                              <CreditCard className="h-4 w-4" />
-                              <span className="text-sm font-medium">
-                                {approved}
-                                {approvedPercent !== null && approvedPercent !== undefined && (
-                                  <span className="text-xs ml-1">({Math.round(approvedPercent)}%)</span>
-                                )}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-slate-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {cbPercent !== null && cbPercent !== undefined ? (
-                            <span className={`text-sm font-medium ${cbPercent === 0 ? 'text-green-600' : cbPercent < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
-                              {cbCount} ({Math.round(cbPercent)}%)
-                            </span>
-                          ) : (
-                            <span className="text-sm text-slate-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {cbAmtPercent !== null && cbAmtPercent !== undefined ? (
-                            <span className={`text-sm font-medium ${cbAmtPercent === 0 ? 'text-green-600' : cbAmtPercent < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
-                              { formatCurrency(cbAmount) } ({Math.round(cbAmtPercent)}%)
-                            </span>
-                          ) : (
-                            <span className="text-sm text-slate-400">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-slate-500">
-                          {formatDate(upload.created_at)}
-                        </TableCell>
-                        <TableCell>
-                          <Link href={`/admin/uploads/${upload.id}`} >
-                            <Button
-                              variant="default"
-                              size="icon"
-                              className="h-8 w-8 mr-2"
-                            >
-                                <Eye className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                          <Link href={`/admin/uploads/cb-reasons?upload_id=${upload.id}`}>
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="h-8 w-8 mr-2"
-                              title="View CB Reasons"
-                            >
-                              <RotateCcw className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                          {upload.is_deletable && (
-                            <Button
-                              variant="destructive"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleDeleteClick(upload.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={11} className="text-center py-8">
+                          <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
                         </TableCell>
                       </TableRow>
-                    )
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                  ) : uploads.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={11} className="text-center py-8 text-slate-500">
+                          No uploads yet
+                        </TableCell>
+                      </TableRow>
+                  ) : (
+                      uploads.map((upload) => {
+                        const total = upload.total_records || 0
+                        const valid = upload.valid_count || 0
+                        const invalid = upload.invalid_count || 0
+                        const approved = upload.approved_count || 0
+                        const approvedPercent = upload.approved_percentage
+                        const skippedTotal = upload.skipped?.total || 0
+                        const cbPercent = upload.cb_percentage
+                        const cbAmtPercent = upload.cb_amount_percentage
+                        const cbCount = upload.chargeback_count || 0
+                        const cbAmount = upload.chargeback_amount || 0
 
-        <div className="border-t">
-          <Pagination
-            meta={meta}
-            links={links}
-            paginationLinks={paginationLinks}
-            onPageChange={handlePageClick}
-            onPreviousClick={handlePreviousPage}
-            onNextClick={handleNextPage}
-          />
+                        return (
+                            <TableRow key={upload.id} className="hover:bg-slate-50">
+                              <TableCell className="px-0">
+                                <Link href={`/admin/uploads/${upload.id}`} className="hover:underline">
+                                  <div className="flex items-center gap-2">
+                                    <FileSpreadsheet className="h-5 w-5 text-slate-400" />
+                                    <div>
+                                      <p className="font-medium text-blue-600">{upload.original_filename}</p>
+                                      <p className="text-xs text-slate-500">{formatFileSize(upload.file_size)}</p>
+                                    </div>
+                                  </div>
+                                </Link>
+                              </TableCell>
+                              <TableCell>
+                                {upload.emp_account ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <Building2 className="h-3.5 w-3.5 text-emerald-600" />
+                                      <span className="text-sm font-medium text-slate-700">
+                                  {upload.emp_account.name}
+                                </span>
+                                    </div>
+                                ) : (
+                                    <span className="text-sm text-slate-400">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <StatusBadge status={upload.status} />
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <span className="font-medium">{total}</span>
+                                {skippedTotal > 0 && (
+                                    <span className="text-xs text-slate-400 ml-1">(-{skippedTotal})</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <div className="flex items-center justify-center gap-1 text-green-600">
+                                  <CheckCircle className="h-4 w-4" />
+                                  <span className="text-sm font-medium">{valid}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <div className="flex items-center justify-center gap-1 text-orange-500">
+                                  <XCircle className="h-4 w-4" />
+                                  <span className="text-sm font-medium">{invalid}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {approved > 0 || approvedPercent !== null ? (
+                                    <div className="flex items-center justify-center gap-1 text-blue-600">
+                                      <CreditCard className="h-4 w-4" />
+                                      <span className="text-sm font-medium">
+                                  {approved}
+                                        {approvedPercent !== null && approvedPercent !== undefined && (
+                                            <span className="text-xs ml-1">({Math.round(approvedPercent)}%)</span>
+                                        )}
+                                </span>
+                                    </div>
+                                ) : (
+                                    <span className="text-sm text-slate-400">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {cbPercent !== null && cbPercent !== undefined ? (
+                                    <span className={`text-sm font-medium ${cbPercent === 0 ? 'text-green-600' : cbPercent < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                {cbCount} ({Math.round(cbPercent)}%)
+                              </span>
+                                ) : (
+                                    <span className="text-sm text-slate-400">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {cbAmtPercent !== null && cbAmtPercent !== undefined ? (
+                                    <span className={`text-sm font-medium ${cbAmtPercent === 0 ? 'text-green-600' : cbAmtPercent < 5 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                { formatCurrency(cbAmount) } ({Math.round(cbAmtPercent)}%)
+                              </span>
+                                ) : (
+                                    <span className="text-sm text-slate-400">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-slate-500">
+                                {formatDate(upload.created_at)}
+                              </TableCell>
+                              <TableCell>
+                                <Link href={`/admin/uploads/${upload.id}`} >
+                                  <Button
+                                      variant="default"
+                                      size="icon"
+                                      className="h-8 w-8 mr-2"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </Link>
+                                <Link href={`/admin/uploads/cb-reasons?upload_id=${upload.id}`}>
+                                  <Button
+                                      variant="default"
+                                      size="sm"
+                                      className="h-8 w-8 mr-2"
+                                      title="View CB Reasons"
+                                  >
+                                    <RotateCcw className="h-4 w-4" />
+                                  </Button>
+                                </Link>
+                                {upload.is_deletable && (
+                                    <Button
+                                        variant="destructive"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => handleDeleteClick(upload.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                        )
+                      })
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <div className="border-t">
+            <Pagination
+                meta={meta}
+                links={links}
+                paginationLinks={paginationLinks}
+                onPageChange={handlePageClick}
+                onPreviousClick={handlePreviousPage}
+                onNextClick={handleNextPage}
+            />
+          </div>
+
+          {/* Delete Modal */}
+          <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete Upload</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to delete this upload? This action cannot be undone.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                    variant="outline"
+                    onClick={() => setDeleteModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                    variant="destructive"
+                    onClick={handleConfirmDelete}
+                >
+                  Delete
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={showLockConfirmation} onOpenChange={setShowLockConfirmation}>
+            <DialogContent>
+              <DialogHeader>
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-full bg-blue-100">
+                    <Lock className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <DialogTitle>Apply Global IBAN Lock?</DialogTitle>
+                </div>
+                <DialogDescription className="pt-2">
+                  Do you want to apply the Global IBAN Lock rule? (Exclude IBANs paid on other accounts)
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                    variant="outline"
+                    onClick={() => executeUpload(false)}
+                >
+                  No, proceed normally
+                </Button>
+                <Button
+                    onClick={() => executeUpload(true)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Yes, apply lock
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
-
-        <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete Upload</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to delete this upload? This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setDeleteModalOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleConfirmDelete}
-              >
-                Delete
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </>
+      </>
   )
 }

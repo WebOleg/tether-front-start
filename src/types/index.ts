@@ -55,6 +55,7 @@ export interface SkippedCounts {
   chargebacked: number
   already_recovered: number
   recently_attempted: number
+  skipped_locked: number
 }
 
 export interface SkippedRow {

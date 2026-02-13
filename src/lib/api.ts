@@ -390,13 +390,23 @@ class ApiClient {
     return response.data
   }
 
-  async uploadFile(file: File, billingModel: string = 'legacy', empAccountId?: number): Promise<UploadResult> {
+  async uploadFile(
+      file: File,
+      billingModel: string = 'legacy',
+      empAccountId?: number,
+      applyGlobalLock: boolean = false
+  ): Promise<UploadResult> {
     const token = this.getToken()
     const formData = new FormData()
     formData.append('file', file)
     formData.append('billing_model', billingModel)
+
     if (empAccountId) {
       formData.append('emp_account_id', empAccountId.toString())
+    }
+
+    if (applyGlobalLock) {
+      formData.append('apply_global_lock', '1')
     }
 
     const headers: HeadersInit = { 'Accept': 'application/json' }

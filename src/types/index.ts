@@ -712,3 +712,42 @@ export interface BavStatusResponse {
     percentage: number
   }
 }
+
+// ==========================================================================
+// Price Point Analytics Types
+// ==========================================================================
+
+export interface PricePointDetail {
+  price_point: number
+  total: number
+  approved: number
+  declined: number
+  errors: number
+  chargebacks: number
+  approved_volume: number
+  chargeback_volume: number
+  cb_rate: number | null
+  alert: boolean
+}
+
+export interface PricePointTotals {
+  total: number
+  approved: number
+  declined: number
+  errors: number
+  chargebacks: number
+  approved_volume: number
+  chargeback_volume: number
+  cb_rate: number | null
+  alert: boolean
+}
+
+export interface PricePointStats {
+  period: string
+  start_date: string | null
+  end_date: string | null
+  date_mode: string
+  threshold: number
+  price_points: PricePointDetail[]
+  totals: PricePointTotals
+}

@@ -40,6 +40,7 @@ import type {
   BavStartResponse,
   BavStatusResponse,
   CapsData,
+  PricePointStats,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -973,6 +974,22 @@ class ApiClient {
       method: 'PUT',
       body: JSON.stringify({ monthly_cap: monthlyCap }),
     })
+  }
+
+  // Price Point Analytics
+  async getPricePointStats(params: StatsFilterParams = {}): Promise<PricePointStats> {
+    const query = this.buildQuery({
+      period: params.period,
+      month: params.month,
+      year: params.year,
+      date_mode: params.date_mode || 'transaction',
+      model: params.model,
+      emp_account_id: params.emp_account_id,
+    })
+    const response = await this.request<{ data: PricePointStats }>(
+      `/admin/stats/price-points${query}`
+    )
+    return response.data
   }
 }
 

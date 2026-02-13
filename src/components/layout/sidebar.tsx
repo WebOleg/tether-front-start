@@ -20,7 +20,8 @@ import {
   ChevronRight,
   X,
   Settings,
-  Gauge
+  Gauge,
+  DollarSign
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
@@ -50,6 +51,7 @@ const navigation = [
   { name: 'Billing', href: '/admin/billing', icon: CreditCard },
   { name: 'Descriptors', href: '/admin/billing/descriptors', icon: Settings },
   { name: 'Caps', href: '/admin/caps', icon: Gauge },
+  { name: 'Price Points', href: '/admin/price-points', icon: DollarSign },
 ]
 
 interface SidebarProps {

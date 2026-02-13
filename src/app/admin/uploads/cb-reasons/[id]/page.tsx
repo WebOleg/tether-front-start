@@ -60,7 +60,6 @@ export default function UploadCbReasonsPage() {
       try {
         setLoading(true)
         const response = await api.getUploadCbReasonRecords(uploadId, code)
-        console.log('CB reason records response:', response)
         setRecords(response.data || [])
       } catch (error) {
         setRecords([])
@@ -104,7 +103,7 @@ export default function UploadCbReasonsPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-32">
+                  <TableCell colSpan={7} className="h-32">
                     <div className="space-y-3">
                       <Skeleton className="h-4 w-full" />
                       <Skeleton className="h-4 w-full" />
@@ -114,7 +113,7 @@ export default function UploadCbReasonsPage() {
                 </TableRow>
               ) : records.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
                     No chargeback records found for this code
                   </TableCell>
                 </TableRow>
@@ -136,7 +135,7 @@ export default function UploadCbReasonsPage() {
                       {record.transaction_id ?? '-'}
                     </TableCell>
                     <TableCell className="text-slate-500 text-sm">
-                      {formatDateNullable(record?.chargebacked_at ?? '-')}
+                      {formatDateNullable(record?.chargebacked_at)}
                     </TableCell>
                     <TableCell className="text-right text-sm">
                       {formatCurrency(record.amount, record.currency)}

@@ -164,9 +164,7 @@ export default function UploadCbReasonsPage() {
           ...(selectedEmpAccountId !== 'all' && { emp_account_id: Number(selectedEmpAccountId) }),
         }
         const data = await api.getUploadCbReasons(Number(selectedUploadId), filters)
-        console.log('Fetched CBK data:', data)
         setCbData(data)
-        console.log('CBK reasons data set in state:', cbData)
       } catch (error) {
         console.error('Failed to fetch CBK data:', error)
         setCbData(null)
@@ -491,7 +489,7 @@ export default function UploadCbReasonsPage() {
                           </span>
                         </TableCell>
                         <TableCell className="text-center">
-                          <Link href={`/admin/uploads/cb-reasons/${reason.code}?upload_id=${selectedUploadId}`}>
+                          <Link href={`/admin/uploads/cb-reasons/${encodeURIComponent(reason.code)}?upload_id=${selectedUploadId}`}>
                             <Button
                               size="sm"
                               variant="default"

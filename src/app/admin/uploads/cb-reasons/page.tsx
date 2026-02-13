@@ -389,7 +389,7 @@ export default function UploadCbReasonsPage() {
                     {(cbData?.summary?.billed_count ?? 0).toLocaleString()}
                   </div>
                   <p className="text-sm text-slate-500 mt-1">
-                    {cbData?.summary?.approved_amount ? formatCurrency(cbData.summary.approved_amount, 'EUR') : '€'}
+                    {cbData?.summary?.approved_amount ? formatCurrency(cbData?.summary?.approved_amount, 'EUR') : '€'}
                   </p>
                 </CardContent>
               </Card>

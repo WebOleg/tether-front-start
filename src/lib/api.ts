@@ -40,9 +40,8 @@ import type {
   BavStartResponse,
   BavStatusResponse,
   UploadCbReasonsFilters,
-  UploadCbReasonSummary,
-  UploadCbReasonRecordsResponse,
   CbReasonResponse,
+  UploadCbData,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -957,9 +956,9 @@ class ApiClient {
   }
 
   // Upload CBK Reasons
-  async getUploadCbReasons(uploadId: number, filters: UploadCbReasonsFilters): Promise<UploadCbReasonSummary> {
+  async getUploadCbReasons(uploadId: number, filters: UploadCbReasonsFilters): Promise<UploadCbData> {
     const query = this.buildQuery(filters)
-    const response = await this.request<UploadCbReasonSummary>(
+    const response = await this.request<UploadCbData>(
       `/admin/chargebacks/upload/${uploadId}${query}`
     )
     return response

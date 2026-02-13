@@ -726,6 +726,7 @@ export interface CbReasonRecord {
   error_message: string | null
   amount: number
   currency: string
+  transaction_id: string
   bank_name: string | null
   bank_country: string | null
   processed_at: string | null

@@ -19,10 +19,10 @@ import {
 } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
-import { formatDate, formatCurrency } from '@/lib/utils'
+import { formatDate, formatCurrency, formatDateNullable } from '@/lib/utils'
 import { CbReasonResponse, CbReasonRecord, Upload } from '@/types'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Building2 } from 'lucide-react'
 
 export default function UploadCbReasonsPage() {
   const params = useParams()
@@ -95,9 +95,10 @@ export default function UploadCbReasonsPage() {
                 <TableHead>Debtor</TableHead>
                 <TableHead>IBAN</TableHead>
                 <TableHead>TXN ID</TableHead>
-                <TableHead>Chargebacked Date</TableHead>
+                <TableHead>CB Date</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Error Message</TableHead>
+                <TableHead>Account</TableHead>
+                <TableHead>Reason</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -122,23 +123,33 @@ export default function UploadCbReasonsPage() {
                   <TableRow key={record.id}>
                     <TableCell>
                       <div className="font-medium text-blue-600">
-                        {record.debtor.first_name} {record.debtor.last_name}
+                        {record?.debtor?.first_name} {record?.debtor?.last_name}
                       </div>
                       <div className="text-xs text-slate-500">
-                        {record.debtor.email}
+                        {record?.debtor?.email ?? '-'}
                       </div>
                     </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {record.debtor.iban || '-'}
+                      {record?.debtor?.iban ?? '-'}
                     </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {record.id}
+                      {record.transaction_id ?? '-'}
                     </TableCell>
                     <TableCell className="text-slate-500 text-sm">
-                      {formatDate(record.chargebacked_at)}
+                      {formatDateNullable(record?.chargebacked_at ?? '-')}
                     </TableCell>
                     <TableCell className="text-right text-sm">
                       {formatCurrency(record.amount, record.currency)}
+                    </TableCell>
+                    <TableCell>
+                      {record.emp_account ? (
+                        <div className="flex items-center gap-1.5">
+                          <Building2 className="h-3.5 w-3.5 text-emerald-600" />
+                          <span className="text-sm text-slate-700">{record.emp_account.name}</span>
+                        </div>
+                      ) : (
+                          <span className="text-sm text-slate-400">-</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-slate-600 max-w-xs truncate">
                       {record.error_message || '-'}

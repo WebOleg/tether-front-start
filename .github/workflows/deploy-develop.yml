@@ -1,0 +1,75 @@
+name: Deploy Frontend (Develop)
+
+on:
+  push:
+    branches: ["develop"]
+
+concurrency:
+  group: deploy-frontend-develop
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy frontend via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEV_HOST }}
+          username: ${{ secrets.DEV_USER }}
+          key: ${{ secrets.DEV_SSH_KEY }}
+          port: ${{ secrets.DEV_SSH_PORT || 22 }}
+          script: |
+            set -euo pipefail
+
+            # --- Configuration ---
+            # Assumed path based on your backend config
+            REPO_DIR="/opt/tether-laravel/frontend"
+            
+            # Ensure this file exists, or change to docker-compose.yml
+            COMPOSE="docker compose -f docker-compose.staging.yml"
+
+            cd "$REPO_DIR"
+
+            echo "== whoami =="; whoami; id
+            echo "== repo perms =="; ls -ld . .git .git/objects .git/objects/pack || true
+
+            # Prevent parallel deploys
+            exec 9> .deploy.lock
+            flock -n 9 || { echo "Another deploy is already running on this server."; exit 1; }
+
+            # Avoid "dubious ownership" warnings
+            git config --global --add safe.directory "$REPO_DIR" || true
+
+            # Owner check (Replaces the blind sudo chown for safety)
+            EXPECT_OWNER="${USER}:${USER}"
+            ACT_OWNER="$(stat -c '%U:%G' .git)"
+            echo "== owner check == expected: ${EXPECT_OWNER}, actual: ${ACT_OWNER}"
+            if [ "$ACT_OWNER" != "$EXPECT_OWNER" ]; then
+              echo "ERROR: .git is owned by '${ACT_OWNER}', expected '${EXPECT_OWNER}'."
+              echo "Fix once on server (interactive SSH):"
+              echo "  chown -R ${EXPECT_OWNER} ${REPO_DIR}"
+              exit 1
+            fi
+
+            # Clean stale locks
+            rm -f .git/index.lock .git/packed-refs.lock .git/objects/pack/*.lock || true
+
+            # Retry fetch
+            for i in 1 2 3; do
+              if git fetch --all --prune; then
+                break
+              fi
+              echo "git fetch failed (attempt $i). retrying..."
+              sleep 2
+            done
+
+            # Ensure we are exactly at origin/develop
+            git checkout -B develop origin/develop
+            git reset --hard origin/develop
+
+            # --- Docker ---
+            $COMPOSE build
+            $COMPOSE up -d
+
+            $COMPOSE ps

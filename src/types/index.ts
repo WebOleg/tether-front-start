@@ -762,6 +762,9 @@ export interface PricePointStats {
   totals: PricePointTotals
 }
 
+// ==========================================================================
+// Upload CB Reasons Types
+// ==========================================================================
 export interface UploadCbData {
   summary: UploadCbCardData
   codes: UploadCbCodeData[]
@@ -823,4 +826,63 @@ export interface CbReasonResponse {
   data: CbReasonRecord[]
   links: PaginationLinks
   meta: PaginationMeta
+}
+
+// ==========================================================================
+// BAV Batch Types (Standalone BAV verification)
+// ==========================================================================
+export interface BavBatchPreview {
+  iban: string
+  first_name: string
+  last_name: string
+  bic: string
+}
+
+export interface BavBatchColumnMapping {
+  has_header: boolean
+  delimiter: string
+  iban: number | null
+  first_name: number | null
+  last_name: number | null
+  bic: number | null
+}
+
+export interface BavBatchUploadResponse {
+  batch_id: number
+  filename: string
+  total_records: number
+  column_mapping: BavBatchColumnMapping
+  preview: BavBatchPreview[]
+}
+
+export interface BavBatchProgress {
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  total: number
+  processed: number
+  success: number
+  failed: number
+  credits_used: number
+  percentage: number
+  started_at: string | null
+  completed_at: string | null
+}
+
+export interface BavBatchItem {
+  id: number
+  filename: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  total_records: number
+  processed_records: number
+  success_count: number
+  failed_count: number
+  credits_used: number
+  progress: BavBatchProgress
+  created_at: string
+}
+
+export interface BavBatchBalance {
+  success: boolean
+  credits_remaining: number
+  credits_total: number
+  error: string | null
 }

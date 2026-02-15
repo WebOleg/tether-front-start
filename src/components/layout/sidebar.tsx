@@ -21,7 +21,8 @@ import {
   X,
   Settings,
   Gauge,
-  DollarSign
+  DollarSign,
+  ScanSearch
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
@@ -55,6 +56,7 @@ const navigation = [
   { name: 'BIC Analytics', href: '/admin/bic-analytics', icon: Building2 },
   { name: 'Uploads', href: '/admin/uploads', icon: Upload },
   { name: 'Upload CB Reasons', href: '/admin/uploads/cb-reasons', icon: ChargebackUploadIcon },
+  { name: 'BAV Auto', href: '/admin/bav-auto', icon: ScanSearch },
   { name: 'Debtors', href: '/admin/debtors', icon: Users },
   { name: 'Chargebacks', href: '/admin/chargebacks', icon: ChargebackIcon },
   { name: 'VOP Logs', href: '/admin/vop-logs', icon: ShieldCheck },
@@ -90,24 +92,16 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
     }
   }
 
-  // Helper to check if a specific nav item is active
-  // It returns false if a more specific child item is currently active
   const checkIsActive = (itemHref: string) => {
-    // Basic match: exact match OR (prefix match AND not root admin path)
     const isMatch = pathname === itemHref || (itemHref !== '/admin' && pathname.startsWith(itemHref));
-
-    // Child check: Is there another nav item that is a "child" of this one (sub-path)
-    // AND is currently matching the path?
     const isChildActive = navigation.some(nav =>
-        nav.href !== itemHref &&           // Don't compare against self
-        nav.href.startsWith(itemHref) &&   // Is this a sub-path?
-        pathname.startsWith(nav.href)      // Is the user currently on this sub-path?
+        nav.href !== itemHref &&
+        nav.href.startsWith(itemHref) &&
+        pathname.startsWith(nav.href)
     );
-
     return isMatch && !isChildActive;
   };
 
-  // Touch/Mouse handlers for swipe gesture
   const handleTouchStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
     startXRef.current = clientX
@@ -118,12 +112,9 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
 
   const handleTouchMove = useCallback((e: React.TouchEvent | React.MouseEvent) => {
     if (!isDragging) return
-
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
     currentXRef.current = clientX
     const offset = clientX - startXRef.current
-
-    // Only allow dragging to the left (negative offset)
     if (offset <= 0) {
       setDragOffset(offset)
     }
@@ -131,27 +122,20 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
 
   const handleTouchEnd = useCallback(() => {
     if (!isDragging) return
-
     const offset = currentXRef.current - startXRef.current
-    const threshold = -100 // Swipe left threshold
-
+    const threshold = -100
     setIsDragging(false)
     setDragOffset(0)
-
-    // Close sidebar if swiped left beyond threshold
     if (offset < threshold && onMobileClose) {
       onMobileClose()
     }
   }, [isDragging, onMobileClose])
 
-  // On mobile, always show full menu. On desktop, respect collapse state
   const shouldShowCollapsed = !isMobile && isCollapsed
 
-  // Mobile sidebar with overlay
   if (isMobile) {
     return (
         <>
-          {/* Overlay backdrop with fade animation */}
           <div
               className={cn(
                   "fixed inset-0 bg-black/50 z-40 transition-opacity duration-300",
@@ -159,18 +143,14 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
               )}
               onClick={onMobileClose}
           />
-
-          {/* Sliding sidebar with swipe gesture */}
           <aside
               className={cn(
                   "fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-900 text-white",
                   "transform ease-in-out",
-                  // Use different transitions based on dragging state
                   isDragging ? "transition-none" : "transition-transform duration-300",
                   isMobileOpen ? "translate-x-0" : "-translate-x-full"
               )}
               style={{
-                // Apply drag offset when dragging
                 transform: isMobileOpen
                     ? `translateX(${Math.min(0, dragOffset)}px)`
                     : 'translateX(-100%)'
@@ -183,7 +163,6 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
               onMouseUp={handleTouchEnd}
               onMouseLeave={handleTouchEnd}
           >
-            {/* Logo with close button */}
             <div className="flex h-16 items-center justify-between border-b border-slate-700 px-4">
               <h1 className="text-xl font-bold">Tether Admin</h1>
               <button
@@ -192,19 +171,15 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
                   aria-label="Close sidebar"
               >
                 <X className="h-5 w-5" />
-              </button>          </div>
-
-            {/* Swipe indicator */}
+              </button>
+            </div>
             <div className="px-4 py-2 text-center">
               <div className="w-8 h-1 bg-slate-600 rounded-full mx-auto opacity-50"></div>
               <p className="text-xs text-slate-500 mt-1">Swipe left to close</p>
             </div>
-
-            {/* Navigation with staggered animation */}
             <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
               {navigation.map((item, index) => {
                 const isActive = checkIsActive(item.href);
-
                 return (
                     <Link
                         key={item.name}
@@ -216,7 +191,6 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
                             isActive
                                 ? 'bg-slate-800 text-white'
                                 : 'text-slate-400 hover:bg-slate-800 hover:text-white hover:translate-x-1',
-                            // Staggered animation on mobile open
                             isMobileOpen
                                 ? 'translate-x-0 opacity-100'
                                 : '-translate-x-4 opacity-0'
@@ -231,8 +205,6 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
                 )
               })}
             </nav>
-
-            {/* Logout */}
             <div className="border-t border-slate-700 p-4">
               <button
                   onClick={handleLogout}
@@ -256,13 +228,11 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
     )
   }
 
-  // Desktop sidebar
   return (
       <aside className={cn(
           "relative flex h-screen flex-col bg-slate-900 text-white transition-all duration-300 ease-in-out",
           shouldShowCollapsed ? "w-20" : "w-64"
       )}>
-        {/* Logo with fade transition */}
         <div className="flex h-16 items-center justify-center border-b border-slate-700 px-4 overflow-hidden">
           <h1 className="text-xl font-bold whitespace-nowrap transition-all duration-300">
           <span className={cn(
@@ -279,12 +249,9 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
           </span>
           </h1>
         </div>
-
-        {/* Navigation */}
         <nav className="flex-1 space-y-1 p-4 overflow-hidden">
           {navigation.map((item) => {
             const isActive = checkIsActive(item.href);
-
             const NavItem = (
                 <Link
                     key={item.name}
@@ -310,8 +277,6 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
               </span>
                 </Link>
             )
-
-            // Wrap with tooltip only when collapsed on desktop
             if (shouldShowCollapsed) {
               return (
                   <Tooltip key={item.name}>
@@ -324,12 +289,9 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
                   </Tooltip>
               )
             }
-
             return NavItem
           })}
         </nav>
-
-        {/* Logout */}
         <div className="border-t border-slate-700 p-4 overflow-hidden">
           {shouldShowCollapsed ? (
               <Tooltip>
@@ -360,8 +322,6 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
               </button>
           )}
         </div>
-
-        {/* Toggle Button with rotation animation */}
         {onToggleCollapse && (
             <button
                 onClick={onToggleCollapse}

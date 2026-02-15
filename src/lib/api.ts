@@ -44,6 +44,10 @@ import type {
   UploadCbReasonsFilters,
   CbReasonResponse,
   UploadCbData,
+  BavBatchItem,
+  BavBatchUploadResponse,
+  BavBatchProgress,
+  BavBatchBalance,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -1066,6 +1070,82 @@ class ApiClient {
       `/admin/chargebacks/upload/${uploadId}/${encodeURIComponent(code)}/records${query}`
     )
     return response
+  }
+
+  // BAV Batch (Standalone BAV verification)
+  async getBavBatches(): Promise<BavBatchItem[]> {
+    const response = await this.request<{ data: BavBatchItem[] }>('/admin/bav/batches')
+    return response.data
+  }
+
+  async uploadBavBatch(file: File): Promise<BavBatchUploadResponse> {
+    const token = this.getToken()
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const headers: HeadersInit = { 'Accept': 'application/json' }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    const response = await fetch(`${API_BASE_URL}/admin/bav/batches/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new ApiError(
+        error.error || error.message || 'Upload failed',
+        [],
+        response.status
+      )
+    }
+
+    const result = await response.json()
+    return result.data
+  }
+
+  async startBavBatch(batchId: number): Promise<{ batch_id: number; status: string; message: string }> {
+    const response = await this.request<{ data: { batch_id: number; status: string; message: string } }>(
+      `/admin/bav/batches/${batchId}/start`,
+      { method: 'POST' }
+    )
+    return response.data
+  }
+
+  async getBavBatchStatus(batchId: number): Promise<BavBatchProgress> {
+    const response = await this.request<{ data: BavBatchProgress }>(
+      `/admin/bav/batches/${batchId}/status`
+    )
+    return response.data
+  }
+
+  async downloadBavBatchResults(batchId: number): Promise<Blob> {
+    const token = this.getToken()
+    const headers: HeadersInit = { 'Accept': 'text/csv' }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/admin/bav/batches/${batchId}/download`,
+      { headers }
+    )
+
+    if (!response.ok) {
+      throw new ApiError('Download failed', [], response.status)
+    }
+
+    return response.blob()
+  }
+
+  async getBavBatchBalance(): Promise<BavBatchBalance> {
+    const response = await this.request<{ data: BavBatchBalance }>(
+      '/admin/bav/batches/balance'
+    )
+    return response.data
   }
 }
 

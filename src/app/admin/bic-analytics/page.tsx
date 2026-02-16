@@ -1,6 +1,6 @@
 /**
  * BIC Analytics page - Bank-level transaction metrics for risk monitoring
- * Updated to remove Price Point Segmentation & Custom Price Filtering
+ * With CB Reason Code filter dropdown
  */
 'use client'
 
@@ -78,7 +78,6 @@ interface BicBreakdownResponse {
   segments: PricePointData[]
 }
 
-// Removed 'amount' from sort fields
 type SortField = 'cb_rate_count' | 'cb_rate_volume' | 'chargeback_count' | 'total_transactions' | 'total_volume'
 
 export default function BicAnalyticsPage() {
@@ -95,9 +94,12 @@ export default function BicAnalyticsPage() {
   const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
   const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<string>('all')
 
+  // CB Reason Code filter
+  const [cbReasonCodes, setCbReasonCodes] = useState<string[]>([])
+  const [selectedCbReasonCode, setSelectedCbReasonCode] = useState<string>('all')
+
   // Filters
   const [countryFilter, setCountryFilter] = useState<string>('all')
-  // Removed priceFilter and customPrice states
   const [bicSearch, setBicSearch] = useState('')
   const [highRiskOnly, setHighRiskOnly] = useState(false)
   const [hideSmallBics, setHideSmallBics] = useState(false)
@@ -124,7 +126,7 @@ export default function BicAnalyticsPage() {
     }
   }
 
-  // Fetch EMP accounts on mount
+  // Fetch EMP accounts and CB reason codes on mount
   useEffect(() => {
     const fetchEmpAccounts = async () => {
       try {
@@ -134,16 +136,26 @@ export default function BicAnalyticsPage() {
         console.error('Failed to fetch EMP accounts:', err)
       }
     }
+    const fetchCbCodes = async () => {
+      try {
+        const codes = await api.getChargebackCodes()
+        setCbReasonCodes(codes.filter(Boolean))
+      } catch (err) {
+        console.error('Failed to fetch CB reason codes:', err)
+      }
+    }
     fetchEmpAccounts()
+    fetchCbCodes()
   }, [])
 
   useEffect(() => {
     const fetchBicStats = async () => {
       setLoading(true)
       try {
-        const filters: { model?: string; emp_account_id?: number } = {}
+        const filters: { model?: string; emp_account_id?: number; cb_reason_code?: string } = {}
         if (activeModel !== 'all') filters.model = activeModel
         if (selectedEmpAccountId !== 'all') filters.emp_account_id = Number(selectedEmpAccountId)
+        if (selectedCbReasonCode !== 'all') filters.cb_reason_code = selectedCbReasonCode
 
         const stats = await api.getBicAnalytics(bicPeriod, filters)
         setBicStats(stats)
@@ -155,7 +167,7 @@ export default function BicAnalyticsPage() {
       }
     }
     fetchBicStats()
-  }, [bicPeriod, activeModel, selectedEmpAccountId])
+  }, [bicPeriod, activeModel, selectedEmpAccountId, selectedCbReasonCode])
 
   // Extract unique countries
   const countries = useMemo(() => {
@@ -163,8 +175,6 @@ export default function BicAnalyticsPage() {
     const uniqueCountries = [...new Set(bicStats.bics.map(b => b.bank_country))]
     return uniqueCountries.sort()
   }, [bicStats])
-
-  // Removed uniquePrices memo
 
   // Filter and sort BICs
   const filteredBics = useMemo(() => {
@@ -176,8 +186,6 @@ export default function BicAnalyticsPage() {
     if (countryFilter !== 'all') {
       result = result.filter(b => b.bank_country === countryFilter)
     }
-
-    // Removed Price Filter Logic
 
     // BIC search
     if (bicSearch.trim()) {
@@ -262,14 +270,13 @@ export default function BicAnalyticsPage() {
 
   const handleExport = async () => {
     try {
-      // Using Record<string, any> to avoid strict typing issues if types aren't updated
       const filters: Record<string, any> = {}
       if (activeModel !== 'all') filters.model = activeModel
       if (selectedEmpAccountId !== 'all') filters.emp_account_id = Number(selectedEmpAccountId)
+      if (selectedCbReasonCode !== 'all') filters.cb_reason_code = selectedCbReasonCode
 
       const blob = await api.getBicAnalyticsExport(bicPeriod, filters)
 
-      // Basic check if the response is actually an error (HTML/JSON) masquerading as a blob
       if (blob.type === 'text/html' || blob.type === 'application/json') {
         toast.error('Export failed: Server returned an error');
         return;
@@ -293,13 +300,14 @@ export default function BicAnalyticsPage() {
   // Calculate active filters count
   const activeFilterCount =
       (countryFilter !== 'all' ? 1 : 0) +
+      (selectedCbReasonCode !== 'all' ? 1 : 0) +
       (bicSearch !== '' ? 1 : 0) +
       (highRiskOnly ? 1 : 0) +
       (hideSmallBics ? 1 : 0)
 
   const clearFilters = () => {
     setCountryFilter('all')
-    // Removed price reset logic
+    setSelectedCbReasonCode('all')
     setBicSearch('')
     setHighRiskOnly(false)
     setHideSmallBics(false)
@@ -379,7 +387,21 @@ export default function BicAnalyticsPage() {
                 </Select>
               </div>
 
-              {/* Removed Price Filters Group */}
+              {/* CB Reason Code Filter */}
+              <div className="flex items-center gap-2">
+                <Label className="text-sm whitespace-nowrap">CB Code:</Label>
+                <Select value={selectedCbReasonCode} onValueChange={setSelectedCbReasonCode}>
+                  <SelectTrigger className="w-44 h-8">
+                    <SelectValue placeholder="All Codes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Codes</SelectItem>
+                    {cbReasonCodes.map(code => (
+                        <SelectItem key={code} value={code}>{code}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* BIC Search */}
               <div className="relative">
@@ -426,7 +448,6 @@ export default function BicAnalyticsPage() {
                     <SelectItem value="chargeback_count">Chargebacks</SelectItem>
                     <SelectItem value="total_transactions">Total TX</SelectItem>
                     <SelectItem value="total_volume">Volume</SelectItem>
-                    {/* Removed Price Point sort option */}
                   </SelectContent>
                 </Select>
               </div>
@@ -455,14 +476,19 @@ export default function BicAnalyticsPage() {
             </Button>
           </div>
 
-          {/* Active Model Badge */}
-          {activeModel !== 'all' && (
-              <div className="mb-4">
+          {/* Active Filter Badges */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {activeModel !== 'all' && (
                 <Badge variant="outline" className="capitalize">
                   {activeModel} Model
                 </Badge>
-              </div>
-          )}
+            )}
+            {selectedCbReasonCode !== 'all' && (
+                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                  CB Code: {selectedCbReasonCode}
+                </Badge>
+            )}
+          </div>
 
           {/* Summary Cards */}
           {loading ? (
@@ -551,7 +577,6 @@ export default function BicAnalyticsPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>BIC</TableHead>
-                        {/* Removed Price Point Column Header */}
                         <TableHead>Country</TableHead>
                         <TableHead className="text-right">Total TX</TableHead>
                         <TableHead className="text-right">Approved</TableHead>
@@ -564,13 +589,10 @@ export default function BicAnalyticsPage() {
                     </TableHeader>
                     <TableBody>
                       {filteredBics.map((bic) => {
-                        // We still read amount/currency to generate the key, even if we don't display them.
                         // @ts-ignore
                         const amount = Number(bic.amount) || 0;
                         // @ts-ignore
                         const currency = bic.currency || 'EUR';
-
-                        // Key must remain unique if the backend returns split data
                         const rowKey = `${bic.bic}-${currency}-${amount}`;
 
                         return (
@@ -588,7 +610,6 @@ export default function BicAnalyticsPage() {
                                 {bic.is_high_risk && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2" />}
                                 {bic.is_blacklisted && <Ban className="h-4 w-4 text-black inline ml-2" />}
                               </TableCell>
-                              {/* Removed Price Point Cell */}
                               <TableCell>{bic.bank_country}</TableCell>
                               <TableCell className="text-right">{bic.total_transactions}</TableCell>
                               <TableCell className="text-right text-green-600">{bic.approved_count}</TableCell>
@@ -605,7 +626,6 @@ export default function BicAnalyticsPage() {
                         )})}
                       {/* Total Row */}
                       <TableRow className={`${hasHighRisk ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
-                        {/* Adjusted colSpan from 3 to 2 since one column was removed */}
                         <TableCell colSpan={2}>Total ({filteredTotals.total_bics} Segments)</TableCell>
                         <TableCell className="text-right">{filteredTotals.total_transactions.toLocaleString()}</TableCell>
                         <TableCell className="text-right">-</TableCell>
@@ -646,7 +666,6 @@ export default function BicAnalyticsPage() {
                 </div>
             ) : breakdownData ? (
                 <div className="space-y-6">
-                  {/* Header Stats */}
                   <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <div className="space-y-1">
                       <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Analysis Period</p>
@@ -658,7 +677,6 @@ export default function BicAnalyticsPage() {
                     </div>
                   </div>
 
-                  {/* Block List */}
                   <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
                     {breakdownData.segments.map((segment: PricePointData, idx: number) => {
                       const isLowValue = Number(segment.amount) < 5;
@@ -727,7 +745,7 @@ export default function BicAnalyticsPage() {
                                 </div>
                             )}
                           </div>
-                      );
+              );
                     })}
                   </div>
 

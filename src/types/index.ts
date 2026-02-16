@@ -253,6 +253,7 @@ export interface BillingAttempt {
 export interface AnalyticsFilters {
   model?: string;
   emp_account_id?: number;
+  cb_reason_code?: string;
 }
 
 export type BillingStatus = 'pending' | 'approved' | 'declined' | 'error' | 'voided' | 'chargebacked'

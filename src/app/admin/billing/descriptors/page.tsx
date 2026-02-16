@@ -43,19 +43,9 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { api } from '@/lib/api'
-import { EmpAccountRef } from '@/types'
-import { Plus, Pencil, Trash2, Calendar, ShieldCheck, Loader2 } from 'lucide-react'
-
-export interface TransactionDescriptor {
-    id: number
-    descriptor_name: string
-    descriptor_city: string
-    descriptor_country: string
-    is_default: boolean
-    month?: number
-    year?: number
-    emp_account_id?: number | null
-}
+import { Pagination, PaginationMeta } from '@/components/ui/pagination'
+import { EmpAccountRef, PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType, TransactionDescriptor, TransactionDescriptorForm } from '@/types'
+import { Plus, Pencil, Trash2, Calendar, ShieldCheck, Loader2, Building2 } from 'lucide-react'
 
 // Alphanumeric, spaces, dots, commas, hyphens.
 const DESCRIPTOR_REGEX = /^[a-zA-Z0-9\s.,-]+$/;
@@ -106,8 +96,14 @@ export default function DescriptorSchedulePage() {
     const [deletingId, setDeletingId] = useState<number | null>(null)
     const [removingId, setRemovingId] = useState<number | null>(null)
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1)
+    const [meta, setMeta] = useState<PaginationMetaType | null>(null)
+    const [links, setLinks] = useState<PaginationLinks | null>(null)
+    const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
+
     // Form State
-    const [formData, setFormData] = useState<Omit<TransactionDescriptor, 'id'>>({
+    const [formData, setFormData] = useState<TransactionDescriptorForm>({
         descriptor_name: '',
         descriptor_city: '',
         descriptor_country: '',
@@ -126,15 +122,23 @@ export default function DescriptorSchedulePage() {
     }>({})
 
     useEffect(() => {
-        fetchSchedules()
+        fetchSchedules(currentPage)
         fetchEmpAccounts()
-    }, [])
+    }, [currentPage])
 
-    const fetchSchedules = async () => {
+    const fetchSchedules = async (page: number = 1) => {
         setLoading(true)
         try {
-            const response = await api.getDescriptors()
+            const params = { page, per_page: 5 }
+            const response = await api.getDescriptors(params)
             setSchedules(response.data || [])
+            setMeta(response.meta || null)
+            setLinks(response.links || null)
+            
+            // Extract pagination links from meta
+            if (response.meta && 'links' in response.meta) {
+                setPaginationLinks((response.meta as any).links || [])
+            }
         } catch (error) {
             console.error('Failed to fetch schedules', error)
         } finally {
@@ -248,7 +252,8 @@ export default function DescriptorSchedulePage() {
                 toast.success('Descriptor created successfully')
             }
             setIsDialogOpen(false)
-            fetchSchedules()
+            setCurrentPage(1)
+            fetchSchedules(1)
         } catch (error: any) {
             console.error('Failed to save', error)
             if (error.name === 'ApiError') {
@@ -276,6 +281,8 @@ export default function DescriptorSchedulePage() {
                 setDeletingId(null)
                 setRemovingId(null)
                 toast.success('Descriptor deleted successfully!')
+                // Refetch to update pagination
+                fetchSchedules(currentPage)
             }, 300)
         } catch (error) {
             if (error instanceof Error) {
@@ -286,6 +293,22 @@ export default function DescriptorSchedulePage() {
                 toast.error('An error occurred while deleting')
             }
         }
+    }
+
+    const handlePreviousPage = () => {
+        if (currentPage > 1) {
+            setCurrentPage(prev => prev - 1)
+        }
+    }
+
+    const handleNextPage = () => {
+        if (meta && currentPage < meta.last_page) {
+            setCurrentPage(prev => prev + 1)
+        }
+    }
+
+    const handlePageClick = (page: number) => {
+        setCurrentPage(page)
     }
 
     return (
@@ -303,6 +326,13 @@ export default function DescriptorSchedulePage() {
                     </Button>
                 </div>
 
+                {meta && (
+                    <PaginationMeta
+                        meta={meta}
+                        label="Descriptors"
+                        containerClassName='px-2'
+                    />
+                )}
                 <div className="rounded-lg border bg-white overflow-hidden">
                     <Table>
                         <TableHeader>
@@ -350,9 +380,12 @@ export default function DescriptorSchedulePage() {
                                             </TableCell>
                                             <TableCell className="text-sm">
                                                 {empAccount ? (
-                                                    <Badge variant="secondary">{empAccount.name}</Badge>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Building2 className="h-3.5 w-3.5 text-emerald-600" />
+                                                        <span className="text-sm font-medium text-slate-700">{empAccount.name}</span>
+                                                    </div>
                                                 ) : (
-                                                    <span className="text-slate-400">-</span>
+                                                    <span className="text-sm text-slate-400">-</span>
                                                 )}
                                             </TableCell>
                                             <TableCell>
@@ -392,6 +425,14 @@ export default function DescriptorSchedulePage() {
                         </TableBody>
                     </Table>
                 </div>
+                <Pagination
+                    meta={meta}
+                    links={links}
+                    paginationLinks={paginationLinks}
+                    onPageChange={handlePageClick}
+                    onPreviousClick={handlePreviousPage}
+                    onNextClick={handleNextPage}
+                />
             </div>
 
             {/* Add / Edit Dialog */}

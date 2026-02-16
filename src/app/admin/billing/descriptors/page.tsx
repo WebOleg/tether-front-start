@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { Header } from '@/components/layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -241,13 +242,25 @@ export default function DescriptorSchedulePage() {
 
             if (editingId) {
                 await api.updateDescriptor(editingId, payload)
+                toast.success('Descriptor updated successfully')
             } else {
                 await api.createDescriptor(payload)
+                toast.success('Descriptor created successfully')
             }
             setIsDialogOpen(false)
             fetchSchedules()
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to save', error)
+            if (error.name === 'ApiError') {
+                const errorMessage = error.message;
+                if (error.errors && Array.isArray(error.errors) && error.errors.length > 0) {
+                    toast.error(error.errors[0]);
+                } else {
+                    toast.error(errorMessage || 'Failed to save descriptor');
+                }
+            } else {
+                toast.error('Failed to save descriptor');
+            }
         } finally {
             setIsSaving(false)
         }
@@ -257,19 +270,20 @@ export default function DescriptorSchedulePage() {
         if (!deletingId) return;
         try {
             await api.deleteDescriptor(deletingId)
-            // Trigger animation
             setRemovingId(deletingId)
-            // Remove after animation completes (300ms)
             setTimeout(() => {
                 setSchedules(prev => prev.filter(schedule => schedule.id !== deletingId))
                 setDeletingId(null)
                 setRemovingId(null)
+                toast.success('Descriptor deleted successfully!')
             }, 300)
         } catch (error) {
             if (error instanceof Error) {
                 console.error('Failed to delete descriptor:', error.message)
+                toast.error('Failed to delete descriptor')
             } else {
                 console.error('Failed to delete descriptor:', error)
+                toast.error('An error occurred while deleting')
             }
         }
     }
@@ -410,7 +424,7 @@ export default function DescriptorSchedulePage() {
                         </div>
 
                         {!formData.is_default && (
-                            <div className="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95 duration-500">
+                            <div className="grid grid-cols-2 gap-4 animate-in fade-in fade-out zoom-in-95 duration-500">
                                 <div className="space-y-2">
                                     <Label>Month</Label>
                                     <Select

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
     Table,
     TableBody,
@@ -42,7 +43,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { api } from '@/lib/api'
 import { EmpAccountRef } from '@/types'
-import { Loader2, Plus, Pencil, Trash2, Calendar, ShieldCheck } from 'lucide-react'
+import { Plus, Pencil, Trash2, Calendar, ShieldCheck, Loader2 } from 'lucide-react'
 
 export interface TransactionDescriptor {
     id: number
@@ -69,6 +70,25 @@ const MONTHS = [
 
 const currentYear = new Date().getFullYear();
 const YEARS = [currentYear, currentYear + 1, currentYear + 2];
+
+// Skeleton Row Component
+function SkeletonTableRow() {
+    return (
+        <TableRow>
+            <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+            <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+            <TableCell><Skeleton className="h-6 w-20 rounded" /></TableCell>
+            <TableCell><Skeleton className="h-6 w-28 rounded" /></TableCell>
+            <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+            <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                    <Skeleton className="h-9 w-9 rounded" />
+                    <Skeleton className="h-9 w-9 rounded" />
+                </div>
+            </TableCell>
+        </TableRow>
+    )
+}
 
 export default function DescriptorSchedulePage() {
     const [schedules, setSchedules] = useState<TransactionDescriptor[]>([])
@@ -162,7 +182,7 @@ export default function DescriptorSchedulePage() {
     }
 
     const validateField = (field: 'name' | 'city' | 'country' | 'emp_account', value: string | number | null | undefined) => {
-        // EMp Account validation
+        // EMP Account validation
         if (field === 'emp_account') {
             if (!value) return "EMp Account is required";
             return undefined;
@@ -263,7 +283,7 @@ export default function DescriptorSchedulePage() {
 
             <div className="p-6">
                 <div className="flex justify-end mb-4">
-                    <Button onClick={() => handleOpenDialog()}>
+                    <Button onClick={() => handleOpenDialog()} disabled={loading}>
                         <Plus className="mr-2 h-4 w-4" />
                         Add Schedule
                     </Button>
@@ -283,11 +303,11 @@ export default function DescriptorSchedulePage() {
                         </TableHeader>
                         <TableBody>
                             {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8">
-                                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
-                                    </TableCell>
-                                </TableRow>
+                                <>
+                                    {[...Array(5)].map((_, i) => (
+                                        <SkeletonTableRow key={i} />
+                                    ))}
+                                </>
                             ) : schedules.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-8 text-slate-500">
@@ -362,7 +382,7 @@ export default function DescriptorSchedulePage() {
 
             {/* Add / Edit Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-[600px]">
+                <DialogContent className="sm:max-w-[600px] transition-all duration-300 ease-out animate-in fade-in zoom-in-95">
                     <DialogHeader>
                         <DialogTitle>{editingId ? 'Edit Descriptor' : 'Add New Descriptor'}</DialogTitle>
                         <DialogDescription>
@@ -372,50 +392,32 @@ export default function DescriptorSchedulePage() {
 
                     <div className="grid gap-5 py-4">
 
-                        {/* EMp Account Selection */}
-                        <div className="space-y-2">
-                            <Label htmlFor="emp-account">EMp Account *</Label>
-                            <Select
-                                value={String(formData.emp_account_id || '')}
-                                onValueChange={(val) => handleInputChange('emp_account_id', val ? Number(val) : null)}
-                            >
-                                <SelectTrigger className={errors.emp_account ? "border-red-500 focus-visible:ring-red-500" : ""}>
-                                    <SelectValue placeholder={empAccountsLoading ? "Loading EMp accounts..." : "Select EMp Account"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {empAccounts.map(account => (
-                                        <SelectItem key={account.id} value={String(account.id)}>
-                                            {account.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {errors.emp_account && <p className="text-xs text-red-500 font-medium">{errors.emp_account}</p>}
-                        </div>
-
-                        <div className="flex items-center justify-between space-x-2 border p-3 rounded-md bg-slate-50">
-                            <div className="flex flex-col gap-1">
-                                <Label htmlFor="default-mode" className="font-medium">Set as Default Fallback</Label>
-                                <span className="text-xs text-slate-500">
-                    If enabled, this descriptor is used when no monthly schedule exists.
-                </span>
+                        <div className="border p-4 rounded-lg bg-blue-50 border-blue-200">
+                            <div className="flex items-start gap-1">
+                                <div className="flex-1">
+                                    <h3 className="font-semibold text-blue-900 mb-1">Set as Default Fallback</h3>
+                                    <p className="text-sm text-slate-700 mb-4">
+                                        If enabled, this descriptor is used when no monthly schedule exists.
+                                    </p>
+                                </div>
+                                <Switch
+                                    id="default-mode"
+                                    checked={formData.is_default}
+                                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_default: checked }))}
+                                    className="transition-all duration-300"
+                                />
                             </div>
-                            <Switch
-                                id="default-mode"
-                                checked={formData.is_default}
-                                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_default: checked }))}
-                            />
                         </div>
 
                         {!formData.is_default && (
-                            <div className="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95 duration-200">
+                            <div className="grid grid-cols-2 gap-4 animate-in fade-in zoom-in-95 duration-500">
                                 <div className="space-y-2">
                                     <Label>Month</Label>
                                     <Select
                                         value={String(formData.month)}
                                         onValueChange={(val) => setFormData(prev => ({ ...prev, month: Number(val) }))}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="w-full">
                                             <SelectValue placeholder="Select Month" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -431,7 +433,7 @@ export default function DescriptorSchedulePage() {
                                         value={String(formData.year)}
                                         onValueChange={(val) => setFormData(prev => ({ ...prev, year: Number(val) }))}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger className="w-full">
                                             <SelectValue placeholder="Select Year" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -444,8 +446,6 @@ export default function DescriptorSchedulePage() {
                             </div>
                         )}
 
-                        <div className="border-t border-slate-100 my-1"></div>
-
                         {/* Descriptor Name */}
                         <div className="space-y-2">
                             <Label htmlFor="name">Merchant Name (Descriptor) *</Label>
@@ -457,6 +457,29 @@ export default function DescriptorSchedulePage() {
                                 className={errors.name ? "border-red-500 focus-visible:ring-red-500" : ""}
                             />
                             {errors.name && <p className="text-xs text-red-500 font-medium">{errors.name}</p>}
+                        </div>
+
+                        <div className="gird grid-cols-2 gap-4">
+                            {/* EMP Account Selection */}
+                            <div className="space-y-2">
+                                <Label htmlFor="emp-account">EMP Account *</Label>
+                                <Select
+                                    value={String(formData.emp_account_id || '')}
+                                    onValueChange={(val) => handleInputChange('emp_account_id', val ? Number(val) : null)}
+                                >
+                                    <SelectTrigger className={errors.emp_account ? "border-red-500 focus-visible:ring-red-500 w-full" : "w-full"}>
+                                        <SelectValue placeholder={empAccountsLoading ? "Loading EMp accounts..." : "Select EMP Account"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {empAccounts.map(account => (
+                                            <SelectItem key={account.id} value={String(account.id)}>
+                                                {account.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {errors.emp_account && <p className="text-xs text-red-500 font-medium">{errors.emp_account}</p>}
+                            </div>
                         </div>
 
                         {/* City & Country Row */}

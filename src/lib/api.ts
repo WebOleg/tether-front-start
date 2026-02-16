@@ -839,14 +839,10 @@ class ApiClient {
       period: string = '30d',
       filters?: AnalyticsFilters
   ): Promise<BicBreakdownResponse> {
-    // Ensure the query includes the BIC if your controller expects it as a query param
     const query = this.buildQuery({ period, bic, ...filters })
-
     const response = await this.request<{ data: BicBreakdownResponse }>(
         `/admin/analytics/bic/price-points${query}`
     )
-
-    // Return the data object directly
     return response.data
   }
 
@@ -1107,10 +1103,18 @@ class ApiClient {
     return result.data
   }
 
-  async startBavBatch(batchId: number): Promise<{ batch_id: number; status: string; message: string }> {
-    const response = await this.request<{ data: { batch_id: number; status: string; message: string } }>(
+  async startBavBatch(batchId: number, recordLimit?: number): Promise<{ batch_id: number; status: string; record_limit: number; message: string }> {
+    const body: Record<string, any> = {}
+    if (recordLimit !== undefined) {
+      body.record_limit = recordLimit
+    }
+
+    const response = await this.request<{ data: { batch_id: number; status: string; record_limit: number; message: string } }>(
       `/admin/bav/batches/${batchId}/start`,
-      { method: 'POST' }
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }
     )
     return response.data
   }

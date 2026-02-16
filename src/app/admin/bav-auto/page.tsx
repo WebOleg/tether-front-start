@@ -33,6 +33,7 @@ import {
   Clock,
   XCircle,
   Eye,
+  Hash,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/utils'
@@ -52,6 +53,7 @@ export default function BavAutoPage() {
   const [activeBatchId, setActiveBatchId] = useState<number | null>(null)
   const [credits, setCredits] = useState<{ remaining: number; total: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [recordLimit, setRecordLimit] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
@@ -146,6 +148,7 @@ export default function BavAutoPage() {
     try {
       const result = await api.uploadBavBatch(file)
       setUploadResult(result)
+      setRecordLimit(null)
       setStep('preview')
       setFile(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -160,16 +163,23 @@ export default function BavAutoPage() {
     }
   }
 
+  const effectiveLimit = uploadResult
+    ? (recordLimit !== null ? recordLimit : uploadResult.total_records)
+    : 0
+
   const handleStart = async () => {
     if (!uploadResult) return
 
     try {
-      const result = await api.startBavBatch(uploadResult.batch_id)
+      const limit = recordLimit !== null ? recordLimit : undefined
+      const result = await api.startBavBatch(uploadResult.batch_id, limit)
       setActiveBatchId(uploadResult.batch_id)
       setStep('processing')
       setProgress({
         status: 'processing',
         total: uploadResult.total_records,
+        record_limit: recordLimit,
+        effective_limit: effectiveLimit,
         processed: 0,
         success: 0,
         failed: 0,
@@ -208,6 +218,7 @@ export default function BavAutoPage() {
     setActiveBatchId(null)
     setError(null)
     setFile(null)
+    setRecordLimit(null)
     fetchBatches()
   }
 
@@ -382,12 +393,61 @@ export default function BavAutoPage() {
                 </Table>
               </div>
 
+              {/* Record limit selector */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+                <div className="flex items-center gap-2">
+                  <Hash className="h-4 w-4 text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700">Records to verify</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min={1}
+                    max={uploadResult.total_records}
+                    value={effectiveLimit}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value)
+                      setRecordLimit(val === uploadResult.total_records ? null : val)
+                    }}
+                    className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={uploadResult.total_records}
+                      value={effectiveLimit}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value)
+                        if (!isNaN(val) && val >= 1 && val <= uploadResult.total_records) {
+                          setRecordLimit(val === uploadResult.total_records ? null : val)
+                        }
+                      }}
+                      className="w-20 px-2 py-1 text-sm text-center border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-slate-500">/ {uploadResult.total_records}</span>
+                  </div>
+                </div>
+                {recordLimit !== null && (
+                  <button
+                    onClick={() => setRecordLimit(null)}
+                    className="text-xs text-blue-600 hover:text-blue-700 underline"
+                  >
+                    Reset to all records
+                  </button>
+                )}
+              </div>
+
               {/* Credit cost warning */}
               <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <Coins className="h-5 w-5 text-blue-600 flex-shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-blue-800">
-                    This will use approximately <span className="font-bold">{uploadResult.total_records}</span> BAV credits.
+                    This will use approximately <span className="font-bold">{effectiveLimit}</span> BAV credits
+                    {recordLimit !== null && (
+                      <span className="text-blue-600"> (out of {uploadResult.total_records} total records)</span>
+                    )}
+                    .
                   </p>
                   {credits && (
                     <p className="text-xs text-blue-600 mt-0.5">
@@ -400,7 +460,7 @@ export default function BavAutoPage() {
               {/* Action buttons */}
               <div className="flex items-center gap-3 pt-2">
                 <Button onClick={handleStart} className="gap-2 bg-green-600 hover:bg-green-700">
-                  <Play className="h-4 w-4" /> Start BAV Verification
+                  <Play className="h-4 w-4" /> Start BAV Verification ({effectiveLimit} records)
                 </Button>
                 <Button variant="outline" onClick={handleReset}>
                   Cancel
@@ -419,14 +479,14 @@ export default function BavAutoPage() {
                 Processing BAV Verification
               </CardTitle>
               <CardDescription>
-                Verifying {progress.total} records. This may take a few minutes.
+                Verifying {progress.effective_limit} records{progress.effective_limit < progress.total ? ` (of ${progress.total} total)` : ''}. This may take a few minutes.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">Progress</span>
-                  <span className="font-medium">{progress.processed} / {progress.total} ({progress.percentage}%)</span>
+                  <span className="font-medium">{progress.processed} / {progress.effective_limit} ({progress.percentage}%)</span>
                 </div>
                 <Progress value={progress.percentage} className="h-3" />
               </div>
@@ -535,7 +595,12 @@ export default function BavAutoPage() {
                         </div>
                       </TableCell>
                       <TableCell>{statusBadge(batch.status)}</TableCell>
-                      <TableCell className="text-center font-medium">{batch.total_records}</TableCell>
+                      <TableCell className="text-center font-medium">
+                        {batch.record_limit && batch.record_limit < batch.total_records
+                          ? <span>{batch.record_limit} <span className="text-slate-400 text-xs">/ {batch.total_records}</span></span>
+                          : batch.total_records
+                        }
+                      </TableCell>
                       <TableCell className="text-center text-green-600 font-medium">{batch.success_count}</TableCell>
                       <TableCell className="text-center text-red-600 font-medium">{batch.failed_count}</TableCell>
                       <TableCell className="text-center text-amber-600 font-medium">{batch.credits_used}</TableCell>

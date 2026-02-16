@@ -780,7 +780,7 @@ export interface UploadCbCodeData {
   cb_amount: number
 }
 
-export interface  UploadCbCardData {
+export interface UploadCbCardData {
   total_records: number
   valid_count: number
   billed_count: number
@@ -858,6 +858,8 @@ export interface BavBatchUploadResponse {
 export interface BavBatchProgress {
   status: 'pending' | 'processing' | 'completed' | 'failed'
   total: number
+  record_limit: number | null
+  effective_limit: number
   processed: number
   success: number
   failed: number
@@ -872,6 +874,7 @@ export interface BavBatchItem {
   filename: string
   status: 'pending' | 'processing' | 'completed' | 'failed'
   total_records: number
+  record_limit: number | null
   processed_records: number
   success_count: number
   failed_count: number

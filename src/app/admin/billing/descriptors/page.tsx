@@ -41,6 +41,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { api } from '@/lib/api'
+import { EmpAccountRef } from '@/types'
 import { Loader2, Plus, Pencil, Trash2, Calendar, ShieldCheck } from 'lucide-react'
 
 export interface TransactionDescriptor {
@@ -51,6 +52,7 @@ export interface TransactionDescriptor {
     is_default: boolean
     month?: number
     year?: number
+    emp_account_id?: number | null
 }
 
 // Alphanumeric, spaces, dots, commas, hyphens.
@@ -71,6 +73,8 @@ const YEARS = [currentYear, currentYear + 1, currentYear + 2];
 export default function DescriptorSchedulePage() {
     const [schedules, setSchedules] = useState<TransactionDescriptor[]>([])
     const [loading, setLoading] = useState(true)
+    const [empAccounts, setEmpAccounts] = useState<EmpAccountRef[]>([])
+    const [empAccountsLoading, setEmpAccountsLoading] = useState(false)
 
     // Dialog States
     const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -79,6 +83,7 @@ export default function DescriptorSchedulePage() {
 
     // Delete State
     const [deletingId, setDeletingId] = useState<number | null>(null)
+    const [removingId, setRemovingId] = useState<number | null>(null)
 
     // Form State
     const [formData, setFormData] = useState<Omit<TransactionDescriptor, 'id'>>({
@@ -87,26 +92,44 @@ export default function DescriptorSchedulePage() {
         descriptor_country: '',
         is_default: false,
         month: new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2,
-        year: currentYear
+        year: currentYear,
+        emp_account_id: null
     })
 
     // Validation State
-    const [errors, setErrors] = useState<{ name?: string, city?: string, country?: string }>({})
+    const [errors, setErrors] = useState<{ 
+        name?: string
+        city?: string
+        country?: string
+        emp_account?: string 
+    }>({})
 
     useEffect(() => {
         fetchSchedules()
+        fetchEmpAccounts()
     }, [])
 
     const fetchSchedules = async () => {
         setLoading(true)
         try {
-            // Ensure your API returns { data: TransactionDescriptor[] }
             const response = await api.getDescriptors()
             setSchedules(response.data || [])
         } catch (error) {
             console.error('Failed to fetch schedules', error)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const fetchEmpAccounts = async () => {
+        setEmpAccountsLoading(true)
+        try {
+            const accounts = await api.getEmpAccounts()
+            setEmpAccounts(accounts || [])
+        } catch (error) {
+            console.error('Failed to fetch EMp accounts', error)
+        } finally {
+            setEmpAccountsLoading(false)
         }
     }
 
@@ -120,7 +143,8 @@ export default function DescriptorSchedulePage() {
                 descriptor_country: schedule.descriptor_country,
                 is_default: schedule.is_default,
                 month: schedule.month || new Date().getMonth() + 1,
-                year: schedule.year || currentYear
+                year: schedule.year || currentYear,
+                emp_account_id: schedule.emp_account_id || null
             })
         } else {
             setEditingId(null)
@@ -130,13 +154,20 @@ export default function DescriptorSchedulePage() {
                 descriptor_country: '',
                 is_default: false,
                 month: new Date().getMonth() + 2,
-                year: currentYear
+                year: currentYear,
+                emp_account_id: null
             })
         }
         setIsDialogOpen(true)
     }
 
-    const validateField = (field: 'name' | 'city' | 'country', value: string) => {
+    const validateField = (field: 'name' | 'city' | 'country' | 'emp_account', value: string | number | null | undefined) => {
+        // EMp Account validation
+        if (field === 'emp_account') {
+            if (!value) return "EMp Account is required";
+            return undefined;
+        }
+
         // Name is strictly required
         if (field === 'name' && !value) return "Required";
 
@@ -145,25 +176,26 @@ export default function DescriptorSchedulePage() {
 
         // Strict 3-letter check for Country (Only runs if value is not empty)
         if (field === 'country') {
-            if (value.length !== 3) return "Must be exactly 3 characters (ISO Alpha-3)";
-            if (!/^[A-Z]{3}$/.test(value)) return "Must be 3 uppercase letters";
+            if (value && (value as string).length !== 3) return "Must be exactly 3 characters (ISO Alpha-3)";
+            if (value && !/^[A-Z]{3}$/.test(value as string)) return "Must be 3 uppercase letters";
             return undefined;
         }
 
         // Regex check for invalid characters (Only runs if value is not empty)
-        if (!DESCRIPTOR_REGEX.test(value)) {
+        if (value && !DESCRIPTOR_REGEX.test(value as string)) {
             return "Invalid characters (A-Z, 0-9, . , - only)";
         }
         return undefined;
     }
 
-    const handleInputChange = (field: keyof typeof formData, value: string) => {
+    const handleInputChange = (field: keyof typeof formData, value: string | number | null | undefined) => {
         setFormData(prev => ({ ...prev, [field]: value }));
 
         // Real-time validation
         if (field === 'descriptor_name') setErrors(e => ({ ...e, name: validateField('name', value) }));
         if (field === 'descriptor_city') setErrors(e => ({ ...e, city: validateField('city', value) }));
         if (field === 'descriptor_country') setErrors(e => ({ ...e, country: validateField('country', value) }));
+        if (field === 'emp_account_id') setErrors(e => ({ ...e, emp_account: validateField('emp_account', value) }));
     }
 
     const handleSave = async () => {
@@ -171,9 +203,10 @@ export default function DescriptorSchedulePage() {
         const nameErr = validateField('name', formData.descriptor_name);
         const cityErr = validateField('city', formData.descriptor_city);
         const countryErr = validateField('country', formData.descriptor_country);
+        const empAccountErr = validateField('emp_account', formData.emp_account_id);
 
-        if (nameErr || cityErr || countryErr) {
-            setErrors({ name: nameErr, city: cityErr, country: countryErr });
+        if (nameErr || cityErr || countryErr || empAccountErr) {
+            setErrors({ name: nameErr, city: cityErr, country: countryErr, emp_account: empAccountErr });
             return;
         }
 
@@ -204,10 +237,20 @@ export default function DescriptorSchedulePage() {
         if (!deletingId) return;
         try {
             await api.deleteDescriptor(deletingId)
-            setDeletingId(null)
-            fetchSchedules()
+            // Trigger animation
+            setRemovingId(deletingId)
+            // Remove after animation completes (300ms)
+            setTimeout(() => {
+                setSchedules(prev => prev.filter(schedule => schedule.id !== deletingId))
+                setDeletingId(null)
+                setRemovingId(null)
+            }, 300)
         } catch (error) {
-            console.error(error)
+            if (error instanceof Error) {
+                console.error('Failed to delete descriptor:', error.message)
+            } else {
+                console.error('Failed to delete descriptor:', error)
+            }
         }
     }
 
@@ -232,67 +275,85 @@ export default function DescriptorSchedulePage() {
                             <TableRow>
                                 <TableHead>Descriptor Name</TableHead>
                                 <TableHead>City / Country</TableHead>
+                                <TableHead>EMP Account</TableHead>
                                 <TableHead>Type</TableHead>
                                 <TableHead>Effective Date</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="text-center">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
+                                    <TableCell colSpan={6} className="text-center py-8">
                                         <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
                                     </TableCell>
                                 </TableRow>
                             ) : schedules.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+                                    <TableCell colSpan={6} className="text-center py-8 text-slate-500">
                                         No active schedules found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                schedules.map((item) => (
-                                    <TableRow key={item.id} className={item.is_default ? 'bg-blue-50/30' : ''}>
-                                        <TableCell className="font-medium font-mono text-slate-700">
-                                            {item.descriptor_name}
-                                        </TableCell>
-                                        <TableCell className="text-slate-600">
-                                            {[item.descriptor_city, item.descriptor_country]
-                                                .filter(Boolean)
-                                                .join(', ')}
-                                        </TableCell>
-                                        <TableCell>
-                                            {item.is_default ? (
-                                                <Badge className="bg-blue-600 hover:bg-blue-700">
-                                                    <ShieldCheck className="w-3 h-3 mr-1" /> Default Fallback
-                                                </Badge>
-                                            ) : (
-                                                <Badge variant="outline" className="text-slate-600">
-                                                    <Calendar className="w-3 h-3 mr-1" /> Scheduled
-                                                </Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {item.is_default ? (
-                                                <span className="text-slate-400 italic">Always active if no schedule matches</span>
-                                            ) : (
-                                                <span className="font-medium text-slate-900">
-                          {MONTHS.find(m => m.val === item.month)?.label} {item.year}
-                        </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(item)}>
-                                                    <Pencil className="h-4 w-4 text-slate-400 hover:text-blue-600" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" onClick={() => setDeletingId(item.id)}>
-                                                    <Trash2 className="h-4 w-4 text-slate-400 hover:text-red-600" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
+                                schedules.map((item) => {
+                                    const empAccount = empAccounts.find(acc => acc.id === item.emp_account_id);
+                                    return (
+                                        <TableRow
+                                            key={item.id}
+                                            className={`${item.is_default ? 'bg-blue-50/30' : ''} ${
+                                                removingId === item.id
+                                                    ? 'opacity-0 transition-opacity duration-300'
+                                                    : 'opacity-100 transition-opacity duration-300'
+                                            }`}
+                                        >
+                                            <TableCell className="font-medium font-mono text-slate-700">
+                                                {item.descriptor_name}
+                                            </TableCell>
+                                            <TableCell className="text-slate-600">
+                                                {[item.descriptor_city, item.descriptor_country]
+                                                    .filter(Boolean)
+                                                    .join(', ')}
+                                            </TableCell>
+                                            <TableCell className="text-sm">
+                                                {empAccount ? (
+                                                    <Badge variant="secondary">{empAccount.name}</Badge>
+                                                ) : (
+                                                    <span className="text-slate-400">-</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {item.is_default ? (
+                                                    <Badge className="bg-blue-600 hover:bg-blue-700">
+                                                        <ShieldCheck className="w-3 h-3 mr-1" /> Default Fallback
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="text-slate-600">
+                                                        <Calendar className="w-3 h-3 mr-1" /> Scheduled
+                                                    </Badge>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                {item.is_default ? (
+                                                    <span className="text-slate-400 italic">Always active if no schedule matches</span>
+                                                ) : (
+                                                    <span className="font-medium text-slate-900">
+                                        {MONTHS.find(m => m.val === item.month)?.label} {item.year}
+                                    </span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <Button variant="default" size="icon" onClick={() => handleOpenDialog(item)}>
+                                                        <Pencil className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="destructive" size="icon" onClick={() => setDeletingId(item.id)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
                             )}
                         </TableBody>
                     </Table>
@@ -310,6 +371,27 @@ export default function DescriptorSchedulePage() {
                     </DialogHeader>
 
                     <div className="grid gap-5 py-4">
+
+                        {/* EMp Account Selection */}
+                        <div className="space-y-2">
+                            <Label htmlFor="emp-account">EMp Account *</Label>
+                            <Select
+                                value={String(formData.emp_account_id || '')}
+                                onValueChange={(val) => handleInputChange('emp_account_id', val ? Number(val) : null)}
+                            >
+                                <SelectTrigger className={errors.emp_account ? "border-red-500 focus-visible:ring-red-500" : ""}>
+                                    <SelectValue placeholder={empAccountsLoading ? "Loading EMp accounts..." : "Select EMp Account"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {empAccounts.map(account => (
+                                        <SelectItem key={account.id} value={String(account.id)}>
+                                            {account.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {errors.emp_account && <p className="text-xs text-red-500 font-medium">{errors.emp_account}</p>}
+                        </div>
 
                         <div className="flex items-center justify-between space-x-2 border p-3 rounded-md bg-slate-50">
                             <div className="flex flex-col gap-1">
@@ -366,7 +448,7 @@ export default function DescriptorSchedulePage() {
 
                         {/* Descriptor Name */}
                         <div className="space-y-2">
-                            <Label htmlFor="name">Merchant Name (Descriptor)</Label>
+                            <Label htmlFor="name">Merchant Name (Descriptor) *</Label>
                             <Input
                                 id="name"
                                 value={formData.descriptor_name}
@@ -420,7 +502,7 @@ export default function DescriptorSchedulePage() {
                         </Button>
                         <Button
                             onClick={handleSave}
-                            disabled={isSaving || !!errors.name || !!errors.city || !!errors.country || !formData.descriptor_name}
+                            disabled={isSaving || !!errors.name || !!errors.city || !!errors.country || !!errors.emp_account || !formData.descriptor_name || !formData.emp_account_id}
                         >
                             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Save Descriptor

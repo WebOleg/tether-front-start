@@ -247,13 +247,17 @@ export default function DescriptorSchedulePage() {
             if (editingId) {
                 await api.updateDescriptor(editingId, payload)
                 toast.success('Descriptor updated successfully')
+                // Stay on current page when editing
+                setIsDialogOpen(false)
+                fetchSchedules(currentPage)
             } else {
                 await api.createDescriptor(payload)
                 toast.success('Descriptor created successfully')
+                // Reset to page 1 when creating new descriptor
+                setIsDialogOpen(false)
+                setCurrentPage(1)
+                fetchSchedules(1)
             }
-            setIsDialogOpen(false)
-            setCurrentPage(1)
-            fetchSchedules(1)
         } catch (error: any) {
             console.error('Failed to save', error)
             if (error.name === 'ApiError') {

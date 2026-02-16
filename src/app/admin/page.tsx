@@ -113,7 +113,6 @@ export default function AdminDashboard() {
         <Header title="Dashboard" description="Overview of your debt recovery operations" />
         
         <div className="relative min-h-screen">
-          {/* Fixed Overlay Loading Indicator - Always centered in viewport */}
           <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
             <div className="bg-white rounded-lg shadow-2xl px-6 py-4 flex items-center gap-3 border border-slate-200 pointer-events-auto">
               <div className="h-5 w-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
@@ -121,12 +120,9 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Blurred Background Overlay - Only over content */}
           <div className="absolute inset-0 bg-black/1 backdrop-blur-[2px] pointer-events-none"></div>
 
-          {/* Skeleton Content in Background */}
           <div className="p-6 space-y-6">
-            {/* Filters - Skeleton */}
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="h-4 w-12 bg-slate-200 rounded animate-pulse" />
@@ -138,7 +134,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* KPI Cards - Skeleton */}
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
               {[...Array(4)].map((_, i) => (
                 <Card key={i} className="relative overflow-hidden">
@@ -155,9 +150,8 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            {/* Financial Overview - Skeleton */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-              {[...Array(4)].map((_, i) => (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+              {[...Array(5)].map((_, i) => (
                 <Card key={i} className="relative overflow-hidden">
                   <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent" style={{ animationDelay: `${i * 0.1}s` }} />
                   <CardContent className="p-6">
@@ -174,7 +168,6 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            {/* Status Breakdown - Skeleton */}
             <div className="grid gap-6 md:grid-cols-2">
               {[...Array(2)].map((_, i) => (
                 <Card key={i} className="relative overflow-hidden">
@@ -199,7 +192,6 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            {/* Recent Activity - Skeleton */}
             <div className="grid gap-6 md:grid-cols-2">
               {[...Array(2)].map((_, i) => (
                 <Card key={i} className="relative overflow-hidden">
@@ -311,6 +303,13 @@ export default function AdminDashboard() {
       color: 'text-blue-600',
     },
     {
+      title: 'Pending Payments',
+      value: formatCurrency(data.billing.total_pending_amount || 0, 'EUR'),
+      subtitle: `${data.billing.by_status.pending || 0} transactions`,
+      icon: Clock,
+      color: 'text-yellow-600',
+    },
+    {
       title: 'Chargebacks',
       value: formatCurrency(data.billing.total_chargeback_amount || 0, 'EUR'),
       subtitle: `${data.billing.chargeback_rate || 0}% rate`,
@@ -396,7 +395,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Financial Overview */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
           {financialCards.map((card) => (
             <Card key={card.title}>
               <CardContent className="p-6">

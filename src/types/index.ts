@@ -347,6 +347,7 @@ export interface DashboardBillingStats {
   approval_rate: number
   chargeback_rate: number
   total_approved_amount: number
+  total_pending_amount: number
   total_chargeback_amount: number
   today: number
   average_attempts_per_debtor: number

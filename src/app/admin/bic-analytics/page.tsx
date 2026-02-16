@@ -1,6 +1,6 @@
 /**
  * BIC Analytics page - Bank-level transaction metrics for risk monitoring
- * With CB Reason Code filter dropdown
+ * With CB Reason Code filter dropdown and per-BIC CB code breakdown
  */
 'use client'
 
@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
+import type { BicCbCodeBreakdown } from '@/lib/api'
 import {
   RefreshCw,
   AlertTriangle,
@@ -36,7 +37,8 @@ import {
   Filter,
   Ban,
   BarChart3,
-  Loader2
+  Loader2,
+  FileWarning,
 } from 'lucide-react'
 import type { BicAnalyticsStats, EmpAccount } from '@/types'
 import { toast } from 'sonner'
@@ -90,6 +92,11 @@ export default function BicAnalyticsPage() {
   const [breakdownData, setBreakdownData] = useState<any>(null)
   const [loadingBreakdown, setLoadingBreakdown] = useState(false)
 
+  // CB Code breakdown per BIC
+  const [cbBreakdownBic, setCbBreakdownBic] = useState<string | null>(null)
+  const [cbBreakdownData, setCbBreakdownData] = useState<BicCbCodeBreakdown | null>(null)
+  const [loadingCbBreakdown, setLoadingCbBreakdown] = useState(false)
+
   // EMP Account filter
   const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
   const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<string>('all')
@@ -123,6 +130,24 @@ export default function BicAnalyticsPage() {
       setBreakdownBic(null)
     } finally {
       setLoadingBreakdown(false)
+    }
+  }
+
+  const fetchCbCodeBreakdown = async (bic: string) => {
+    setCbBreakdownBic(bic)
+    setLoadingCbBreakdown(true)
+    try {
+      const filters: any = {}
+      if (activeModel !== 'all') filters.model = activeModel
+      if (selectedEmpAccountId !== 'all') filters.emp_account_id = Number(selectedEmpAccountId)
+
+      const response = await api.getBicCbCodes(bic, bicPeriod, filters)
+      setCbBreakdownData(response)
+    } catch (err) {
+      toast.error('Failed to load CB code breakdown')
+      setCbBreakdownBic(null)
+    } finally {
+      setLoadingCbBreakdown(false)
     }
   }
 
@@ -182,35 +207,29 @@ export default function BicAnalyticsPage() {
 
     let result = [...bicStats.bics]
 
-    // Country filter
     if (countryFilter !== 'all') {
       result = result.filter(b => b.bank_country === countryFilter)
     }
 
-    // BIC search
     if (bicSearch.trim()) {
       const search = bicSearch.toLowerCase().trim()
       result = result.filter(b => b.bic.toLowerCase().includes(search))
     }
 
-    // High risk only
     if (highRiskOnly) {
       result = result.filter(b => b.is_high_risk)
     }
 
-    // Hide small BICs (< 100 transactions)
     if (hideSmallBics) {
       result = result.filter(b => b.total_transactions >= 100)
     }
 
-    // Sort
     result.sort((a, b) => {
       // @ts-ignore
       const aVal = a[sortField] ?? 0
       // @ts-ignore
       const bVal = b[sortField] ?? 0
-
-      return bVal - aVal // desc
+      return bVal - aVal
     })
 
     return result
@@ -297,7 +316,6 @@ export default function BicAnalyticsPage() {
     }
   }
 
-  // Calculate active filters count
   const activeFilterCount =
       (countryFilter !== 'all' ? 1 : 0) +
       (selectedCbReasonCode !== 'all' ? 1 : 0) +
@@ -321,15 +339,12 @@ export default function BicAnalyticsPage() {
         <Header title="BIC Analytics" description="Risk Monitoring" />
         <main className="container mx-auto px-6 py-8">
 
-          {/* Model Tabs */}
           <div className="mb-8">
             <ModelTabs value={activeModel} onValueChange={setActiveModel} />
           </div>
 
-          {/* Controls Row */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex flex-wrap items-center gap-3">
-              {/* Period */}
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Period:</Label>
                 <Select value={bicPeriod} onValueChange={setBicPeriod}>
@@ -345,7 +360,6 @@ export default function BicAnalyticsPage() {
                 </Select>
               </div>
 
-              {/* EMP Account Filter */}
               <div className="flex items-center gap-2">
                 <Label className="text-sm whitespace-nowrap">Account:</Label>
                 <Select value={selectedEmpAccountId} onValueChange={setSelectedEmpAccountId}>
@@ -371,7 +385,6 @@ export default function BicAnalyticsPage() {
                 </Select>
               </div>
 
-              {/* Country Filter */}
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Country:</Label>
                 <Select value={countryFilter} onValueChange={setCountryFilter}>
@@ -387,7 +400,6 @@ export default function BicAnalyticsPage() {
                 </Select>
               </div>
 
-              {/* CB Reason Code Filter */}
               <div className="flex items-center gap-2">
                 <Label className="text-sm whitespace-nowrap">CB Code:</Label>
                 <Select value={selectedCbReasonCode} onValueChange={setSelectedCbReasonCode}>
@@ -403,7 +415,6 @@ export default function BicAnalyticsPage() {
                 </Select>
               </div>
 
-              {/* BIC Search */}
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
@@ -414,7 +425,6 @@ export default function BicAnalyticsPage() {
                 />
               </div>
 
-              {/* High Risk Toggle */}
               <Button
                   variant={highRiskOnly ? "default" : "outline"}
                   size="sm"
@@ -425,7 +435,6 @@ export default function BicAnalyticsPage() {
                 High Risk
               </Button>
 
-              {/* Hide Small BICs Toggle */}
               <Button
                   variant={hideSmallBics ? "default" : "outline"}
                   size="sm"
@@ -435,7 +444,6 @@ export default function BicAnalyticsPage() {
                 {'>'} 100 Txn
               </Button>
 
-              {/* Sort */}
               <div className="flex items-center gap-2">
                 <Label className="text-sm">Sort:</Label>
                 <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>
@@ -452,7 +460,6 @@ export default function BicAnalyticsPage() {
                 </Select>
               </div>
 
-              {/* Reset Filters */}
               {activeFilterCount > 0 && (
                   <Button
                       variant="outline"
@@ -469,14 +476,12 @@ export default function BicAnalyticsPage() {
               )}
             </div>
 
-            {/* Export */}
             <Button onClick={handleExport} variant="outline" size="sm">
               <Download className="h-4 w-4 mr-1" />
               Export CSV
             </Button>
           </div>
 
-          {/* Active Filter Badges */}
           <div className="flex flex-wrap gap-2 mb-4">
             {activeModel !== 'all' && (
                 <Badge variant="outline" className="capitalize">
@@ -490,7 +495,6 @@ export default function BicAnalyticsPage() {
             )}
           </div>
 
-          {/* Summary Cards */}
           {loading ? (
               <div className="grid gap-4 md:grid-cols-5 mb-6">
                 {[...Array(5)].map((_, i) => (
@@ -553,7 +557,6 @@ export default function BicAnalyticsPage() {
               </div>
           )}
 
-          {/* BIC Table */}
           <Card className={hasHighRisk ? "border-red-300" : ""}>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -582,6 +585,8 @@ export default function BicAnalyticsPage() {
                         <TableHead className="text-right">Approved</TableHead>
                         <TableHead className="text-right">Declined</TableHead>
                         <TableHead className="text-right">Chargebacks</TableHead>
+                        {/* <TableHead className="text-right">Pending</TableHead> */}
+                        {/* <TableHead className="text-right">Errors</TableHead> */}
                         <TableHead className="text-right">Volume €</TableHead>
                         <TableHead className="text-right">CB % Count</TableHead>
                         <TableHead className="text-right">CB % Volume</TableHead>
@@ -603,8 +608,18 @@ export default function BicAnalyticsPage() {
                                     size="icon"
                                     className="h-6 w-6 text-slate-400 hover:text-blue-600 cursor-pointer"
                                     onClick={() => fetchBreakdown(bic.bic)}
+                                    title="Price Point Breakdown"
                                 >
                                   <BarChart3 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-slate-400 hover:text-orange-600 cursor-pointer"
+                                    onClick={() => fetchCbCodeBreakdown(bic.bic)}
+                                    title="CB Code Breakdown"
+                                >
+                                  <FileWarning className="h-4 w-4" />
                                 </Button>
                                 {bic.bic}
                                 {bic.is_high_risk && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2" />}
@@ -615,6 +630,8 @@ export default function BicAnalyticsPage() {
                               <TableCell className="text-right text-green-600">{bic.approved_count}</TableCell>
                               <TableCell className="text-right text-amber-600">{bic.declined_count}</TableCell>
                               <TableCell className="text-right text-red-600">{bic.chargeback_count}</TableCell>
+                              {/* <TableCell className="text-right text-yellow-600">{bic.pending_count}</TableCell> */}
+                              {/* <TableCell className="text-right text-slate-500">{bic.error_count}</TableCell> */}
                               <TableCell className="text-right">{formatCurrency(bic.total_volume)}</TableCell>
                               <TableCell className={`text-right font-medium ${(bic.cb_rate_count ?? 0) >= 25 ? 'text-red-600' : ''}`}>
                                 {formatPercent(bic.cb_rate_count)}
@@ -624,7 +641,6 @@ export default function BicAnalyticsPage() {
                               </TableCell>
                             </TableRow>
                         )})}
-                      {/* Total Row */}
                       <TableRow className={`${hasHighRisk ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
                         <TableCell colSpan={2}>Total ({filteredTotals.total_bics} Segments)</TableCell>
                         <TableCell className="text-right">{filteredTotals.total_transactions.toLocaleString()}</TableCell>
@@ -650,6 +666,7 @@ export default function BicAnalyticsPage() {
           </Card>
         </main>
 
+        {/* Price Point Breakdown Dialog */}
         <Dialog open={!!breakdownBic} onOpenChange={(open) => !open && setBreakdownBic(null)}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
@@ -745,7 +762,7 @@ export default function BicAnalyticsPage() {
                                 </div>
                             )}
                           </div>
-              );
+                      );
                     })}
                   </div>
 
@@ -754,6 +771,73 @@ export default function BicAnalyticsPage() {
                     <p className="text-xs text-blue-900 leading-snug">
                       <strong>Logic:</strong> High CB% on <strong>99.99</strong> is a financial risk, but high CB% on <strong>1.99</strong> is a structural risk (likely automated card testing). Block BICs with multiple Micro-Tx alerts.
                     </p>
+                  </div>
+                </div>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+
+        {/* CB Code Breakdown Dialog */}
+        <Dialog open={!!cbBreakdownBic} onOpenChange={(open) => !open && setCbBreakdownBic(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <FileWarning className="h-5 w-5 text-orange-500" />
+                CB Code Breakdown: <span className="font-mono text-blue-600">{cbBreakdownBic}</span>
+              </DialogTitle>
+            </DialogHeader>
+
+            {loadingCbBreakdown ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-300 mb-4" />
+                  <p className="text-slate-500 font-medium">Loading CB codes...</p>
+                </div>
+            ) : cbBreakdownData ? (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    <div>
+                      <p className="text-xs text-slate-400 uppercase font-bold">Total Chargebacks</p>
+                      <p className="text-xl font-bold text-red-600">{cbBreakdownData.total_chargebacks}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-slate-400 uppercase font-bold">Total Volume</p>
+                      <p className="text-xl font-bold text-slate-700">{formatCurrency(cbBreakdownData.total_volume)}</p>
+                    </div>
+                  </div>
+
+                  {cbBreakdownData.codes.length > 0 ? (
+                      <div className="space-y-2">
+                        {cbBreakdownData.codes.map((code) => (
+                            <div key={code.code} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 hover:border-slate-200 transition-colors">
+                              <div className="flex-shrink-0">
+                                <Badge variant="outline" className="font-mono text-sm px-2 py-1 bg-orange-50 text-orange-700 border-orange-200">
+                                  {code.code}
+                                </Badge>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="w-full bg-slate-100 rounded-full h-2">
+                                  <div
+                                      className="bg-red-500 h-2 rounded-full transition-all"
+                                      style={{ width: `${Math.min(code.percent_count, 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex-shrink-0 text-right min-w-[120px]">
+                                <span className="text-sm font-bold text-slate-700">{code.count}</span>
+                                <span className="text-xs text-slate-400 ml-1">({code.percent_count}%)</span>
+                              </div>
+                              <div className="flex-shrink-0 text-right min-w-[100px]">
+                                <span className="text-xs text-slate-500">{formatCurrency(code.volume)}</span>
+                              </div>
+                            </div>
+                        ))}
+                      </div>
+                  ) : (
+                      <p className="text-slate-500 text-center py-4">No chargebacks for this BIC in the selected period</p>
+                  )}
+
+                  <div className="text-xs text-slate-400 text-center pt-2">
+                    Period: {cbBreakdownData.period} | Model: {activeModel}
                   </div>
                 </div>
             ) : null}

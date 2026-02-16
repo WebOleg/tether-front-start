@@ -246,6 +246,20 @@ export interface PruneOrphansResponse {
   deleted_count: number
 }
 
+export interface BicCbCodeBreakdown {
+  bic: string
+  period: string
+  total_chargebacks: number
+  total_volume: number
+  codes: Array<{
+    code: string
+    count: number
+    volume: number
+    percent_count: number
+    percent_volume: number
+  }>
+}
+
 class ApiClient {
   private token: string | null = null
 
@@ -863,6 +877,18 @@ class ApiClient {
     const query = this.buildQuery({ period, ...filters })
     const response = await fetch(`${API_BASE_URL}/admin/analytics/bic/export${query}`, { headers })
     return response.blob()
+  }
+
+  async getBicCbCodes(
+      bic: string,
+      period: string = '30d',
+      filters?: AnalyticsFilters
+  ): Promise<BicCbCodeBreakdown> {
+    const query = this.buildQuery({ period, bic, ...filters })
+    const response = await this.request<{ data: BicCbCodeBreakdown }>(
+        `/admin/analytics/bic/cb-codes${query}`
+    )
+    return response.data
   }
 
   async getEmpAccounts(): Promise<EmpAccount[]> {

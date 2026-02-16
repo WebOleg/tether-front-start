@@ -103,6 +103,7 @@ export default function UploadDetailPage() {
   const [debtorType, setDebtorType] = useState<DebtorType>('all')
   const [bavModalOpen, setBavModalOpen] = useState(false)
   const [voidConfirmOpen, setVoidConfirmOpen] = useState(false)
+  const [skipBicBlacklist, setSkipBicBlacklist] = useState(false)
 
   const defaultCounts = { all: 0, flywheel: 0, recovery: 0, legacy: 0 }
   const modelCounts = stats?.model_counts || defaultCounts
@@ -210,7 +211,7 @@ export default function UploadDetailPage() {
 
         setValidating(true)
 
-        api.validateUpload(uploadId).catch(err => {
+        api.validateUpload(uploadId, skipBicBlacklist).catch(err => {
           console.error('Validation dispatch error:', err)
         })
 
@@ -598,6 +599,15 @@ export default function UploadDetailPage() {
                 </Button>
               </Link>
               <StatusBadge status={upload.status} />
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={skipBicBlacklist}
+                  onChange={(e) => setSkipBicBlacklist(e.target.checked)}
+                  className="rounded border-slate-300"
+                />
+                <span className="text-slate-600">Skip BIC Blacklist</span>
+              </label>
               <span className="text-sm text-slate-500">
               {stats?.total || 0} records
             </span>

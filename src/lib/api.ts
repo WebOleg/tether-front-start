@@ -201,6 +201,7 @@ export type UploadScopedFilters = {
 export type AnalyticsFilters = {
   model?: string
   emp_account_id?: number
+  cb_reason_code?: string
 }
 
 // Clean Users Export
@@ -505,7 +506,7 @@ class ApiClient {
     return this.request<ApiResponse<Debtor[]>>(`/admin/uploads/${uploadId}/debtors${query}`)
   }
 
-  async validateUpload(uploadId: number): Promise<{ message: string; status: string }> {
+  async validateUpload(uploadId: number, skipBicBlacklist?: boolean): Promise<{ message: string; status: string }> {
     const token = this.getToken()
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -515,9 +516,15 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`
     }
 
+    const body: Record<string, any> = {}
+    if (skipBicBlacklist !== undefined) {
+      body.skip_bic_blacklist = skipBicBlacklist
+    }
+
     const response = await fetch(`${API_BASE_URL}/admin/uploads/${uploadId}/validate`, {
       method: 'POST',
       headers,
+      body: JSON.stringify(body),
     })
 
     if (response.status === 401) {

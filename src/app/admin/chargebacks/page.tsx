@@ -16,20 +16,23 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { api, type DateMode } from '@/lib/api'
-import { ChargebackCodes, Chargebacks, EmpAccount, PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType } from '@/types';
+import { ChargebackCodes, Chargebacks, ChargebackSummaryStats, EmpAccount, PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType } from '@/types';
 import { CHARGEBACK_RULES, getChargebackRule } from '@/lib/chargebacks'
 import { useEffect, useState, useCallback } from 'react'
 import { formatDate, formatDateNullable, formatCurrency } from '@/lib/utils'
 import { RiskBadge } from '@/components/ui/badges'
-import { Building2, Calendar, CalendarClock } from 'lucide-react'
+import { Building2, Calendar, CalendarClock, RotateCcw, DollarSign, Percent, TrendingUp, FileText, Users } from 'lucide-react'
 import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function ChargebacksPage() {
   const [chargebackCodes, setChargebackCodes] = useState<ChargebackCodes[]>([])
   const [selectedCode, setSelectedCode] = useState<string>('all')
   const [chargebacks, setChargebacks] = useState<Chargebacks[]>([])
+  const [stats, setStats] = useState<ChargebackSummaryStats | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [meta, setMeta] = useState<PaginationMetaType | null>(null)
   const [links, setLinks] = useState<PaginationLinks | null>(null)
@@ -99,6 +102,7 @@ export default function ChargebacksPage() {
 
         const response = await api.getChargebacks(params)
         setChargebacks(response.data)
+        setStats(response.stats)
         setMeta(response.meta || null)
         setLinks(response.links || null)
         
@@ -228,6 +232,132 @@ export default function ChargebacksPage() {
             </Select>
           </div>
         </div>
+
+        {/* Summary Cards */}
+        {loading ? (
+          <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-6 mb-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Card key={i} className="py-2 gap-1">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-9 w-9 rounded-lg" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-9 w-20 mb-2" />
+                  <Skeleton className="h-4 w-24" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : stats ? (
+          <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-6 mb-6">
+            <Card className="py-2 gap-1">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Total Chargebacks
+                </CardTitle>
+                <div className="rounded-lg p-2 bg-rose-100">
+                  <RotateCcw className="h-5 w-5 text-rose-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-rose-600">
+                  {(stats.total_chargebacks_count ?? 0).toLocaleString()}
+                </div>
+                <p className="text-sm text-slate-500 mt-1">Count</p>
+              </CardContent>
+            </Card>
+
+            <Card className="py-2 gap-1">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Total CB Amount
+                </CardTitle>
+                <div className="rounded-lg p-2 bg-orange-100">
+                  <DollarSign className="h-5 w-5 text-orange-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">
+                  {stats.total_chargeback_amount ? formatCurrency(stats.total_chargeback_amount, 'EUR') : '€0.00'}
+                </div>
+                <p className="text-sm text-slate-500 mt-1">Total value</p>
+              </CardContent>
+            </Card>
+
+            <Card className="py-2 gap-1">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Chargeback Rate
+                </CardTitle>
+                <div className="rounded-lg p-2 bg-amber-100">
+                  <Percent className="h-5 w-5 text-amber-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${
+                  (stats.chargeback_rate ?? 0) > 1 ? 'text-rose-600' : 'text-amber-600'
+                }`}>
+                  {(stats.chargeback_rate ?? 0).toFixed(2)}%
+                </div>
+                <p className="text-sm text-slate-500 mt-1">CB percentage</p>
+              </CardContent>
+            </Card>
+
+            <Card className="py-2 gap-1">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Average CB Amount
+                </CardTitle>
+                <div className="rounded-lg p-2 bg-blue-100">
+                  <TrendingUp className="h-5 w-5 text-blue-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">
+                  {stats.average_chargeback_amount ? formatCurrency(stats.average_chargeback_amount, 'EUR') : '€0.00'}
+                </div>
+                <p className="text-sm text-slate-500 mt-1">Per chargeback</p>
+              </CardContent>
+            </Card>
+
+            <Card className="py-2 gap-1">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Most Common Code
+                </CardTitle>
+                <div className="rounded-lg p-2 bg-purple-100">
+                  <FileText className="h-5 w-5 text-purple-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-purple-600 font-mono">
+                  {stats.most_common_reason_code?.code || 'N/A'}
+                </div>
+                <p className="text-sm text-slate-500 mt-1">
+                  {stats.most_common_reason_code?.count ? `${stats.most_common_reason_code.count} occurrences` : 'No data'}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="py-2 gap-1">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Affected Accounts
+                </CardTitle>
+                <div className="rounded-lg p-2 bg-emerald-100">
+                  <Users className="h-5 w-5 text-emerald-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-emerald-600">
+                  {(stats.affected_accounts ?? 0).toLocaleString()}
+                </div>
+                <p className="text-sm text-slate-500 mt-1">Unique accounts</p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : null}
         
         {meta && (
           <PaginationMeta

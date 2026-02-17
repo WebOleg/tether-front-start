@@ -151,9 +151,10 @@ export default function DescriptorSchedulePage() {
             const accounts = await api.getEmpAccounts()
             setEmpAccounts(accounts || [])
         } catch (error) {
-            console.error('Failed to fetch EMP accounts', error)        } finally {
+            console.error('Failed to fetch EMP accounts', error)
+        } finally {
             setEmpAccountsLoading(false)
-        }
+        }    
     }
 
     const handleOpenDialog = (schedule?: TransactionDescriptor) => {
@@ -188,9 +189,9 @@ export default function DescriptorSchedulePage() {
     const validateField = (field: 'name' | 'city' | 'country' | 'emp_account', value: string | number | null | undefined) => {
         // EMP Account validation
         if (field === 'emp_account') {
-            if (!value) return "EMP Account is required";            return undefined;
+            if (!value) return "EMP Account is required";
+            return undefined;
         }
-
         // Name is strictly required
         if (field === 'name' && !value) return "Required";
 
@@ -283,8 +284,6 @@ export default function DescriptorSchedulePage() {
                 setDeletingId(null)
                 setRemovingId(null)
                 toast.success('Descriptor deleted successfully!')
-                // Refetch to update pagination
-                fetchSchedules(currentPage)
             }, 300)
         } catch (error) {
             if (error instanceof Error) {

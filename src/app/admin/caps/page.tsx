@@ -186,6 +186,7 @@ export default function CapsPage() {
                         <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Used</th>
                         <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Remaining</th>
                         <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Transactions</th>
+                        <th className="py-3 px-4 text-sm font-medium text-slate-500">Gross CB % (90d)</th>
                         <th className="py-3 px-4 text-sm font-medium text-slate-500 w-[200px]">Usage</th>
                         <th className="py-3 px-4 text-sm font-medium text-slate-500 w-[80px]"></th>
                       </tr>
@@ -225,6 +226,7 @@ export default function CapsPage() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right text-slate-500">{account.tx_count.toLocaleString()}</td>
+                          <td className="py-3 px-4 text-center text-slate-500">{account.cbk_gross_percentage_90d}</td>
                           <td className="py-3 px-4">
                             {account.usage_percentage !== null ? (
                               <div className="flex items-center gap-2">

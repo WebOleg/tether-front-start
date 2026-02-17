@@ -673,6 +673,7 @@ export interface AccountCap {
   remaining: number | null
   usage_percentage: number | null
   tx_count: number
+  cbk_gross_percentage_90d: number | null
 }
 
 export interface CapsData {

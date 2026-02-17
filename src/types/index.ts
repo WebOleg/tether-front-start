@@ -841,6 +841,7 @@ export interface TransactionDescriptorBase {
 
 export interface TransactionDescriptor extends TransactionDescriptorBase {
   id: number
+  emp_account?: EmpAccountRef | null  // Add this line
   meta: PaginationMeta
   links: PaginationLinks
 }

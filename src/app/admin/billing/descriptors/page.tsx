@@ -123,13 +123,12 @@ export default function DescriptorSchedulePage() {
 
     useEffect(() => {
         fetchSchedules(currentPage)
-        fetchEmpAccounts()
     }, [currentPage])
 
     const fetchSchedules = async (page: number = 1) => {
         setLoading(true)
         try {
-            const params = { page, per_page: 5 }
+            const params = { page, per_page: 20 }
             const response = await api.getDescriptors(params)
             setSchedules(response.data || [])
             setMeta(response.meta || null)
@@ -152,14 +151,14 @@ export default function DescriptorSchedulePage() {
             const accounts = await api.getEmpAccounts()
             setEmpAccounts(accounts || [])
         } catch (error) {
-            console.error('Failed to fetch EMp accounts', error)
-        } finally {
+            console.error('Failed to fetch EMP accounts', error)        } finally {
             setEmpAccountsLoading(false)
         }
     }
 
     const handleOpenDialog = (schedule?: TransactionDescriptor) => {
         setErrors({})
+        fetchEmpAccounts()
         if (schedule) {
             setEditingId(schedule.id)
             setFormData({
@@ -169,7 +168,7 @@ export default function DescriptorSchedulePage() {
                 is_default: schedule.is_default,
                 month: schedule.month || new Date().getMonth() + 1,
                 year: schedule.year || currentYear,
-                emp_account_id: schedule.emp_account_id || null
+                emp_account_id: schedule.emp_account?.id || null  // Changed this line
             })
         } else {
             setEditingId(null)
@@ -189,8 +188,7 @@ export default function DescriptorSchedulePage() {
     const validateField = (field: 'name' | 'city' | 'country' | 'emp_account', value: string | number | null | undefined) => {
         // EMP Account validation
         if (field === 'emp_account') {
-            if (!value) return "EMp Account is required";
-            return undefined;
+            if (!value) return "EMP Account is required";            return undefined;
         }
 
         // Name is strictly required
@@ -383,10 +381,10 @@ export default function DescriptorSchedulePage() {
                                                     .join(', ')}
                                             </TableCell>
                                             <TableCell className="text-sm">
-                                                {empAccount ? (
+                                                {item.emp_account ? (
                                                     <div className="flex items-center gap-1.5">
                                                         <Building2 className="h-3.5 w-3.5 text-emerald-600" />
-                                                        <span className="text-sm font-medium text-slate-700">{empAccount.name}</span>
+                                                        <span className="text-sm font-medium text-slate-700">{item.emp_account.name}</span>
                                                     </div>
                                                 ) : (
                                                     <span className="text-sm text-slate-400">-</span>
@@ -518,8 +516,7 @@ export default function DescriptorSchedulePage() {
                             {errors.name && <p className="text-xs text-red-500 font-medium">{errors.name}</p>}
                         </div>
 
-                        <div className="gird grid-cols-2 gap-4">
-                            {/* EMP Account Selection */}
+                        <div className="grid grid-cols-2 gap-4">                            {/* EMP Account Selection */}
                             <div className="space-y-2">
                                 <Label htmlFor="emp-account">EMP Account *</Label>
                                 <Select
@@ -527,8 +524,7 @@ export default function DescriptorSchedulePage() {
                                     onValueChange={(val) => handleInputChange('emp_account_id', val ? Number(val) : null)}
                                 >
                                     <SelectTrigger className={errors.emp_account ? "border-red-500 focus-visible:ring-red-500 w-full" : "w-full"}>
-                                        <SelectValue placeholder={empAccountsLoading ? "Loading EMp accounts..." : "Select EMP Account"} />
-                                    </SelectTrigger>
+                                        <SelectValue placeholder={empAccountsLoading ? "Loading EMP accounts..." : "Select EMP Account"} />                                    </SelectTrigger>
                                     <SelectContent>
                                         {empAccounts.map(account => (
                                             <SelectItem key={account.id} value={String(account.id)}>

@@ -62,6 +62,12 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = [currentYear, currentYear + 1, currentYear + 2];
 
+// Helper function to get default month (next month)
+const getDefaultMonth = () => {
+    const nextMonth = new Date().getMonth() + 2; // +1 for 0-indexed, +1 for next month
+    return nextMonth > 12 ? 1 : nextMonth;
+}
+
 // Skeleton Row Component
 function SkeletonTableRow() {
     return (
@@ -102,13 +108,13 @@ export default function DescriptorSchedulePage() {
     const [links, setLinks] = useState<PaginationLinks | null>(null)
     const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
 
-    // Form State
+    // Form State - Initialize without date calculation to avoid hydration mismatch
     const [formData, setFormData] = useState<TransactionDescriptorForm>({
         descriptor_name: '',
         descriptor_city: '',
         descriptor_country: '',
         is_default: false,
-        month: new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2,
+        month: 1,
         year: currentYear,
         emp_account_id: null
     })
@@ -118,7 +124,6 @@ export default function DescriptorSchedulePage() {
         name?: string
         city?: string
         country?: string
-        emp_account?: string 
     }>({})
 
     useEffect(() => {
@@ -167,9 +172,9 @@ export default function DescriptorSchedulePage() {
                 descriptor_city: schedule.descriptor_city,
                 descriptor_country: schedule.descriptor_country,
                 is_default: schedule.is_default,
-                month: schedule.month || new Date().getMonth() + 1,
+                month: schedule.month || getDefaultMonth(),
                 year: schedule.year || currentYear,
-                emp_account_id: schedule.emp_account?.id || null  // Changed this line
+                emp_account_id: schedule.emp_account?.id || null 
             })
         } else {
             setEditingId(null)
@@ -178,7 +183,7 @@ export default function DescriptorSchedulePage() {
                 descriptor_city: '',
                 descriptor_country: '',
                 is_default: false,
-                month: new Date().getMonth() + 2,
+                month: getDefaultMonth(),
                 year: currentYear,
                 emp_account_id: null
             })
@@ -186,12 +191,7 @@ export default function DescriptorSchedulePage() {
         setIsDialogOpen(true)
     }
 
-    const validateField = (field: 'name' | 'city' | 'country' | 'emp_account', value: string | number | null | undefined) => {
-        // EMP Account validation
-        if (field === 'emp_account') {
-            if (!value) return "EMP Account is required";
-            return undefined;
-        }
+    const validateField = (field: 'name' | 'city' | 'country', value: string | number | null | undefined) => {
         // Name is strictly required
         if (field === 'name' && !value) return "Required";
 
@@ -219,7 +219,6 @@ export default function DescriptorSchedulePage() {
         if (field === 'descriptor_name') setErrors(e => ({ ...e, name: validateField('name', value) }));
         if (field === 'descriptor_city') setErrors(e => ({ ...e, city: validateField('city', value) }));
         if (field === 'descriptor_country') setErrors(e => ({ ...e, country: validateField('country', value) }));
-        if (field === 'emp_account_id') setErrors(e => ({ ...e, emp_account: validateField('emp_account', value) }));
     }
 
     const handleSave = async () => {
@@ -227,10 +226,9 @@ export default function DescriptorSchedulePage() {
         const nameErr = validateField('name', formData.descriptor_name);
         const cityErr = validateField('city', formData.descriptor_city);
         const countryErr = validateField('country', formData.descriptor_country);
-        const empAccountErr = validateField('emp_account', formData.emp_account_id);
 
-        if (nameErr || cityErr || countryErr || empAccountErr) {
-            setErrors({ name: nameErr, city: cityErr, country: countryErr, emp_account: empAccountErr });
+        if (nameErr || cityErr || countryErr) {
+            setErrors({ name: nameErr, city: cityErr, country: countryErr });
             return;
         }
 
@@ -390,31 +388,37 @@ export default function DescriptorSchedulePage() {
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                {item.is_default ? (
-                                                    <Badge className="bg-blue-600 hover:bg-blue-700">
-                                                        <ShieldCheck className="w-3 h-3 mr-1" /> Default Fallback
+                                                {item.is_default && item.emp_account ? (
+                                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                                        <ShieldCheck className="w-3 h-3 mr-1" /> Default
+                                                    </Badge>
+                                                ) : item.is_default && !item.emp_account ? (
+                                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                                        <ShieldCheck className="w-3 h-3 mr-1" /> Global
                                                     </Badge>
                                                 ) : (
-                                                    <Badge variant="outline" className="text-slate-600">
+                                                    <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200">
                                                         <Calendar className="w-3 h-3 mr-1" /> Scheduled
                                                     </Badge>
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                {item.is_default ? (
-                                                    <span className="text-slate-400 italic">Always active if no schedule matches</span>
+                                                {item.is_default && !item.emp_account ? (
+                                                    <span className="text-slate-400 italic">Global descriptor - always active</span>
+                                                ) : item.is_default && item.emp_account ? (
+                                                    <span className="text-slate-400 italic">Always active if no schedule matches for {item.emp_account.name}</span>
                                                 ) : (
                                                     <span className="font-medium text-slate-900">
-                                        {MONTHS.find(m => m.val === item.month)?.label} {item.year}
-                                    </span>
+                                                        {MONTHS.find(m => m.val === item.month)?.label} {item.year}
+                                                    </span>
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    <Button variant="default" size="icon" onClick={() => handleOpenDialog(item)}>
+                                                    <Button variant="default" size="icon-sm" onClick={() => handleOpenDialog(item)}>
                                                         <Pencil className="h-4 w-4" />
                                                     </Button>
-                                                    <Button variant="destructive" size="icon" onClick={() => setDeletingId(item.id)}>
+                                                    <Button variant="destructive" size="icon-sm" onClick={() => setDeletingId(item.id)}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </div>
@@ -515,16 +519,19 @@ export default function DescriptorSchedulePage() {
                             {errors.name && <p className="text-xs text-red-500 font-medium">{errors.name}</p>}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">                            {/* EMP Account Selection */}
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* EMP Account Selection */}
                             <div className="space-y-2">
-                                <Label htmlFor="emp-account">EMP Account *</Label>
+                                <Label htmlFor="emp-account">EMP Account</Label>
                                 <Select
-                                    value={String(formData.emp_account_id || '')}
-                                    onValueChange={(val) => handleInputChange('emp_account_id', val ? Number(val) : null)}
+                                    value={formData.emp_account_id ? String(formData.emp_account_id) : "none"}
+                                    onValueChange={(val) => handleInputChange('emp_account_id', val === "none" ? null : Number(val))}
                                 >
-                                    <SelectTrigger className={errors.emp_account ? "border-red-500 focus-visible:ring-red-500 w-full" : "w-full"}>
-                                        <SelectValue placeholder={empAccountsLoading ? "Loading EMP accounts..." : "Select EMP Account"} />                                    </SelectTrigger>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder={empAccountsLoading ? "Loading EMP accounts..." : "Select EMP Account"} />
+                                    </SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="none">None</SelectItem>
                                         {empAccounts.map(account => (
                                             <SelectItem key={account.id} value={String(account.id)}>
                                                 {account.name}
@@ -532,7 +539,6 @@ export default function DescriptorSchedulePage() {
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                {errors.emp_account && <p className="text-xs text-red-500 font-medium">{errors.emp_account}</p>}
                             </div>
                         </div>
 
@@ -579,7 +585,7 @@ export default function DescriptorSchedulePage() {
                         </Button>
                         <Button
                             onClick={handleSave}
-                            disabled={isSaving || !!errors.name || !!errors.city || !!errors.country || !!errors.emp_account || !formData.descriptor_name || !formData.emp_account_id}
+                            disabled={isSaving || !!errors.name || !!errors.city || !!errors.country || !formData.descriptor_name}
                         >
                             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Save Descriptor

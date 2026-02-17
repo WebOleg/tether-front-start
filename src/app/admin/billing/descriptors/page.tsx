@@ -60,13 +60,8 @@ const MONTHS = [
 ];
 
 const currentYear = new Date().getFullYear();
-const YEARS = [currentYear, currentYear + 1, currentYear + 2];
+const YEARS = [currentYear, currentYear + 1, currentYear + 2]
 
-// Helper function to get default month (next month)
-const getDefaultMonth = () => {
-    const nextMonth = new Date().getMonth() + 2; // +1 for 0-indexed, +1 for next month
-    return nextMonth > 12 ? 1 : nextMonth;
-}
 
 // Skeleton Row Component
 function SkeletonTableRow() {
@@ -130,6 +125,13 @@ export default function DescriptorSchedulePage() {
         fetchSchedules(currentPage)
     }, [currentPage])
 
+    useEffect(() => {
+        // Set default month on client side only to avoid hydration mismatch
+        const nextMonth = new Date().getMonth() + 2;
+        const defaultMonth = nextMonth > 12 ? 1 : nextMonth;
+        setFormData(prev => ({ ...prev, month: defaultMonth }));
+    }, []);
+
     const fetchSchedules = async (page: number = 1) => {
         setLoading(true)
         try {
@@ -172,7 +174,7 @@ export default function DescriptorSchedulePage() {
                 descriptor_city: schedule.descriptor_city,
                 descriptor_country: schedule.descriptor_country,
                 is_default: schedule.is_default,
-                month: schedule.month || getDefaultMonth(),
+                month: schedule.month || formData.month,
                 year: schedule.year || currentYear,
                 emp_account_id: schedule.emp_account?.id || null 
             })
@@ -183,7 +185,7 @@ export default function DescriptorSchedulePage() {
                 descriptor_city: '',
                 descriptor_country: '',
                 is_default: false,
-                month: getDefaultMonth(),
+                month: formData.month,
                 year: currentYear,
                 emp_account_id: null
             })
@@ -359,7 +361,6 @@ export default function DescriptorSchedulePage() {
                                 </TableRow>
                             ) : (
                                 schedules.map((item) => {
-                                    const empAccount = empAccounts.find(acc => acc.id === item.emp_account_id);
                                     return (
                                         <TableRow
                                             key={item.id}

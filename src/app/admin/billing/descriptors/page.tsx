@@ -96,6 +96,7 @@ export default function DescriptorSchedulePage() {
     // Delete State
     const [deletingId, setDeletingId] = useState<number | null>(null)
     const [removingId, setRemovingId] = useState<number | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1)
@@ -166,7 +167,10 @@ export default function DescriptorSchedulePage() {
 
     const handleOpenDialog = (schedule?: TransactionDescriptor) => {
         setErrors({})
-        fetchEmpAccounts()
+        // Only fetch EMP accounts if not already cached
+        if (empAccounts.length === 0) {
+            fetchEmpAccounts()
+        }
         if (schedule) {
             setEditingId(schedule.id)
             setFormData({
@@ -276,6 +280,7 @@ export default function DescriptorSchedulePage() {
 
     const handleDelete = async () => {
         if (!deletingId) return;
+        setIsDeleting(true)
         try {
             await api.deleteDescriptor(deletingId)
             setRemovingId(deletingId)
@@ -283,9 +288,12 @@ export default function DescriptorSchedulePage() {
                 setSchedules(prev => prev.filter(schedule => schedule.id !== deletingId))
                 setDeletingId(null)
                 setRemovingId(null)
+                setIsDeleting(false)
                 toast.success('Descriptor deleted successfully!')
+                fetchSchedules(currentPage)
             }, 300)
         } catch (error) {
+            setIsDeleting(false)
             if (error instanceof Error) {
                 console.error('Failed to delete descriptor:', error.message)
                 toast.error('Failed to delete descriptor')
@@ -515,32 +523,44 @@ export default function DescriptorSchedulePage() {
                                 value={formData.descriptor_name}
                                 onChange={(e) => handleInputChange('descriptor_name', e.target.value)}
                                 placeholder="e.g. TETHER SERVICES GMBH"
+                                maxLength={25}
                                 className={errors.name ? "border-red-500 focus-visible:ring-red-500" : ""}
                             />
-                            {errors.name && <p className="text-xs text-red-500 font-medium">{errors.name}</p>}
+                            <div className="flex items-center justify-between">
+                                {errors.name ? (
+                                    <p className="text-xs text-red-500 font-medium">{errors.name}</p>
+                                ) : (
+                                    <p className="text-xs text-slate-400">Gateway limit: max 25 characters</p>
+                                )}
+                                <p className={`text-xs font-medium tabular-nums ${
+                                    formData.descriptor_name.length >= 25 
+                                        ? 'text-amber-600' 
+                                        : 'text-slate-400'
+                                }`}>
+                                    {formData.descriptor_name.length}/25
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            {/* EMP Account Selection */}
-                            <div className="space-y-2">
-                                <Label htmlFor="emp-account">EMP Account</Label>
-                                <Select
-                                    value={formData.emp_account_id ? String(formData.emp_account_id) : "none"}
-                                    onValueChange={(val) => handleInputChange('emp_account_id', val === "none" ? null : Number(val))}
-                                >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder={empAccountsLoading ? "Loading EMP accounts..." : "Select EMP Account"} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">None</SelectItem>
-                                        {empAccounts.map(account => (
-                                            <SelectItem key={account.id} value={String(account.id)}>
-                                                {account.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        {/* EMP Account Selection */}
+                        <div className="space-y-2">
+                            <Label htmlFor="emp-account">EMP Account</Label>
+                            <Select
+                                value={formData.emp_account_id ? String(formData.emp_account_id) : "none"}
+                                onValueChange={(val) => handleInputChange('emp_account_id', val === "none" ? null : Number(val))}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder={empAccountsLoading ? "Loading EMP accounts..." : "Select EMP Account"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">None</SelectItem>
+                                    {empAccounts.map(account => (
+                                        <SelectItem key={account.id} value={String(account.id)}>
+                                            {account.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         {/* City & Country Row */}
@@ -605,8 +625,13 @@ export default function DescriptorSchedulePage() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={handleDelete} 
+                            disabled={isDeleting}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>

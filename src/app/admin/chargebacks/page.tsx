@@ -17,13 +17,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { api } from '@/lib/api'
+import { api, type DateMode } from '@/lib/api'
 import { ChargebackCodes, Chargebacks, EmpAccount, PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType } from '@/types';
 import { CHARGEBACK_RULES, getChargebackRule } from '@/lib/chargebacks'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { formatDate, formatDateNullable, formatCurrency } from '@/lib/utils'
 import { RiskBadge } from '@/components/ui/badges'
-import { Building2 } from 'lucide-react'
+import { Building2, Calendar, CalendarClock } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 
 export default function ChargebacksPage() {
@@ -35,7 +35,10 @@ export default function ChargebacksPage() {
   const [links, setLinks] = useState<PaginationLinks | null>(null)
   const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
   const [loading, setLoading] = useState(true)
-  // EMP Account filter
+  
+  // Filters
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('30d')
+  const [dateMode, setDateMode] = useState<DateMode>('transaction')
   const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
   const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<string>('all')
 
@@ -53,28 +56,46 @@ export default function ChargebacksPage() {
   }, [])
 
   // Fetch EMP accounts on mount
-    useEffect(() => {
-      const fetchEmpAccounts = async () => {
-        try {
-          const accounts = await api.getEmpAccounts()
-          setEmpAccounts(accounts)
-        } catch (err) {
-          console.error('Failed to fetch EMP accounts:', err)
-        }
+  useEffect(() => {
+    const fetchEmpAccounts = async () => {
+      try {
+        const accounts = await api.getEmpAccounts()
+        setEmpAccounts(accounts)
+      } catch (err) {
+        console.error('Failed to fetch EMP accounts:', err)
       }
-      fetchEmpAccounts()
-    }, [])
+    }
+    fetchEmpAccounts()
+  }, [])
+
+  const getFilterParams = useCallback(() => {
+    const base: {
+      page: number;
+      per_page: number;
+      code?: string;
+      emp_account_id?: string;
+      period?: string;
+      date_mode: DateMode;
+    } = {
+      page: currentPage,
+      per_page: 50,
+      code: selectedCode === 'all' ? undefined : selectedCode,
+      emp_account_id: selectedEmpAccountId === 'all' ? undefined : selectedEmpAccountId,
+      date_mode: dateMode,
+    }
+
+    if (selectedPeriod !== 'all') {
+      base.period = selectedPeriod
+    }
+
+    return base
+  }, [currentPage, selectedCode, selectedEmpAccountId, selectedPeriod, dateMode])
 
   useEffect(() => {
     const fetchChargebacks = async () => {
       try {
         setLoading(true)
-        const params = { 
-          page: currentPage,
-          per_page: 50,
-          code: selectedCode === 'all' ? undefined : selectedCode,
-          emp_account_id: selectedEmpAccountId === 'all' ? undefined : selectedEmpAccountId
-        }
+        const params = getFilterParams()
 
         const response = await api.getChargebacks(params)
         setChargebacks(response.data)
@@ -93,7 +114,7 @@ export default function ChargebacksPage() {
     }
 
     fetchChargebacks()
-  }, [selectedCode, selectedEmpAccountId, currentPage])
+  }, [getFilterParams])
 
   const handlePreviousPage = () => {
     if (currentPage > 1) {
@@ -162,6 +183,47 @@ export default function ChargebacksPage() {
                     </div>
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Date Mode Filter */}
+          <div className="flex items-center gap-2">
+            <Label htmlFor="date-mode" className="text-sm whitespace-nowrap">TXN:</Label>
+            <Select value={dateMode} onValueChange={(value: DateMode) => { setDateMode(value); setCurrentPage(1); }}>
+              <SelectTrigger id="date-mode" className="w-48 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="transaction">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    <span>Transaction Date</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="chargeback">
+                  <div className="flex items-center gap-2">
+                    <CalendarClock className="h-4 w-4" />
+                    <span>Chargeback Date</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Period Filter */}
+          <div className="flex items-center gap-2">
+            <Label htmlFor="cb-period" className="text-sm">CB:</Label>
+            <Select value={selectedPeriod} onValueChange={(val) => { setSelectedPeriod(val); setCurrentPage(1); }}>
+              <SelectTrigger id="cb-period" className="w-44 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="24h">Last 24h</SelectItem>
+                <SelectItem value="7d">Last 7 Days</SelectItem>
+                <SelectItem value="30d">Last 30 Days</SelectItem>
+                <SelectItem value="90d">Last 90 Days</SelectItem>
               </SelectContent>
             </Select>
           </div>

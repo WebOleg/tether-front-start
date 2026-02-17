@@ -48,6 +48,7 @@ import type {
   BavBatchUploadResponse,
   BavBatchProgress,
   BavBatchBalance,
+  ChargebacksResponse,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -724,9 +725,9 @@ class ApiClient {
     return response.data
   }
 
-  async getChargebacks(params?: object): Promise<ApiResponse<Chargebacks[]>> {
+  async getChargebacks(params?: object): Promise<ChargebacksResponse> {
     const query = this.buildQuery(params)
-    return this.request<ApiResponse<Chargebacks[]>>(`/admin/chargebacks${query}`)
+    return this.request<ChargebacksResponse>(`/admin/chargebacks${query}`)
   }
 
   async verifySingleIban(data: VopSingleVerifyRequest): Promise<VopSingleVerifyResponse> {

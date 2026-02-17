@@ -201,6 +201,7 @@ export type UploadScopedFilters = {
 export type AnalyticsFilters = {
   model?: string
   emp_account_id?: number
+  cb_reason_code?: string
 }
 
 // Clean Users Export
@@ -243,6 +244,20 @@ export interface OrphanCountResponse {
 export interface PruneOrphansResponse {
   message: string
   deleted_count: number
+}
+
+export interface BicCbCodeBreakdown {
+  bic: string
+  period: string
+  total_chargebacks: number
+  total_volume: number
+  codes: Array<{
+    code: string
+    count: number
+    volume: number
+    percent_count: number
+    percent_volume: number
+  }>
 }
 
 class ApiClient {
@@ -506,7 +521,7 @@ class ApiClient {
     return this.request<ApiResponse<Debtor[]>>(`/admin/uploads/${uploadId}/debtors${query}`)
   }
 
-  async validateUpload(uploadId: number): Promise<{ message: string; status: string }> {
+  async validateUpload(uploadId: number, skipBicBlacklist?: boolean): Promise<{ message: string; status: string }> {
     const token = this.getToken()
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -516,9 +531,15 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`
     }
 
+    const body: Record<string, any> = {}
+    if (skipBicBlacklist !== undefined) {
+      body.skip_bic_blacklist = skipBicBlacklist
+    }
+
     const response = await fetch(`${API_BASE_URL}/admin/uploads/${uploadId}/validate`, {
       method: 'POST',
       headers,
+      body: JSON.stringify(body),
     })
 
     if (response.status === 401) {
@@ -857,6 +878,18 @@ class ApiClient {
     const query = this.buildQuery({ period, ...filters })
     const response = await fetch(`${API_BASE_URL}/admin/analytics/bic/export${query}`, { headers })
     return response.blob()
+  }
+
+  async getBicCbCodes(
+      bic: string,
+      period: string = '30d',
+      filters?: AnalyticsFilters
+  ): Promise<BicCbCodeBreakdown> {
+    const query = this.buildQuery({ period, bic, ...filters })
+    const response = await this.request<{ data: BicCbCodeBreakdown }>(
+        `/admin/analytics/bic/cb-codes${query}`
+    )
+    return response.data
   }
 
   async getEmpAccounts(): Promise<EmpAccount[]> {

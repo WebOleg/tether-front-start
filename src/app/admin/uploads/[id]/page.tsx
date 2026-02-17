@@ -48,6 +48,7 @@ import {
   CreditCard,
   Send,
   UserCheck,
+  PlayCircle,
 } from 'lucide-react'
 import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
@@ -103,6 +104,7 @@ export default function UploadDetailPage() {
   const [debtorType, setDebtorType] = useState<DebtorType>('all')
   const [bavModalOpen, setBavModalOpen] = useState(false)
   const [voidConfirmOpen, setVoidConfirmOpen] = useState(false)
+  const [skipBicBlacklist, setSkipBicBlacklist] = useState(false)
 
   const defaultCounts = { all: 0, flywheel: 0, recovery: 0, legacy: 0 }
   const modelCounts = stats?.model_counts || defaultCounts
@@ -114,6 +116,7 @@ export default function UploadDetailPage() {
 
   const isValidating = validating || stats?.is_processing
   const validationCompleted = stats ? !stats.is_processing && stats.pending === 0 : false
+  const hasNeverValidated = stats ? stats.valid === 0 && stats.invalid === 0 && stats.blacklisted === 0 && stats.pending === (stats.total || 0) : false
 
   useEffect(() => {
     if (stats?.is_processing) {
@@ -201,6 +204,23 @@ export default function UploadDetailPage() {
     setCurrentPage(1)
   }
 
+  // Manual validation trigger
+  const handleValidate = async () => {
+    setValidating(true)
+    try {
+      api.validateUpload(uploadId, skipBicBlacklist).catch(err => {
+        console.error('Validation dispatch error:', err)
+      })
+      const statsData = await api.getUploadValidationStats(uploadId)
+      setStats(statsData)
+      toast.success('Validation started')
+    } catch (error) {
+      console.error('Failed to start validation:', error)
+      toast.error('Failed to start validation')
+      setValidating(false)
+    }
+  }
+
   useEffect(() => {
     const initPage = async () => {
       setLoading(true)
@@ -208,14 +228,14 @@ export default function UploadDetailPage() {
         const uploadData = await api.getUpload(uploadId)
         setUpload(uploadData)
 
-        setValidating(true)
-
-        api.validateUpload(uploadId).catch(err => {
-          console.error('Validation dispatch error:', err)
-        })
-
+        // Only load stats, do NOT auto-trigger validation
         const statsData = await api.getUploadValidationStats(uploadId)
         setStats(statsData)
+
+        // If validation is already in progress on backend, track it
+        if (statsData?.is_processing) {
+          setValidating(true)
+        }
 
         const vopData = await api.getVopStats(uploadId)
         setVopStats(vopData)
@@ -598,9 +618,31 @@ export default function UploadDetailPage() {
                 </Button>
               </Link>
               <StatusBadge status={upload.status} />
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={skipBicBlacklist}
+                  onChange={(e) => setSkipBicBlacklist(e.target.checked)}
+                  disabled={isValidating}
+                  className="rounded border-slate-300"
+                />
+                <span className={`${isValidating ? 'text-slate-400' : 'text-slate-600'}`}>Skip BIC Blacklist</span>
+              </label>
               <span className="text-sm text-slate-500">
               {stats?.total || 0} records
             </span>
+              {/* Validate button - show when not yet validated or needs re-validation */}
+              {!isValidating && (
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleValidate}
+                      className="gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                  >
+                    <PlayCircle className="h-4 w-4" />
+                    {hasNeverValidated ? 'Validate' : 'Re-validate'}
+                  </Button>
+              )}
               {isValidating && (
                   <Badge className="bg-blue-100 text-blue-800 gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" />

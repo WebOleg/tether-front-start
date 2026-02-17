@@ -60,7 +60,8 @@ const MONTHS = [
 ];
 
 const currentYear = new Date().getFullYear();
-const YEARS = [currentYear, currentYear + 1, currentYear + 2];
+const YEARS = [currentYear, currentYear + 1, currentYear + 2]
+
 
 // Skeleton Row Component
 function SkeletonTableRow() {
@@ -95,6 +96,7 @@ export default function DescriptorSchedulePage() {
     // Delete State
     const [deletingId, setDeletingId] = useState<number | null>(null)
     const [removingId, setRemovingId] = useState<number | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1)
@@ -102,13 +104,13 @@ export default function DescriptorSchedulePage() {
     const [links, setLinks] = useState<PaginationLinks | null>(null)
     const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
 
-    // Form State
+    // Form State - Initialize without date calculation to avoid hydration mismatch
     const [formData, setFormData] = useState<TransactionDescriptorForm>({
         descriptor_name: '',
         descriptor_city: '',
         descriptor_country: '',
         is_default: false,
-        month: new Date().getMonth() + 2 > 12 ? 1 : new Date().getMonth() + 2,
+        month: 1,
         year: currentYear,
         emp_account_id: null
     })
@@ -118,12 +120,18 @@ export default function DescriptorSchedulePage() {
         name?: string
         city?: string
         country?: string
-        emp_account?: string 
     }>({})
 
     useEffect(() => {
         fetchSchedules(currentPage)
     }, [currentPage])
+
+    useEffect(() => {
+        // Set default month on client side only to avoid hydration mismatch
+        const nextMonth = new Date().getMonth() + 2;
+        const defaultMonth = nextMonth > 12 ? 1 : nextMonth;
+        setFormData(prev => ({ ...prev, month: defaultMonth }));
+    }, []);
 
     const fetchSchedules = async (page: number = 1) => {
         setLoading(true)
@@ -159,7 +167,10 @@ export default function DescriptorSchedulePage() {
 
     const handleOpenDialog = (schedule?: TransactionDescriptor) => {
         setErrors({})
-        fetchEmpAccounts()
+        // Only fetch EMP accounts if not already cached
+        if (empAccounts.length === 0) {
+            fetchEmpAccounts()
+        }
         if (schedule) {
             setEditingId(schedule.id)
             setFormData({
@@ -167,9 +178,9 @@ export default function DescriptorSchedulePage() {
                 descriptor_city: schedule.descriptor_city,
                 descriptor_country: schedule.descriptor_country,
                 is_default: schedule.is_default,
-                month: schedule.month || new Date().getMonth() + 1,
+                month: schedule.month || formData.month,
                 year: schedule.year || currentYear,
-                emp_account_id: schedule.emp_account?.id || null  // Changed this line
+                emp_account_id: schedule.emp_account?.id || null 
             })
         } else {
             setEditingId(null)
@@ -178,7 +189,7 @@ export default function DescriptorSchedulePage() {
                 descriptor_city: '',
                 descriptor_country: '',
                 is_default: false,
-                month: new Date().getMonth() + 2,
+                month: formData.month,
                 year: currentYear,
                 emp_account_id: null
             })
@@ -186,12 +197,7 @@ export default function DescriptorSchedulePage() {
         setIsDialogOpen(true)
     }
 
-    const validateField = (field: 'name' | 'city' | 'country' | 'emp_account', value: string | number | null | undefined) => {
-        // EMP Account validation
-        if (field === 'emp_account') {
-            if (!value) return "EMP Account is required";
-            return undefined;
-        }
+    const validateField = (field: 'name' | 'city' | 'country', value: string | number | null | undefined) => {
         // Name is strictly required
         if (field === 'name' && !value) return "Required";
 
@@ -219,7 +225,6 @@ export default function DescriptorSchedulePage() {
         if (field === 'descriptor_name') setErrors(e => ({ ...e, name: validateField('name', value) }));
         if (field === 'descriptor_city') setErrors(e => ({ ...e, city: validateField('city', value) }));
         if (field === 'descriptor_country') setErrors(e => ({ ...e, country: validateField('country', value) }));
-        if (field === 'emp_account_id') setErrors(e => ({ ...e, emp_account: validateField('emp_account', value) }));
     }
 
     const handleSave = async () => {
@@ -227,10 +232,9 @@ export default function DescriptorSchedulePage() {
         const nameErr = validateField('name', formData.descriptor_name);
         const cityErr = validateField('city', formData.descriptor_city);
         const countryErr = validateField('country', formData.descriptor_country);
-        const empAccountErr = validateField('emp_account', formData.emp_account_id);
 
-        if (nameErr || cityErr || countryErr || empAccountErr) {
-            setErrors({ name: nameErr, city: cityErr, country: countryErr, emp_account: empAccountErr });
+        if (nameErr || cityErr || countryErr) {
+            setErrors({ name: nameErr, city: cityErr, country: countryErr });
             return;
         }
 
@@ -276,6 +280,7 @@ export default function DescriptorSchedulePage() {
 
     const handleDelete = async () => {
         if (!deletingId) return;
+        setIsDeleting(true)
         try {
             await api.deleteDescriptor(deletingId)
             setRemovingId(deletingId)
@@ -283,9 +288,12 @@ export default function DescriptorSchedulePage() {
                 setSchedules(prev => prev.filter(schedule => schedule.id !== deletingId))
                 setDeletingId(null)
                 setRemovingId(null)
+                setIsDeleting(false)
                 toast.success('Descriptor deleted successfully!')
+                fetchSchedules(currentPage)
             }, 300)
         } catch (error) {
+            setIsDeleting(false)
             if (error instanceof Error) {
                 console.error('Failed to delete descriptor:', error.message)
                 toast.error('Failed to delete descriptor')
@@ -361,7 +369,6 @@ export default function DescriptorSchedulePage() {
                                 </TableRow>
                             ) : (
                                 schedules.map((item) => {
-                                    const empAccount = empAccounts.find(acc => acc.id === item.emp_account_id);
                                     return (
                                         <TableRow
                                             key={item.id}
@@ -390,31 +397,37 @@ export default function DescriptorSchedulePage() {
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                {item.is_default ? (
-                                                    <Badge className="bg-blue-600 hover:bg-blue-700">
-                                                        <ShieldCheck className="w-3 h-3 mr-1" /> Default Fallback
+                                                {item.is_default && item.emp_account ? (
+                                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                                        <ShieldCheck className="w-3 h-3 mr-1" /> Default
+                                                    </Badge>
+                                                ) : item.is_default && !item.emp_account ? (
+                                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                                        <ShieldCheck className="w-3 h-3 mr-1" /> Global
                                                     </Badge>
                                                 ) : (
-                                                    <Badge variant="outline" className="text-slate-600">
+                                                    <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200">
                                                         <Calendar className="w-3 h-3 mr-1" /> Scheduled
                                                     </Badge>
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                {item.is_default ? (
-                                                    <span className="text-slate-400 italic">Always active if no schedule matches</span>
+                                                {item.is_default && !item.emp_account ? (
+                                                    <span className="text-slate-400 italic">Global descriptor - always active</span>
+                                                ) : item.is_default && item.emp_account ? (
+                                                    <span className="text-slate-400 italic">Always active if no schedule matches for {item.emp_account.name}</span>
                                                 ) : (
                                                     <span className="font-medium text-slate-900">
-                                        {MONTHS.find(m => m.val === item.month)?.label} {item.year}
-                                    </span>
+                                                        {MONTHS.find(m => m.val === item.month)?.label} {item.year}
+                                                    </span>
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
-                                                    <Button variant="default" size="icon" onClick={() => handleOpenDialog(item)}>
+                                                    <Button variant="default" size="icon-sm" onClick={() => handleOpenDialog(item)}>
                                                         <Pencil className="h-4 w-4" />
                                                     </Button>
-                                                    <Button variant="destructive" size="icon" onClick={() => setDeletingId(item.id)}>
+                                                    <Button variant="destructive" size="icon-sm" onClick={() => setDeletingId(item.id)}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </div>
@@ -510,30 +523,44 @@ export default function DescriptorSchedulePage() {
                                 value={formData.descriptor_name}
                                 onChange={(e) => handleInputChange('descriptor_name', e.target.value)}
                                 placeholder="e.g. TETHER SERVICES GMBH"
+                                maxLength={25}
                                 className={errors.name ? "border-red-500 focus-visible:ring-red-500" : ""}
                             />
-                            {errors.name && <p className="text-xs text-red-500 font-medium">{errors.name}</p>}
+                            <div className="flex items-center justify-between">
+                                {errors.name ? (
+                                    <p className="text-xs text-red-500 font-medium">{errors.name}</p>
+                                ) : (
+                                    <p className="text-xs text-slate-400">Gateway limit: max 25 characters</p>
+                                )}
+                                <p className={`text-xs font-medium tabular-nums ${
+                                    formData.descriptor_name.length >= 25 
+                                        ? 'text-amber-600' 
+                                        : 'text-slate-400'
+                                }`}>
+                                    {formData.descriptor_name.length}/25
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">                            {/* EMP Account Selection */}
-                            <div className="space-y-2">
-                                <Label htmlFor="emp-account">EMP Account *</Label>
-                                <Select
-                                    value={String(formData.emp_account_id || '')}
-                                    onValueChange={(val) => handleInputChange('emp_account_id', val ? Number(val) : null)}
-                                >
-                                    <SelectTrigger className={errors.emp_account ? "border-red-500 focus-visible:ring-red-500 w-full" : "w-full"}>
-                                        <SelectValue placeholder={empAccountsLoading ? "Loading EMP accounts..." : "Select EMP Account"} />                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {empAccounts.map(account => (
-                                            <SelectItem key={account.id} value={String(account.id)}>
-                                                {account.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {errors.emp_account && <p className="text-xs text-red-500 font-medium">{errors.emp_account}</p>}
-                            </div>
+                        {/* EMP Account Selection */}
+                        <div className="space-y-2">
+                            <Label htmlFor="emp-account">EMP Account</Label>
+                            <Select
+                                value={formData.emp_account_id ? String(formData.emp_account_id) : "none"}
+                                onValueChange={(val) => handleInputChange('emp_account_id', val === "none" ? null : Number(val))}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder={empAccountsLoading ? "Loading EMP accounts..." : "Select EMP Account"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">None</SelectItem>
+                                    {empAccounts.map(account => (
+                                        <SelectItem key={account.id} value={String(account.id)}>
+                                            {account.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         {/* City & Country Row */}
@@ -579,7 +606,7 @@ export default function DescriptorSchedulePage() {
                         </Button>
                         <Button
                             onClick={handleSave}
-                            disabled={isSaving || !!errors.name || !!errors.city || !!errors.country || !!errors.emp_account || !formData.descriptor_name || !formData.emp_account_id}
+                            disabled={isSaving || !!errors.name || !!errors.city || !!errors.country || !formData.descriptor_name}
                         >
                             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Save Descriptor
@@ -598,8 +625,13 @@ export default function DescriptorSchedulePage() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={handleDelete} 
+                            disabled={isDeleting}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Delete
                         </AlertDialogAction>
                     </AlertDialogFooter>

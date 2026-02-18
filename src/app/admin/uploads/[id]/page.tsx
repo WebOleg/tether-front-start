@@ -564,6 +564,14 @@ export default function UploadDetailPage() {
 
   const canSync = (vopTotalEligible === 0 || vopPending === 0) && !isValidating
 
+  // Build CB lookup map by amount for quick access in price breakdown
+  const cbByAmount = new Map<number, { approved: number; chargebacks: number; cb_rate: number; approved_volume: number; cb_volume: number }>()
+  if (stats?.cb_breakdown) {
+    for (const cb of stats.cb_breakdown) {
+      cbByAmount.set(cb.amount, cb)
+    }
+  }
+
   const handlePreviousPage = () => {
     if (links?.prev) {
       setCurrentPage(currentPage - 1)
@@ -928,19 +936,42 @@ export default function UploadDetailPage() {
               <div className="px-6 pb-4">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Valid Amount Breakdown</CardTitle>
+                    <CardTitle className="text-lg">Price Breakdown</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-                      {stats.price_breakdown.map((item, idx) => (
-                        <div key={idx} className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
-                          <p className="text-lg font-semibold text-emerald-800">
-                            {formatCurrency(item.amount, 'EUR')}
-                          </p>
-                          <p className="text-sm text-emerald-600">{item.count} records</p>
-                          <p className="text-xs text-emerald-500">Subtotal: {formatCurrency(item.total, 'EUR')}</p>
-                        </div>
-                      ))}
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Price</TableHead>
+                            <TableHead className="text-right">Valid</TableHead>
+                            <TableHead className="text-right">Subtotal</TableHead>
+                            <TableHead className="text-right">Approved</TableHead>
+                            <TableHead className="text-right">Chargebacks</TableHead>
+                            <TableHead className="text-right">CB Rate</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {stats.price_breakdown.map((item, idx) => {
+                            const cb = cbByAmount.get(item.amount)
+                            const cbRate = cb?.cb_rate ?? 0
+                            const isAlert = cbRate > 1
+                            return (
+                              <TableRow key={idx} className={isAlert ? 'bg-red-50' : ''}>
+                                <TableCell className="font-semibold">{formatCurrency(item.amount, 'EUR')}</TableCell>
+                                <TableCell className="text-right">{item.count}</TableCell>
+                                <TableCell className="text-right text-slate-600">{formatCurrency(item.total, 'EUR')}</TableCell>
+                                <TableCell className="text-right text-green-700">{cb?.approved ?? '—'}</TableCell>
+                                <TableCell className="text-right text-red-700">{cb?.chargebacks ?? '—'}</TableCell>
+                                <TableCell className={`text-right font-semibold ${isAlert ? 'text-red-700' : 'text-slate-700'}`}>
+                                  {cb ? `${cbRate}%` : '—'}
+                                  {isAlert && <AlertTriangle className="inline h-3 w-3 ml-1 text-red-500" />}
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        </TableBody>
+                      </Table>
                     </div>
                     <div className="mt-3 pt-3 border-t flex justify-between items-center">
                       <span className="text-sm font-medium text-slate-700">

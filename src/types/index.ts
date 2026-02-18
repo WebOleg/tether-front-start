@@ -567,6 +567,7 @@ export type ChargebackCodes = string
 export interface ChargebackSummaryStats {
   total_chargebacks_count: number
   total_chargeback_amount: number
+  total_approved_amount: number
   chargeback_rate: number
   average_chargeback_amount: number
   most_common_reason_code: {
@@ -574,6 +575,7 @@ export interface ChargebackSummaryStats {
     count: number
   }
   affected_accounts: number
+  unique_debtors_count: number
 }
 
 export interface Chargebacks {

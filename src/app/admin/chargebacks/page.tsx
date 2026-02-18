@@ -24,7 +24,7 @@ import { CHARGEBACK_RULES, getChargebackRule } from '@/lib/chargebacks'
 import { useEffect, useState, useCallback } from 'react'
 import { formatDate, formatDateNullable, formatCurrency } from '@/lib/utils'
 import { RiskBadge } from '@/components/ui/badges'
-import { Building2, Calendar, CalendarClock, RotateCcw, DollarSign, Percent, TrendingUp, FileText, Users } from 'lucide-react'
+import { Building2, Calendar, CalendarClock, RotateCcw, DollarSign, Percent, TrendingUp, FileText, Users, User, Banknote, CirclePercent } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -235,8 +235,8 @@ export default function ChargebacksPage() {
 
         {/* Summary Cards */}
         {loading ? (
-          <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-6 mb-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <Card key={i} className="py-2 gap-1">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <Skeleton className="h-4 w-28" />
@@ -250,7 +250,7 @@ export default function ChargebacksPage() {
             ))}
           </div>
         ) : stats ? (
-          <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-6 mb-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
             <Card className="py-2 gap-1">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-slate-600">
@@ -271,33 +271,48 @@ export default function ChargebacksPage() {
             <Card className="py-2 gap-1">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-slate-600">
-                  Total CB Amount
+                  Approved Amount
                 </CardTitle>
-                <div className="rounded-lg p-2 bg-orange-100">
-                  <DollarSign className="h-5 w-5 text-orange-600" />
+                <div className="rounded-lg p-2 bg-green-100">
+                  <DollarSign className="h-5 w-5 text-green-600" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-xl font-bold text-orange-600">
-                  {stats.total_chargeback_amount ? formatCurrency(stats.total_chargeback_amount, 'EUR') : '€0.00'}
+                <div className="text-xl font-bold text-green-600">
+                  {stats.total_chargeback_amount ? formatCurrency(stats.total_approved_amount, 'EUR') : '€0.00'}
                 </div>
-                <p className="text-sm text-slate-500 mt-1">Total value</p>
+                <p className="text-sm text-slate-500 mt-1">Total</p>
               </CardContent>
             </Card>
 
             <Card className="py-2 gap-1">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-slate-600">
-                  Chargeback Rate
+                  CB Amount
                 </CardTitle>
-                <div className="rounded-lg p-2 bg-amber-100">
-                  <Percent className="h-5 w-5 text-amber-600" />
+                <div className="rounded-lg p-2 bg-red-100">
+                  <DollarSign className="h-5 w-5 text-red-600" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className={`text-xl font-bold ${
-                  (stats.chargeback_rate ?? 0) > 1 ? 'text-rose-600' : 'text-amber-600'
-                }`}>
+                <div className="text-xl font-bold text-red-600">
+                  {stats.total_chargeback_amount ? formatCurrency(stats.total_chargeback_amount, 'EUR') : '€0.00'}
+                </div>
+                <p className="text-sm text-slate-500 mt-1">Total</p>
+              </CardContent>
+            </Card>
+
+            <Card className="py-2 gap-1">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  CB Rate
+                </CardTitle>
+                <div className="rounded-lg p-2 bg-red-100">
+                  <Percent className="h-5 w-5 text-red-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold text-red-600">
                   {(stats.chargeback_rate ?? 0).toFixed(2)}%
                 </div>
                 <p className="text-sm text-slate-500 mt-1">CB percentage</p>
@@ -307,17 +322,17 @@ export default function ChargebacksPage() {
             <Card className="py-2 gap-1">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-slate-600">
-                  Average CB Amount
+                  CB Amount
                 </CardTitle>
                 <div className="rounded-lg p-2 bg-blue-100">
-                  <TrendingUp className="h-5 w-5 text-blue-600" />
+                  <CirclePercent className="h-5 w-5 text-blue-600" />
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="text-xl font-bold text-blue-600">
                   {stats.average_chargeback_amount ? formatCurrency(stats.average_chargeback_amount, 'EUR') : '€0.00'}
                 </div>
-                <p className="text-sm text-slate-500 mt-1">Per chargeback</p>
+                <p className="text-sm text-slate-500 mt-1">Average</p>
               </CardContent>
             </Card>
 
@@ -343,10 +358,27 @@ export default function ChargebacksPage() {
             <Card className="py-2 gap-1">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-slate-600">
-                  Affected EMP Accounts
+                  Total Unique Debtors
                 </CardTitle>
                 <div className="rounded-lg p-2 bg-emerald-100">
                   <Users className="h-5 w-5 text-emerald-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold text-emerald-600">
+                  {stats.unique_debtors_count}
+                </div>
+                <p className="text-sm text-slate-500 mt-1">Unique debtors</p>
+              </CardContent>
+            </Card>
+
+            <Card className="py-2 gap-1">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Affected EMP Accounts
+                </CardTitle>
+                <div className="rounded-lg p-2 bg-emerald-100">
+                  <Building2 className="h-5 w-5 text-emerald-600" />
                 </div>
               </CardHeader>
               <CardContent>

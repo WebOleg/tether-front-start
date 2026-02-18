@@ -226,7 +226,9 @@ export default function CapsPage() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right text-slate-500">{account.tx_count.toLocaleString()}</td>
-                          <td className="py-3 px-4 text-center text-slate-500">{account.cbk_gross_percentage_90d}</td>
+                          <td className="py-3 px-4 text-center text-slate-500">
+                            {account.cbk_gross_percentage_90d != null ? `${account.cbk_gross_percentage_90d.toFixed(2)}%` : '-'}
+                          </td>
                           <td className="py-3 px-4">
                             {account.usage_percentage !== null ? (
                               <div className="flex items-center gap-2">

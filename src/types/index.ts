@@ -831,6 +831,25 @@ export interface CbReasonResponse {
   meta: PaginationMeta
 }
 
+export interface TransactionDescriptorBase {
+  descriptor_name: string
+  descriptor_city: string
+  descriptor_country: string
+  is_default: boolean
+  month?: number
+  year?: number
+  emp_account_id?: number | null
+}
+
+export interface TransactionDescriptor extends TransactionDescriptorBase {
+  id: number
+  emp_account?: EmpAccountRef | null  // Add this line
+  meta: PaginationMeta
+  links: PaginationLinks
+}
+
+export interface TransactionDescriptorForm extends TransactionDescriptorBase {}
+
 // ==========================================================================
 // BAV Batch Types (Standalone BAV verification)
 // ==========================================================================

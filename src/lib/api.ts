@@ -356,8 +356,9 @@ class ApiClient {
     }
   }
 
-  async getDescriptors(): Promise<any> {
-    return this.request('/admin/billing/descriptors')
+  async getDescriptors(params?: object): Promise<any> {
+    const query = this.buildQuery(params)
+    return this.request(`/admin/billing/descriptors${query}`)
   }
 
   async createDescriptor(data: DescriptorParams): Promise<any> {

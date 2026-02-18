@@ -194,6 +194,15 @@ export interface PriceBreakdownItem {
   total: number
 }
 
+export interface CbBreakdownItem {
+  amount: number
+  approved: number
+  chargebacks: number
+  approved_volume: number
+  cb_volume: number
+  cb_rate: number
+}
+
 export interface ValidationStats {
   total: number
   valid: number
@@ -207,6 +216,7 @@ export interface ValidationStats {
   is_processing: boolean
   price_breakdown?: PriceBreakdownItem[]
   valid_total_amount?: number
+  cb_breakdown?: CbBreakdownItem[]
 }
 
 export type NameMatch = 'yes' | 'partial' | 'no' | 'unavailable' | 'error'

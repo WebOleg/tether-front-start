@@ -582,6 +582,20 @@ export interface BillingRetryResponse {
 
 export type ChargebackCodes = string
 
+export interface ChargebackSummaryStats {
+  total_chargebacks_count: number
+  total_chargeback_amount: number
+  total_approved_amount: number
+  chargeback_rate: number
+  average_chargeback_amount: number
+  most_common_reason_code: {
+    code: string
+    count: number
+  }
+  affected_accounts: number
+  unique_debtors_count: number
+}
+
 export interface Chargebacks {
   id: number
   error_code: string | null
@@ -601,6 +615,11 @@ export interface Chargebacks {
     email: string
     iban_masked: string
   }
+}
+
+// Response type that includes stats
+export interface ChargebacksResponse extends ApiResponse<Chargebacks[]> {
+  stats: ChargebackSummaryStats
 }
 
 // ==========================================================================

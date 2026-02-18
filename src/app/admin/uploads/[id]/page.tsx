@@ -924,6 +924,37 @@ export default function UploadDetailPage() {
               </div>
           )}
 
+          {stats?.price_breakdown && stats.price_breakdown.length > 0 && (
+              <div className="px-6 pb-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg">Valid Amount Breakdown</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                      {stats.price_breakdown.map((item, idx) => (
+                        <div key={idx} className="bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+                          <p className="text-lg font-semibold text-emerald-800">
+                            {formatCurrency(item.amount, 'EUR')}
+                          </p>
+                          <p className="text-sm text-emerald-600">{item.count} records</p>
+                          <p className="text-xs text-emerald-500">Subtotal: {formatCurrency(item.total, 'EUR')}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 pt-3 border-t flex justify-between items-center">
+                      <span className="text-sm font-medium text-slate-700">
+                        Total Valid Amount: {formatCurrency(stats.valid_total_amount || 0, 'EUR')}
+                      </span>
+                      <span className="text-sm text-slate-500">
+                        {stats.valid} valid records
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+          )}
+
           {hasBillingActivity && billingStats && (
               <div className="px-6 pb-4">
                 <Card>

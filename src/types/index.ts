@@ -188,6 +188,12 @@ export interface ModelCounts {
   recovery: number
 }
 
+export interface PriceBreakdownItem {
+  amount: number
+  count: number
+  total: number
+}
+
 export interface ValidationStats {
   total: number
   valid: number
@@ -199,6 +205,8 @@ export interface ValidationStats {
   skipped?: SkippedCounts | null
   model_counts?: ModelCounts
   is_processing: boolean
+  price_breakdown?: PriceBreakdownItem[]
+  valid_total_amount?: number
 }
 
 export type NameMatch = 'yes' | 'partial' | 'no' | 'unavailable' | 'error'
@@ -673,6 +681,7 @@ export interface AccountCap {
   remaining: number | null
   usage_percentage: number | null
   tx_count: number
+  cbk_gross_percentage_90d: number | null
 }
 
 export interface CapsData {

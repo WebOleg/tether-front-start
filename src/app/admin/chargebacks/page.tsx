@@ -261,7 +261,7 @@ export default function ChargebacksPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-rose-600">
+                <div className="text-xl font-bold text-rose-600">
                   {(stats.total_chargebacks_count ?? 0).toLocaleString()}
                 </div>
                 <p className="text-sm text-slate-500 mt-1">Count</p>
@@ -278,7 +278,7 @@ export default function ChargebacksPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-600">
+                <div className="text-xl font-bold text-orange-600">
                   {stats.total_chargeback_amount ? formatCurrency(stats.total_chargeback_amount, 'EUR') : '€0.00'}
                 </div>
                 <p className="text-sm text-slate-500 mt-1">Total value</p>
@@ -295,7 +295,7 @@ export default function ChargebacksPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className={`text-2xl font-bold ${
+                <div className={`text-xl font-bold ${
                   (stats.chargeback_rate ?? 0) > 1 ? 'text-rose-600' : 'text-amber-600'
                 }`}>
                   {(stats.chargeback_rate ?? 0).toFixed(2)}%
@@ -314,7 +314,7 @@ export default function ChargebacksPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-xl font-bold text-blue-600">
                   {stats.average_chargeback_amount ? formatCurrency(stats.average_chargeback_amount, 'EUR') : '€0.00'}
                 </div>
                 <p className="text-sm text-slate-500 mt-1">Per chargeback</p>
@@ -331,7 +331,7 @@ export default function ChargebacksPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-purple-600 font-mono">
+                <div className="text-xl font-bold text-purple-600 font-mono">
                   {stats.most_common_reason_code?.code || 'N/A'}
                 </div>
                 <p className="text-sm text-slate-500 mt-1">
@@ -343,14 +343,14 @@ export default function ChargebacksPage() {
             <Card className="py-2 gap-1">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-slate-600">
-                  Affected Accounts
+                  Affected EMP Accounts
                 </CardTitle>
                 <div className="rounded-lg p-2 bg-emerald-100">
                   <Users className="h-5 w-5 text-emerald-600" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-emerald-600">
+                <div className="text-xl font-bold text-emerald-600">
                   {(stats.affected_accounts ?? 0).toLocaleString()}
                 </div>
                 <p className="text-sm text-slate-500 mt-1">Unique accounts</p>

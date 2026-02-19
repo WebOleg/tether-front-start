@@ -24,6 +24,7 @@ import { CbReasonResponse, CbReasonRecord, Upload, PaginationLink, PaginationLin
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Building2 } from 'lucide-react'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
+import { CHARGEBACK_RULES } from '@/lib/chargebacks'
 
 export default function UploadCbReasonsPage() {
   const params = useParams()
@@ -187,7 +188,7 @@ export default function UploadCbReasonsPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-slate-600 max-w-xs truncate">
-                      {record.error_message || '-'}
+                      {record.error_message || (code && CHARGEBACK_RULES[code]?.detail) || '-'}
                     </TableCell>
                   </TableRow>
                 ))

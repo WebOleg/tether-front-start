@@ -86,7 +86,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   BE05: {
     risk: 'low',
-    detail: 'Identifier of creditor incorrect',
+    detail: 'Unrecognised Initiating Party',
     action: [
       'Check details (Creditor ID)',
       CHARGEBACK_ACTIONS.RETRY,
@@ -94,7 +94,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   BE10: {
     risk: 'low',
-    detail: 'Debtor country code is missing or invalid',
+    detail: 'Invalid Debtor Country',
     action: [
       'Validate debtor ISO-2 country code',
       CHARGEBACK_ACTIONS.RETRY,
@@ -142,7 +142,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   MD06: {
     risk: 'high',
-    detail: 'Refund request by end customer',
+    detail: 'Refund Requested by End Customer',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Review mandate details',
@@ -158,14 +158,14 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   MS02: {
     risk: 'high',
-    detail: 'Not specified reason customer generated',
+    detail: 'Not Specified Reason, Customer Generated',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
     ],
   },
   MS03: {
     risk: 'high',
-    detail: 'Not specified reason agent generated',
+    detail: 'Not Specified Reason, Agent Generated',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Contact bank / customer',
@@ -212,7 +212,7 @@ export const CHARGEBACK_RULES: Record<string, ChargebackRule> = {
   },
   SL01: {
     risk: 'medium',
-    detail: 'Specific service offered by debtor agent',
+    detail: 'Due To Specific Service Offered By Debtor Agent',
     action: [
       CHARGEBACK_ACTIONS.STOP_BILLING,
       'Ask customer to change bank settings',

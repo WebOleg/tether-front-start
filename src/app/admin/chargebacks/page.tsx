@@ -17,12 +17,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { api, type DateMode } from '@/lib/api'
 import { ChargebackCodes, Chargebacks, ChargebackSummaryStats, EmpAccount, PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType } from '@/types';
-import { CHARGEBACK_RULES, getChargebackRule } from '@/lib/chargebacks'
+import { CHARGEBACK_RULES } from '@/lib/chargebacks'
 import { useEffect, useState, useCallback } from 'react'
-import { formatDate, formatDateNullable, formatCurrency } from '@/lib/utils'
+import { formatDateNullable, formatCurrency } from '@/lib/utils'
 import { RiskBadge } from '@/components/ui/badges'
 import { Building2, Calendar, CalendarClock, RotateCcw, DollarSign, Percent, TrendingUp, FileText, Users, User, Banknote, CirclePercent } from 'lucide-react'
 import { Label } from '@/components/ui/label'
@@ -429,7 +428,6 @@ export default function ChargebacksPage() {
                     </TableCell>
                   </TableRow>
                 ) : ( chargebacks.map((cb) => {
-                  const rule = cb.error_code ? getChargebackRule(cb.error_code) : undefined
                   return (
                     <TableRow key={cb.id}>
                       <TableCell>
@@ -437,7 +435,7 @@ export default function ChargebacksPage() {
                           {cb.error_code}
                         </div>
                         <div className="text-slate-600 text-xs">
-                          {rule?.detail}
+                          {cb.error_message || (cb.error_code && CHARGEBACK_RULES[cb.error_code]?.detail) || '-'}
                         </div>
                       </TableCell>
                       <TableCell>

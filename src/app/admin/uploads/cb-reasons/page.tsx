@@ -48,6 +48,7 @@ import {
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
+import { CHARGEBACK_RULES } from '@/lib/chargebacks'
 
 export default function UploadCbReasonsPage() {
   return (
@@ -476,7 +477,7 @@ function UploadCbReasonsPageContent() {
                         </TableCell>
                         <TableCell>
                           <span className="font-mono text-slate-600 text-xs">
-                            {reason.reason || 'Unknown'}
+                            {reason.reason || (reason.code && CHARGEBACK_RULES[reason.code]?.detail) || 'Unknown'}
                           </span>
                         </TableCell>
                         <TableCell className="text-right font-semibold">

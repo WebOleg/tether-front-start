@@ -72,6 +72,21 @@ export interface PricePointData {
   is_blacklisted: boolean
 }
 
+export interface WebhookRelayPayload {
+  domain: string
+  target: string
+  emp_account_ids: number[]
+}
+
+export interface WebhookRelay {
+  id: number
+  domain: string
+  target: string
+  emp_accounts: EmpAccount[]
+  created_at: string
+  updated_at: string
+}
+
 interface BicBreakdownResponse {
   bic: string
   period: string
@@ -1185,6 +1200,31 @@ class ApiClient {
       '/admin/bav/batches/balance'
     )
     return response.data
+  }
+
+  async getWebhookRelays(params?: object): Promise<ApiResponse<WebhookRelay[]>> {
+    const query = this.buildQuery(params)
+    return this.request<ApiResponse<WebhookRelay[]>>(`/admin/webhook-relays${query}`)
+  }
+
+  async createWebhookRelay(data: WebhookRelayPayload): Promise<{ data: WebhookRelay }> {
+    return this.request<{ data: WebhookRelay }>('/admin/webhook-relays', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateWebhookRelay(id: number, data: WebhookRelayPayload): Promise<{ data: WebhookRelay }> {
+    return this.request<{ data: WebhookRelay }>(`/admin/webhook-relays/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteWebhookRelay(id: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/admin/webhook-relays/${id}`, {
+      method: 'DELETE',
+    })
   }
 }
 

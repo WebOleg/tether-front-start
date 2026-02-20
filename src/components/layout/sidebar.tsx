@@ -22,7 +22,8 @@ import {
   Settings,
   Gauge,
   DollarSign,
-  ScanSearch
+  ScanSearch,
+  Globe
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
@@ -62,6 +63,7 @@ const navigation = [
   { name: 'VOP Logs', href: '/admin/vop-logs', icon: ShieldCheck },
   { name: 'Billing', href: '/admin/billing', icon: CreditCard },
   { name: 'Descriptors', href: '/admin/billing/descriptors', icon: Settings },
+  { name: 'Webhook Relays', href: '/admin/webhook-relay', icon: Globe },
   { name: 'Caps', href: '/admin/caps', icon: Gauge },
   { name: 'Price Points', href: '/admin/price-points', icon: DollarSign },
 ]

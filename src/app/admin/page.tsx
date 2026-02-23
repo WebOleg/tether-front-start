@@ -113,17 +113,7 @@ export default function AdminDashboard() {
       <>
         <Header title="Dashboard" description="Overview of your debt recovery operations" />
         
-        <div className="relative min-h-screen">
-          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-            <div className="bg-white rounded-lg shadow-2xl px-6 py-4 flex items-center gap-3 border border-slate-200 pointer-events-auto">
-              <div className="h-5 w-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-              <span className="text-md text-slate-700">Loading dashboard data...</span>
-            </div>
-          </div>
-
-          <div className="absolute inset-0 bg-black/1 backdrop-blur-[2px] pointer-events-none"></div>
-
-          <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6">
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="h-4 w-12 bg-slate-200 rounded animate-pulse" />
@@ -219,16 +209,7 @@ export default function AdminDashboard() {
                 </Card>
               ))}
             </div>
-          </div>
         </div>
-
-        <style jsx>{`
-          @keyframes shimmer {
-            100% {
-              transform: translateX(100%);
-            }
-          }
-        `}</style>
       </>
     )
   }

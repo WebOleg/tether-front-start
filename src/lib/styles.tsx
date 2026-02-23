@@ -4,7 +4,40 @@
  */
 
 import type { DebtorStatus } from '@/types'
-import { CheckCircle, XCircle, AlertCircle, Clock, Ban } from 'lucide-react'
+import { CheckCircle, XCircle, AlertCircle, Clock, Ban, AlertTriangle } from 'lucide-react'
+
+// ============ STATUS ICONS & BAR COLORS (Dashboard) ============
+
+/**
+ * Status icons for dashboard status breakdown cards
+ * Used in admin dashboard for debtors and billing by status
+ */
+export const statusIcons: Record<string, React.ReactNode> = {
+  approved: <CheckCircle className="h-4 w-4 text-green-600" />,
+  pending: <Clock className="h-4 w-4 text-yellow-600" />,
+  declined: <XCircle className="h-4 w-4 text-red-600" />,
+  error: <AlertCircle className="h-4 w-4 text-red-600" />,
+  voided: <AlertCircle className="h-4 w-4 text-slate-600" />,
+  chargebacked: <AlertTriangle className="h-4 w-4 text-orange-600" />,
+  processing: <AlertCircle className="h-4 w-4 text-blue-600" />,
+  recovered: <CheckCircle className="h-4 w-4 text-green-600" />,
+  failed: <AlertCircle className="h-4 w-4 text-red-600" />,
+}
+
+/**
+ * Progress bar colors per status for dashboard breakdown cards
+ */
+export const statusBarColor: Record<string, string> = {
+  approved: 'bg-green-500',
+  pending: 'bg-yellow-400',
+  declined: 'bg-red-500',
+  error: 'bg-red-400',
+  voided: 'bg-slate-400',
+  chargebacked: 'bg-orange-500',
+  processing: 'bg-blue-500',
+  recovered: 'bg-emerald-500',
+  failed: 'bg-red-600',
+}
 
 // ============ BADGE COLORS ============
 

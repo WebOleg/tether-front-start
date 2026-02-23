@@ -19,26 +19,13 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
-  AlertTriangle,
-  XCircle,
   Building2,
   RotateCcw,
 } from 'lucide-react'
 import type { DashboardData, EmpAccount } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/badges'
-
-const statusIcons: Record<string, React.ReactNode> = {
-  approved: <CheckCircle className="h-4 w-4 text-green-600" />,
-  pending: <Clock className="h-4 w-4 text-yellow-600" />,
-  declined: <XCircle className="h-4 w-4 text-red-600" />,
-  error: <AlertCircle className="h-4 w-4 text-red-600" />,
-  voided: <AlertCircle className="h-4 w-4 text-slate-600" />,
-  chargebacked: <AlertTriangle className="h-4 w-4 text-orange-600" />,
-  processing: <AlertCircle className="h-4 w-4 text-blue-600" />,
-  recovered: <CheckCircle className="h-4 w-4 text-green-600" />,
-  failed: <AlertCircle className="h-4 w-4 text-red-600" />,
-}
+import { statusIcons, statusBarColor } from '@/lib/styles'
 
 // Generate months from November 2025 to current date
 function generateMonthOptions() {
@@ -65,6 +52,8 @@ export default function AdminDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('all')
   const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
   const [selectedEmpAccountId, setSelectedEmpAccountId] = useState<string>('all')
+  const [debtorsShowPercent, setDebtorsShowPercent] = useState(false)
+  const [billingShowPercent, setBillingShowPercent] = useState(false)
   const monthOptions = generateMonthOptions()
 
   useEffect(() => {
@@ -406,44 +395,104 @@ export default function AdminDashboard() {
         {/* Status Breakdown */}
         <div className="grid gap-6 md:grid-cols-2">
           {/* Debtors by Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Debtors by Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Object.entries(data.debtors.by_status).map(([status, count]) => (
-                  <div key={status} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {statusIcons[status] || <AlertCircle className="h-4 w-4 text-slate-600" />}
-                      <span className="capitalize">{status}</span>
-                    </div>
-                    <span className="font-semibold">{count.toLocaleString()}</span>
+          {(() => {
+            const total = Object.values(data.debtors.by_status).reduce((a, b) => a + b, 0)
+            return (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <div>
+                    <CardTitle className="text-lg">Debtors by Status</CardTitle>
+                    <p className="text-xs text-slate-400 mt-0.5">{total.toLocaleString()} total debtors</p>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <button
+                    onClick={() => setDebtorsShowPercent(v => !v)}
+                    className="text-xs px-2.5 py-1 rounded-md border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors font-medium"
+                  >
+                    {debtorsShowPercent ? '# Count' : '% Share'}
+                  </button>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {Object.entries(data.debtors.by_status)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([status, count]) => {
+                        const pct = total > 0 ? ((count / total) * 100) : 0
+                        const barColor = statusBarColor[status] ?? 'bg-slate-400'
+                        return (
+                          <div key={status}>
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                {statusIcons[status] || <AlertCircle className="h-4 w-4 text-slate-600" />}
+                                <span className="capitalize text-sm font-medium text-slate-700">{status}</span>
+                              </div>
+                              <span className="text-sm font-semibold tabular-nums text-slate-800">
+                                {debtorsShowPercent ? `${pct.toFixed(2)}%` : count.toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${barColor} transition-all duration-500`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })()}
 
           {/* Billing by Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Billing by Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {Object.entries(data.billing.by_status).map(([status, count]) => (
-                  <div key={status} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {statusIcons[status] || <AlertCircle className="h-4 w-4 text-slate-600" />}
-                      <span className="capitalize">{status}</span>
-                    </div>
-                    <span className="font-semibold">{count.toLocaleString()}</span>
+          {(() => {
+            const total = Object.values(data.billing.by_status).reduce((a, b) => a + b, 0)
+            return (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <div>
+                    <CardTitle className="text-lg">Billing by Status</CardTitle>
+                    <p className="text-xs text-slate-400 mt-0.5">{total.toLocaleString()} total attempts</p>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <button
+                    onClick={() => setBillingShowPercent(v => !v)}
+                    className="text-xs px-2.5 py-1 rounded-md border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors font-medium"
+                  >
+                    {billingShowPercent ? '# Count' : '% Share'}
+                  </button>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {Object.entries(data.billing.by_status)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([status, count]) => {
+                        const pct = total > 0 ? ((count / total) * 100) : 0
+                        const barColor = statusBarColor[status] ?? 'bg-slate-400'
+                        return (
+                          <div key={status}>
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                {statusIcons[status] || <AlertCircle className="h-4 w-4 text-slate-600" />}
+                                <span className="capitalize text-sm font-medium text-slate-700">{status}</span>
+                              </div>
+                              <span className="text-sm font-semibold tabular-nums text-slate-800">
+                                {billingShowPercent ? `${pct.toFixed(2)}%` : count.toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${barColor} transition-all duration-500`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })()}
         </div>
 
         {/* Recent Activity */}

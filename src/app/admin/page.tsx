@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   XCircle,
   Building2,
+  RotateCcw,
 } from 'lucide-react'
 import type { DashboardData, EmpAccount } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -288,6 +289,7 @@ export default function AdminDashboard() {
       value: formatCurrency(data.debtors.total_amount, 'EUR'),
       icon: TrendingUp,
       color: 'text-slate-600',
+      bg: 'bg-slate-100',
     },
     {
       title: 'Net Recovered',
@@ -295,12 +297,14 @@ export default function AdminDashboard() {
       subtitle: `${data.debtors.recovery_rate}% recovery rate`,
       icon: CheckCircle,
       color: 'text-green-600',
+      bg: 'bg-green-100',
     },
     {
       title: 'Approved Payments',
       value: formatCurrency(data.billing.total_approved_amount, 'EUR'),
       icon: CreditCard,
       color: 'text-blue-600',
+      bg: 'bg-blue-100',
     },
     {
       title: 'Pending Payments',
@@ -308,13 +312,15 @@ export default function AdminDashboard() {
       subtitle: `${data.billing.by_status.pending || 0} transactions`,
       icon: Clock,
       color: 'text-yellow-600',
+      bg: 'bg-yellow-100',
     },
     {
       title: 'Chargebacks',
       value: formatCurrency(data.billing.total_chargeback_amount || 0, 'EUR'),
       subtitle: `${data.billing.chargeback_rate || 0}% rate`,
-      icon: AlertTriangle,
+      icon: RotateCcw,
       color: 'text-orange-600',
+      bg: 'bg-orange-100',
     },
   ]
 
@@ -375,9 +381,9 @@ export default function AdminDashboard() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {kpiCards.map((card) => (
-            <Card key={card.title}>
+            <Card key={card.title} className="py-2 gap-1">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-slate-600">
                   {card.title}
@@ -387,7 +393,7 @@ export default function AdminDashboard() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{card.value.toLocaleString()}</div>
+                <div className={`text-xl font-bold ${card.color}`}>{card.value.toLocaleString()}</div>
                 <p className="text-sm text-slate-500 mt-1">{card.subtitle}</p>
               </CardContent>
             </Card>
@@ -395,20 +401,22 @@ export default function AdminDashboard() {
         </div>
 
         {/* Financial Overview */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           {financialCards.map((card) => (
-            <Card key={card.title}>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
+            <Card key={card.title} className="py-2 gap-1">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  {card.title}
+                </CardTitle>
+                <div className={`rounded-lg p-2 ${card.bg}`}>
                   <card.icon className={`h-5 w-5 ${card.color}`} />
-                  <div>
-                    <p className="text-sm text-slate-500">{card.title}</p>
-                    <p className="text-xl font-semibold">{card.value}</p>
-                    {'subtitle' in card && card.subtitle && (
-                      <p className="text-xs text-slate-400">{card.subtitle}</p>
-                    )}
-                  </div>
                 </div>
+              </CardHeader>
+              <CardContent>
+                <div className={`text-xl font-bold ${card.color}`}>{card.value}</div>
+                {'subtitle' in card && card.subtitle && (
+                  <p className="text-sm text-slate-500 mt-1">{card.subtitle}</p>
+                )}
               </CardContent>
             </Card>
           ))}

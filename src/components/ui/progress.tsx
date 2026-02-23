@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
   value?: number
   max?: number
-  variant?: "default" | "green" | "red" | "yellow"
+  variant?: "default" | "green" | "red" | "yellow" | "orange"
   height?: "sm" | "md" | "lg"
 }
 
@@ -18,6 +18,7 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
     const fillColor = variant === 'green' ? 'bg-green-600' :
                       variant === 'red' ? 'bg-red-600' : 
                       variant === 'yellow' ? 'bg-amber-600' :
+                      variant === 'orange' ? 'bg-orange-500' :
                       'bg-blue-600'
     const heightClass = height === 'sm' ? 'h-1.5' :
                         height === 'lg' ? 'h-4' :

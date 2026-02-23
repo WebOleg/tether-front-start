@@ -4,7 +4,7 @@
  */
 
 import type { DebtorStatus } from '@/types'
-import { CheckCircle, XCircle, AlertCircle, Clock, Ban, AlertTriangle } from 'lucide-react'
+import { CheckCircle, XCircle, AlertCircle, Clock, Ban, RotateCcw } from 'lucide-react'
 
 // ============ STATUS ICONS & BAR COLORS (Dashboard) ============
 
@@ -18,7 +18,7 @@ export const statusIcons: Record<string, React.ReactNode> = {
   declined: <XCircle className="h-4 w-4 text-red-600" />,
   error: <AlertCircle className="h-4 w-4 text-red-600" />,
   voided: <AlertCircle className="h-4 w-4 text-slate-600" />,
-  chargebacked: <AlertTriangle className="h-4 w-4 text-orange-600" />,
+  chargebacked: <RotateCcw className="h-4 w-4 text-orange-600" />,
   processing: <AlertCircle className="h-4 w-4 text-blue-600" />,
   recovered: <CheckCircle className="h-4 w-4 text-green-600" />,
   failed: <AlertCircle className="h-4 w-4 text-red-600" />,

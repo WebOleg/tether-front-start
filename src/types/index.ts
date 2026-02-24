@@ -107,6 +107,7 @@ export interface Upload {
   chargeback_amount?: number
   emp_account_id?: number | null
   emp_account?: EmpAccountRef | null
+  tether_instance_id?: number | null
 }
 
 export type UploadStatus = 'pending' | 'processing' | 'completed' | 'failed'
@@ -175,6 +176,7 @@ export interface Debtor {
   latest_vop?: VopLog
   latest_billing?: BillingAttempt
   debtor_profile?: DebtorProfile
+  tether_instance_id?: number | null
 }
 
 export type DebtorStatus = 'uploaded' | 'pending' | 'processing' | 'recovered' | 'failed' | 'approved' | 'chargebacked'
@@ -266,11 +268,13 @@ export interface BillingAttempt {
   processed_at: string | null
   created_at: string
   emp_account?: EmpAccountRef | null
+  tether_instance_id?: number | null
 }
 
 export interface AnalyticsFilters {
   model?: string;
   emp_account_id?: number;
+  tether_instance_id?: number;
   cb_reason_code?: string;
 }
 
@@ -299,6 +303,7 @@ export interface LoginResponse {
 export interface UploadFilters {
   status?: UploadStatus
   emp_account_id?: number
+  tether_instance_id?: number
   page?: number
   per_page?: number
 }
@@ -698,6 +703,19 @@ export interface EmpAccountStats {
 }
 
 // ==========================================================================
+// Tether Instance Types (Multi-Acquirer Support)
+// ==========================================================================
+
+export interface TetherInstance {
+  id: number
+  name: string
+  slug: string
+  acquirer_type: string
+  is_active: boolean
+  emp_account?: EmpAccountRef | null
+}
+
+// ==========================================================================
 // Caps Types
 // ==========================================================================
 
@@ -880,7 +898,7 @@ export interface TransactionDescriptorBase {
 
 export interface TransactionDescriptor extends TransactionDescriptorBase {
   id: number
-  emp_account?: EmpAccountRef | null  // Add this line
+  emp_account?: EmpAccountRef | null
   meta: PaginationMeta
   links: PaginationLinks
 }

@@ -5,20 +5,53 @@ import { Header } from '@/components/layout/header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell } from '@/components/ui/table'
 import { api, type StatsFilterParams } from '@/lib/api'
 import type { PricePointStats, PricePointDetail, EmpAccount } from '@/types'
-import { Loader2, RefreshCw, DollarSign, AlertTriangle, ArrowUpDown } from 'lucide-react'
+import { RefreshCw, AlertTriangle, ArrowUpDown, Hash, CheckCircle, Percent, BarChart2, RotateCcw } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 
 const PERIODS = [
+  { value: 'all', label: 'All time' },
   { value: '24h', label: 'Last 24h' },
   { value: '7d', label: 'Last 7 days' },
   { value: '30d', label: 'Last 30 days' },
   { value: '90d', label: 'Last 90 days' },
-  { value: 'all', label: 'All time' },
 ]
 
 type SortKey = 'price_point' | 'total' | 'approved' | 'chargebacks' | 'cb_rate' | 'approved_volume' | 'chargeback_volume'
+
+// Skeleton Card Component
+function SkeletonCard() {
+  return (
+    <Card className="py-2 gap-1">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-9 w-9 rounded-lg" />
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-7 w-24 mb-2" />
+        <Skeleton className="h-4 w-20" />
+      </CardContent>
+    </Card>
+  )
+}
+
+// Skeleton Table Row Component
+function SkeletonTableRow() {
+  return (
+    <TableRow>
+      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+      <TableCell className="text-right"><div className="flex justify-end"><Skeleton className="h-4 w-12" /></div></TableCell>
+      <TableCell className="text-right"><div className="flex justify-end"><Skeleton className="h-4 w-12" /></div></TableCell>
+      <TableCell className="text-right"><div className="flex justify-end"><Skeleton className="h-4 w-12" /></div></TableCell>
+      <TableCell className="text-right"><div className="flex justify-end"><Skeleton className="h-4 w-14" /></div></TableCell>
+      <TableCell className="text-right"><div className="flex justify-end"><Skeleton className="h-4 w-20" /></div></TableCell>
+      <TableCell className="text-right"><div className="flex justify-end"><Skeleton className="h-4 w-20" /></div></TableCell>
+    </TableRow>
+  )
+}
 
 export default function PricePointsPage() {
   const [data, setData] = useState<PricePointStats | null>(null)
@@ -87,15 +120,15 @@ export default function PricePointsPage() {
   }
 
   const SortHeader = ({ label, field, className = '' }: { label: string; field: SortKey; className?: string }) => (
-    <th
-      className={`py-3 px-4 text-sm font-medium text-slate-500 cursor-pointer hover:text-slate-700 select-none ${className}`}
+    <TableHead
+      className={`cursor-pointer select-none hover:text-slate-700 ${className}`}
       onClick={() => handleSort(field)}
     >
       <div className={`flex items-center gap-1 ${className.includes('text-right') ? 'justify-end' : ''}`}>
         {label}
         <ArrowUpDown className={`h-3 w-3 ${sortKey === field ? 'text-slate-900' : 'text-slate-300'}`} />
       </div>
-    </th>
+    </TableHead>
   )
 
   const threshold = data?.threshold ?? 25
@@ -127,116 +160,144 @@ export default function PricePointsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="icon" onClick={fetchData} disabled={loading}>
+            <Button variant="default" size="icon" onClick={fetchData} disabled={loading}>
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
 
           {/* Summary Cards */}
-          {data && (
+          {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-sm text-slate-500">Total Transactions</p>
-                  <p className="text-2xl font-bold text-slate-900">{formatNum(data.totals.total)}</p>
+              {[1, 2, 3, 4, 5].map((i) => <SkeletonCard key={i} />)}
+            </div>
+          ) : data && (
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <Card className="py-2 gap-1">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-600">Total Transactions</CardTitle>
+                  <div className="rounded-lg p-2 bg-slate-100">
+                    <Hash className="h-5 w-5 text-slate-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-slate-700">{formatNum(data.totals.total)}</div>
+                  <p className="text-sm text-slate-500 mt-1">All transactions</p>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-sm text-slate-500">Approved</p>
-                  <p className="text-2xl font-bold text-slate-900">{formatNum(data.totals.approved)}</p>
+              <Card className="py-2 gap-1">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-600">Approved</CardTitle>
+                  <div className="rounded-lg p-2 bg-emerald-100">
+                    <CheckCircle className="h-5 w-5 text-emerald-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-emerald-600">{formatNum(data.totals.approved)}</div>
+                  <p className="text-sm text-slate-500 mt-1">Successful payments</p>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-sm text-slate-500">Chargebacks</p>
-                  <p className="text-2xl font-bold text-slate-900">{formatNum(data.totals.chargebacks)}</p>
+              <Card className="py-2 gap-1">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-600">Chargebacks</CardTitle>
+                  <div className="rounded-lg p-2 bg-red-100">
+                    <RotateCcw className="h-5 w-5 text-red-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-red-600">{formatNum(data.totals.chargebacks)}</div>
+                  <p className="text-sm text-slate-500 mt-1">Disputed transactions</p>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-sm text-slate-500">CB Rate</p>
-                  <p className={`text-2xl font-bold ${getCbColor(data.totals.cb_rate, threshold)}`}>
+              <Card className="py-2 gap-1">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-600">CB Rate</CardTitle>
+                  <div className={`rounded-lg p-2 ${data.totals.cb_rate !== null && data.totals.cb_rate >= threshold ? 'bg-red-100' : data.totals.cb_rate !== null && data.totals.cb_rate >= threshold * 0.7 ? 'bg-yellow-100' : 'bg-emerald-100'}`}>
+                    <Percent className={`h-5 w-5 ${getCbColor(data.totals.cb_rate, threshold)}`} />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-xl font-bold ${getCbColor(data.totals.cb_rate, threshold)}`}>
                     {data.totals.cb_rate !== null ? `${data.totals.cb_rate}%` : '\u2014'}
-                  </p>
+                  </div>
+                  <p className="text-sm text-slate-500 mt-1">Chargeback ratio</p>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-sm text-slate-500">Price Points</p>
-                  <p className="text-2xl font-bold text-slate-900">{data.price_points.length}</p>
+              <Card className="py-2 gap-1">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-600">Price Points</CardTitle>
+                  <div className="rounded-lg p-2 bg-blue-100">
+                    <BarChart2 className="h-5 w-5 text-blue-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-blue-600">{data.price_points.length}</div>
+                  <p className="text-sm text-slate-500 mt-1">Distinct amounts</p>
                 </CardContent>
               </Card>
             </div>
           )}
 
           {/* Price Points Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-slate-500" />
-                <span>{'CB Rate by Price Point'}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-                </div>
-              ) : sortedPoints.length === 0 ? (
-                <div className="text-center py-12 text-slate-400">No data for selected period</div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-200">
-                        <SortHeader label="Amount" field="price_point" />
-                        <SortHeader label="Total" field="total" className="text-right" />
-                        <SortHeader label="Approved" field="approved" className="text-right" />
-                        <SortHeader label="Chargebacks" field="chargebacks" className="text-right" />
-                        <SortHeader label="CB Rate" field="cb_rate" className="text-right" />
-                        <SortHeader label="Approved Vol." field="approved_volume" className="text-right" />
-                        <SortHeader label="CB Vol." field="chargeback_volume" className="text-right" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedPoints.map((pp) => (
-                        <tr key={pp.price_point} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              {pp.alert && <AlertTriangle className="h-4 w-4 text-red-500" />}
-                              <span className="font-medium text-slate-900">{formatEur(pp.price_point)}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-right text-slate-700">{formatNum(pp.total)}</td>
-                          <td className="py-3 px-4 text-right text-slate-700">{formatNum(pp.approved)}</td>
-                          <td className="py-3 px-4 text-right text-slate-700">{formatNum(pp.chargebacks)}</td>
-                          <td className={`py-3 px-4 text-right ${getCbColor(pp.cb_rate, threshold)}`}>
-                            {pp.cb_rate !== null ? `${pp.cb_rate}%` : '\u2014'}
-                          </td>
-                          <td className="py-3 px-4 text-right text-slate-500">{formatEur(pp.approved_volume)}</td>
-                          <td className="py-3 px-4 text-right text-slate-500">{formatEur(pp.chargeback_volume)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold">
-                        <td className="py-3 px-4 text-slate-900">Total</td>
-                        <td className="py-3 px-4 text-right text-slate-900">{data && formatNum(data.totals.total)}</td>
-                        <td className="py-3 px-4 text-right text-slate-900">{data && formatNum(data.totals.approved)}</td>
-                        <td className="py-3 px-4 text-right text-slate-900">{data && formatNum(data.totals.chargebacks)}</td>
-                        <td className={`py-3 px-4 text-right ${data ? getCbColor(data.totals.cb_rate, threshold) : ''}`}>
-                          {data?.totals.cb_rate !== null ? `${data?.totals.cb_rate}%` : '\u2014'}
-                        </td>
-                        <td className="py-3 px-4 text-right text-slate-700">{data && formatEur(data.totals.approved_volume)}</td>
-                        <td className="py-3 px-4 text-right text-slate-700">{data && formatEur(data.totals.chargeback_volume)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
+          <div className="rounded-lg border bg-white">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortHeader label="Amount" field="price_point" />
+                  <SortHeader label="Total" field="total" className="text-right" />
+                  <SortHeader label="Approved" field="approved" className="text-right" />
+                  <SortHeader label="Chargebacks" field="chargebacks" className="text-right" />
+                  <SortHeader label="CB Rate" field="cb_rate" className="text-right" />
+                  <SortHeader label="Approved Vol." field="approved_volume" className="text-right" />
+                  <SortHeader label="CB Vol." field="chargeback_volume" className="text-right" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  [1, 2, 3, 4, 5].map((i) => <SkeletonTableRow key={i} />)
+                ) : sortedPoints.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-slate-500">
+                      No data for selected period.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  sortedPoints.map((pp) => (
+                    <TableRow key={pp.price_point}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {pp.alert && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                          <span className="font-medium text-slate-900">{formatEur(pp.price_point)}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right text-slate-700">{formatNum(pp.total)}</TableCell>
+                      <TableCell className="text-right text-slate-700">{formatNum(pp.approved)}</TableCell>
+                      <TableCell className="text-right text-slate-700">{formatNum(pp.chargebacks)}</TableCell>
+                      <TableCell className={`text-right ${getCbColor(pp.cb_rate, threshold)}`}>
+                        {pp.cb_rate !== null ? `${pp.cb_rate}%` : '\u2014'}
+                      </TableCell>
+                      <TableCell className="text-right text-slate-500">{formatEur(pp.approved_volume)}</TableCell>
+                      <TableCell className="text-right text-slate-500">{formatEur(pp.chargeback_volume)}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+              {!loading && data && (
+                <TableFooter>
+                  <TableRow>
+                    <TableCell className="font-semibold text-slate-900">Total</TableCell>
+                    <TableCell className="text-right font-semibold text-slate-900">{formatNum(data.totals.total)}</TableCell>
+                    <TableCell className="text-right font-semibold text-slate-900">{formatNum(data.totals.approved)}</TableCell>
+                    <TableCell className="text-right font-semibold text-slate-900">{formatNum(data.totals.chargebacks)}</TableCell>
+                    <TableCell className={`text-right font-semibold ${getCbColor(data.totals.cb_rate, threshold)}`}>
+                      {data.totals.cb_rate !== null ? `${data.totals.cb_rate}%` : '\u2014'}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-slate-700">{formatEur(data.totals.approved_volume)}</TableCell>
+                    <TableCell className="text-right font-semibold text-slate-700">{formatEur(data.totals.chargeback_volume)}</TableCell>
+                  </TableRow>
+                </TableFooter>
               )}
-            </CardContent>
-          </Card>
+            </Table>
+          </div>
         </div>
       </main>
     </>

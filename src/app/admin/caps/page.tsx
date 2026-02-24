@@ -124,7 +124,7 @@ export default function CapsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="icon" onClick={fetchCaps} disabled={loading}>
+              <Button variant="default" size="icon" onClick={fetchCaps} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
@@ -213,7 +213,7 @@ export default function CapsPage() {
                     <TableHead className="text-right">Transactions</TableHead>
                     <TableHead className="text-center">Gross CB % (90d)</TableHead>
                     <TableHead className="w-[200px]">Usage</TableHead>
-                    <TableHead className="w-20"></TableHead>
+                    <TableHead className="w-24 text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -227,9 +227,15 @@ export default function CapsPage() {
                         <TableCell className="text-right"><div className="flex justify-end"><Skeleton className="h-4 w-12" /></div></TableCell>
                         <TableCell className="text-center"><div className="flex justify-center"><Skeleton className="h-4 w-12" /></div></TableCell>
                         <TableCell><Skeleton className="h-2 w-full rounded-full" /></TableCell>
-                        <TableCell><Skeleton className="h-7 w-7 rounded" /></TableCell>
+                        <TableCell className="text-center"><div className="flex justify-center"><Skeleton className="h-8 w-8 rounded" /></div></TableCell>
                       </TableRow>
                     ))
+                  ) : accounts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                        No caps data found.
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     accounts.map((account) => (
                       <TableRow key={account.id}>
@@ -294,21 +300,23 @@ export default function CapsPage() {
                             <span className="text-sm text-slate-400">{'\u2014'}</span>
                           )}
                         </TableCell>
-                        <TableCell>
-                          {editingId === account.id ? (
-                            <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleSave(account.id)} disabled={saving}>
-                                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-emerald-600" />}
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            {editingId === account.id ? (
+                              <>
+                                <Button variant="success" size="icon-sm" onClick={() => handleSave(account.id)} disabled={saving}>
+                                  {saving ? <Loader2 className="animate-spin" /> : <Check />}
+                                </Button>
+                                <Button variant="default" size="icon-sm" onClick={handleCancel}>
+                                  <X className="text-white" />
+                                </Button>
+                              </>
+                            ) : (
+                              <Button variant="default" size="icon-sm" onClick={() => handleEdit(account)}>
+                                <Pencil className="text-white" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancel}>
-                                <X className="h-3.5 w-3.5 text-slate-400" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(account)}>
-                              <Pencil className="h-3.5 w-3.5 text-slate-400" />
-                            </Button>
-                          )}
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))

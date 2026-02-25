@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -40,7 +41,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import {
   Tooltip,
@@ -49,7 +49,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { api } from '@/lib/api'
-import type { Debtor, DebtorStatus, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
+import type { Debtor, EmpAccount, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { modelRowStyles, statusRowStyles } from '@/lib/styles'
 import { ModelBadge, StatusBadge, RiskBadge } from '@/components/ui/badges'
@@ -63,6 +63,7 @@ import {
   FileText,
   X,
   Trash2,
+  ArrowRightLeft,
 } from 'lucide-react'
 import { formatCurrency, formatDateTime, getDaysRemaining } from '@/lib/utils'
 
@@ -97,6 +98,14 @@ function DebtorsContent() {
   const [orphanCount, setOrphanCount] = useState<number | null>(null)
   const [isCheckingOrphans, setIsCheckingOrphans] = useState(false)
   const [isPruning, setIsPruning] = useState(false)
+
+  // Bulk reassign state
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [showReassignDialog, setShowReassignDialog] = useState(false)
+  const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
+  const [targetAccountId, setTargetAccountId] = useState<string>('')
+  const [isReassigning, setIsReassigning] = useState(false)
+  const [reassignResult, setReassignResult] = useState<string | null>(null)
 
   const LIFETIME_LIMIT = 750;
 
@@ -136,6 +145,11 @@ function DebtorsContent() {
     return () => clearTimeout(timer)
   }, [searchInput, currentSearch, updateUrl])
 
+  // Clear selection when page/filters change
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [currentPage, currentStatus, currentModel, currentSearch])
+
   const fetchDebtors = useCallback(async () => {
     setLoading(true)
     try {
@@ -167,6 +181,11 @@ function DebtorsContent() {
     fetchDebtors()
   }, [fetchDebtors])
 
+  // Fetch EMP accounts for reassign dialog
+  useEffect(() => {
+    api.getEmpAccounts().then(setEmpAccounts).catch(() => {})
+  }, [])
+
   const handleStatusFilterChange = (status: string) => updateUrl({ status })
   const handleModelFilterChange = (model: string) => updateUrl({ model })
 
@@ -177,6 +196,56 @@ function DebtorsContent() {
   const handleResetFilters = () => {
     setSearchInput('')
     router.replace(pathname)
+  }
+
+  // Selection handlers
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === debtors.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(debtors.map(d => d.id)))
+    }
+  }
+
+  const handleOpenReassign = () => {
+    setTargetAccountId('')
+    setReassignResult(null)
+    setShowReassignDialog(true)
+  }
+
+  const handleReassign = async () => {
+    if (!targetAccountId || selectedIds.size === 0) return
+    setIsReassigning(true)
+    setReassignResult(null)
+    try {
+      const result = await api.bulkReassignDebtors(
+        Array.from(selectedIds),
+        Number(targetAccountId)
+      )
+      setReassignResult(result.message)
+      setSelectedIds(new Set())
+      setTimeout(() => {
+        setShowReassignDialog(false)
+        setReassignResult(null)
+        fetchDebtors()
+      }, 1500)
+    } catch (error: any) {
+      setReassignResult(error?.message || 'Reassign failed')
+    } finally {
+      setIsReassigning(false)
+    }
   }
 
   const handleEditClick = (debtor: Debtor) => {
@@ -306,7 +375,7 @@ function DebtorsContent() {
               )}
             </div>
 
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 flex gap-2">
               <Button
                   variant="outline"
                   className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
@@ -324,6 +393,32 @@ function DebtorsContent() {
 
           </div>
 
+          {/* Bulk action bar */}
+          {selectedIds.size > 0 && (
+            <div className="mb-4 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 animate-in slide-in-from-top-2 duration-200">
+              <span className="text-sm font-medium text-blue-900">
+                {selectedIds.size} debtor{selectedIds.size !== 1 ? 's' : ''} selected
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                onClick={handleOpenReassign}
+              >
+                <ArrowRightLeft className="h-3.5 w-3.5 mr-1.5" />
+                Move to Account
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Clear
+              </Button>
+            </div>
+          )}
+
           <PaginationMeta
               meta={meta}
               label="debtors"
@@ -334,6 +429,13 @@ function DebtorsContent() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-white hover:bg-white">
+                  <TableHead className="w-[40px]">
+                    <Checkbox
+                      checked={debtors.length > 0 && selectedIds.size === debtors.length}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Model</TableHead>
                   <TableHead>Active</TableHead>
@@ -354,13 +456,13 @@ function DebtorsContent() {
               <TableBody>
                 {loading ? (
                     <TableRow>
-                      <TableCell colSpan={15} className="text-center py-8">
+                      <TableCell colSpan={16} className="text-center py-8">
                         Loading...
                       </TableCell>
                     </TableRow>
                 ) : debtors.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={15} className="text-center py-8">
+                      <TableCell colSpan={16} className="text-center py-8">
                         No debtors found
                       </TableCell>
                     </TableRow>
@@ -369,10 +471,13 @@ function DebtorsContent() {
                       const profile = (debtor as any).debtor_profile;
                       const isLegacy = !profile || profile.billing_model === 'legacy';
                       const isActive = profile?.is_active;
+                      const isSelected = selectedIds.has(debtor.id);
 
                       let rowClass = 'bg-white hover:bg-slate-50';
 
-                      if (!isLegacy && !isActive) {
+                      if (isSelected) {
+                        rowClass = 'bg-blue-50/50 hover:bg-blue-50';
+                      } else if (!isLegacy && !isActive) {
                         rowClass = statusRowStyles[debtor.status] || 'bg-slate-50/60';
                       } else {
                         const modelKey = (profile?.billing_model || 'legacy').toLowerCase();
@@ -401,6 +506,13 @@ function DebtorsContent() {
 
                       return (
                           <TableRow key={debtor.id} className={`${rowClass} transition-colors group`}>
+                            <TableCell>
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleSelect(debtor.id)}
+                                aria-label={`Select ${debtor.full_name}`}
+                              />
+                            </TableCell>
                             <TableCell>
                                 <span className="font-medium">
                                   {debtor.full_name}
@@ -562,6 +674,7 @@ function DebtorsContent() {
               onNextClick={handleNextPage}
           />
 
+          {/* Edit Debtor Dialog */}
           <Dialog open={!!editingDebtor} onOpenChange={(open) => !open && setEditingDebtor(null)}>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
@@ -602,6 +715,7 @@ function DebtorsContent() {
             </DialogContent>
           </Dialog>
 
+          {/* Legacy Warning Dialog */}
           <AlertDialog open={showLegacyWarning} onOpenChange={setShowLegacyWarning}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -628,6 +742,7 @@ function DebtorsContent() {
             </AlertDialogContent>
           </AlertDialog>
 
+          {/* Prune Orphans Dialog */}
           <AlertDialog open={showPruneDialog} onOpenChange={setShowPruneDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -659,6 +774,63 @@ function DebtorsContent() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+          {/* Bulk Reassign Dialog */}
+          <Dialog open={showReassignDialog} onOpenChange={setShowReassignDialog}>
+            <DialogContent className="sm:max-w-[450px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <ArrowRightLeft className="h-5 w-5 text-blue-600" />
+                  Move Debtors to Account
+                </DialogTitle>
+                <DialogDescription>
+                  Move {selectedIds.size} selected debtor{selectedIds.size !== 1 ? 's' : ''} to a different EMP account.
+                  Pending billing attempts will also be reassigned.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="target-account">Target Account</Label>
+                  <Select value={targetAccountId} onValueChange={setTargetAccountId}>
+                    <SelectTrigger id="target-account">
+                      <SelectValue placeholder="Select target account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {empAccounts.filter(a => a.is_active).map((account) => (
+                        <SelectItem key={account.id} value={String(account.id)}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {reassignResult && (
+                  <div className={`text-sm px-3 py-2 rounded-md ${
+                    reassignResult.includes('failed') || reassignResult.includes('Failed')
+                      ? 'bg-red-50 text-red-700 border border-red-200'
+                      : 'bg-green-50 text-green-700 border border-green-200'
+                  }`}>
+                    {reassignResult}
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowReassignDialog(false)} disabled={isReassigning}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleReassign}
+                  disabled={isReassigning || !targetAccountId}
+                >
+                  {isReassigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Move {selectedIds.size} Debtor{selectedIds.size !== 1 ? 's' : ''}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
         </div>
       </>

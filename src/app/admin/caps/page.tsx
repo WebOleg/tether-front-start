@@ -8,8 +8,11 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { api } from '@/lib/api'
 import type { AccountCap } from '@/types'
-import { Loader2, RefreshCw, Pencil, Check, X, TrendingUp } from 'lucide-react'
+import { Loader2, RefreshCw, Pencil, Check, X, Banknote, CreditCard, Wallet, Percent } from 'lucide-react'
 import { toast } from 'sonner'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table'
+import { Progress } from '@/components/ui/progress'
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -79,16 +82,10 @@ export default function CapsPage() {
     return '\u20AC' + value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
   }
 
-  const getUsageColor = (pct: number | null) => {
-    if (pct === null) return 'bg-slate-200'
-    if (pct >= 90) return 'bg-red-500'
-    if (pct >= 70) return 'bg-yellow-500'
-    return 'bg-emerald-500'
-  }
-
   const getUsageTextColor = (pct: number | null) => {
     if (pct === null) return 'text-slate-400'
     if (pct >= 90) return 'text-red-600'
+    if (pct >= 80) return 'text-orange-500'
     if (pct >= 70) return 'text-yellow-600'
     return 'text-emerald-600'
   }
@@ -102,7 +99,7 @@ export default function CapsPage() {
 
   return (
     <>
-      <Header title="Account Caps" description="Monthly volume limits per EMP account" />
+      <Header title="Account Caps" description={`Monthly volume limits per EMP account — ${periodLabel}`} />
       <main className="container mx-auto px-6 py-8">
         <div className="space-y-6">
           <div className="flex items-center justify-end">
@@ -127,149 +124,206 @@ export default function CapsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="icon" onClick={fetchCaps} disabled={loading}>
+              <Button variant="default" size="icon" onClick={fetchCaps} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-slate-500">Total Cap</p>
-                <p className="text-2xl font-bold text-slate-900">{formatEur(totalCap)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-slate-500">Total Used</p>
-                <p className="text-2xl font-bold text-slate-900">{formatEur(totalUsed)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-slate-500">Total Remaining</p>
-                <p className="text-2xl font-bold text-emerald-600">{formatEur(totalRemaining)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-slate-500">Overall Usage</p>
-                <p className={`text-2xl font-bold ${getUsageTextColor(totalPct)}`}>
-                  {totalPct !== null ? `${totalPct}%` : '\u2014'}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i} className="py-2 gap-1">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-9 w-9 rounded-lg" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-7 w-24 mb-2" />
+                    <Skeleton className="h-4 w-20" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="py-2 gap-1">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-600">Total Cap</CardTitle>
+                  <div className="rounded-lg p-2 bg-slate-100">
+                    <Banknote className="h-5 w-5 text-slate-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-slate-700">{formatEur(totalCap)}</div>
+                  <p className="text-sm text-slate-500 mt-1">{periodLabel}</p>
+                </CardContent>
+              </Card>
+              <Card className="py-2 gap-1">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-600">Total Used</CardTitle>
+                  <div className="rounded-lg p-2 bg-blue-100">
+                    <CreditCard className="h-5 w-5 text-blue-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-blue-600">{formatEur(totalUsed)}</div>
+                  <p className="text-sm text-slate-500 mt-1">Billed this month</p>
+                </CardContent>
+              </Card>
+              <Card className="py-2 gap-1">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-600">Total Remaining</CardTitle>
+                  <div className="rounded-lg p-2 bg-emerald-100">
+                    <Wallet className="h-5 w-5 text-emerald-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-bold text-emerald-600">{formatEur(totalRemaining)}</div>
+                  <p className="text-sm text-slate-500 mt-1">Available capacity</p>
+                </CardContent>
+              </Card>
+              <Card className="py-2 gap-1">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-slate-600">Overall Usage</CardTitle>
+                  <div className={`rounded-lg p-2 ${totalPct !== null && totalPct >= 90 ? 'bg-red-100' : totalPct !== null && totalPct >= 70 ? 'bg-yellow-100' : 'bg-emerald-100'}`}>
+                    <Percent className={`h-5 w-5 ${getUsageTextColor(totalPct)}`} />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-xl font-bold ${getUsageTextColor(totalPct)}`}>
+                    {totalPct !== null ? `${totalPct}%` : '0.00%'}
+                  </div>
+                  <p className="text-sm text-slate-500 mt-1">Of total cap used</p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* Accounts Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-slate-500" />
-                <span>{periodLabel}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-200">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">Account</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Monthly Cap</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Used</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Remaining</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">Transactions</th>
-                        <th className="py-3 px-4 text-sm font-medium text-slate-500">Gross CB % (90d)</th>
-                        <th className="py-3 px-4 text-sm font-medium text-slate-500 w-[200px]">Usage</th>
-                        <th className="py-3 px-4 text-sm font-medium text-slate-500 w-[80px]"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {accounts.map((account) => (
-                        <tr key={account.id} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="py-3 px-4">
-                            <span className="font-medium text-slate-900">{account.name}</span>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            {editingId === account.id ? (
-                              <div className="flex items-center justify-end gap-1">
-                                <span className="text-slate-400">{'\u20AC'}</span>
-                                <Input
-                                  type="number"
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(e.target.value)}
-                                  className="w-[130px] h-8 text-right"
-                                  autoFocus
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleSave(account.id)
-                                    if (e.key === 'Escape') handleCancel()
-                                  }}
-                                />
-                              </div>
-                            ) : (
-                              <span className="text-slate-900">
-                                {account.monthly_cap !== null ? formatEur(account.monthly_cap) : <span className="text-slate-400">Not set</span>}
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-right text-slate-900">{formatEur(account.used)}</td>
-                          <td className="py-3 px-4 text-right">
-                            <span className={account.remaining !== null && account.remaining < 50000 ? 'text-red-600 font-medium' : 'text-slate-900'}>
-                              {formatEur(account.remaining)}
+          <div className="rounded-lg border bg-white">
+            <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Account</TableHead>
+                    <TableHead className="text-right">Monthly Cap</TableHead>
+                    <TableHead className="text-right">Used</TableHead>
+                    <TableHead className="text-right">Remaining</TableHead>
+                    <TableHead className="text-right">Transactions</TableHead>
+                    <TableHead className="text-center">Gross CB % (90d)</TableHead>
+                    <TableHead className="w-[200px]">Usage</TableHead>
+                    <TableHead className="w-24 text-center">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    [1, 2, 3, 4, 5].map((i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                        <TableCell className="text-right"><div className="flex justify-end"><Skeleton className="h-4 w-20" /></div></TableCell>
+                        <TableCell className="text-right"><div className="flex justify-end"><Skeleton className="h-4 w-16" /></div></TableCell>
+                        <TableCell className="text-right"><div className="flex justify-end"><Skeleton className="h-4 w-16" /></div></TableCell>
+                        <TableCell className="text-right"><div className="flex justify-end"><Skeleton className="h-4 w-12" /></div></TableCell>
+                        <TableCell className="text-center"><div className="flex justify-center"><Skeleton className="h-4 w-12" /></div></TableCell>
+                        <TableCell><Skeleton className="h-2 w-full rounded-full" /></TableCell>
+                        <TableCell className="text-center"><div className="flex justify-center"><Skeleton className="h-8 w-8 rounded" /></div></TableCell>
+                      </TableRow>
+                    ))
+                  ) : accounts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                        No caps data found.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    accounts.map((account) => (
+                      <TableRow key={account.id}>
+                        <TableCell>
+                          <span className="font-medium text-slate-900">{account.name}</span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {editingId === account.id ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-slate-400">{'\u20AC'}</span>
+                              <Input
+                                type="number"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                className="w-[130px] h-8 text-right"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSave(account.id)
+                                  if (e.key === 'Escape') handleCancel()
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-slate-900">
+                              {account.monthly_cap !== null ? formatEur(account.monthly_cap) : <span className="text-slate-400">Not set</span>}
                             </span>
-                          </td>
-                          <td className="py-3 px-4 text-right text-slate-500">{account.tx_count.toLocaleString()}</td>
-                          <td className="py-3 px-4 text-center text-slate-500">
-                            {account.cbk_gross_percentage_90d != null ? `${account.cbk_gross_percentage_90d.toFixed(2)}%` : '-'}
-                          </td>
-                          <td className="py-3 px-4">
-                            {account.usage_percentage !== null ? (
-                              <div className="flex items-center gap-2">
-                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full transition-all ${getUsageColor(account.usage_percentage)}`}
-                                    style={{ width: `${Math.min(account.usage_percentage, 100)}%` }}
-                                  />
-                                </div>
-                                <span className={`text-sm font-medium w-[45px] text-right ${getUsageTextColor(account.usage_percentage)}`}>
-                                  {account.usage_percentage}{'%'}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-sm text-slate-400">{'\u2014'}</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4">
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right text-slate-900">{formatEur(account.used)}</TableCell>
+                        <TableCell className="text-right">
+                          <span className={
+                            account.usage_percentage !== null && account.usage_percentage >= 90 ? 'text-red-600 font-medium' :
+                            account.usage_percentage !== null && account.usage_percentage >= 80 ? 'text-orange-500 font-medium' :
+                            account.usage_percentage !== null && account.usage_percentage >= 70 ? 'text-yellow-600 font-medium' :
+                            'text-slate-900'
+                          }>
+                            {formatEur(account.remaining)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right text-slate-500">{account.tx_count.toLocaleString()}</TableCell>
+                        <TableCell className="text-center text-slate-500">
+                          {account.cbk_gross_percentage_90d != null ? `${account.cbk_gross_percentage_90d.toFixed(2)}%` : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {account.usage_percentage !== null ? (
+                            <div className="flex items-center gap-2">
+                              <Progress
+                                value={account.usage_percentage}
+                                height="sm"
+                                variant={
+                                  account.usage_percentage >= 90 ? 'red' :
+                                  account.usage_percentage >= 80 ? 'orange' :
+                                  account.usage_percentage >= 70 ? 'yellow' :
+                                  'green'
+                                }
+                              />
+                              <span className={`text-sm font-medium w-[45px] text-right ${getUsageTextColor(account.usage_percentage)}`}>
+                                {account.usage_percentage}{'%'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-slate-400">{'\u2014'}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
                             {editingId === account.id ? (
-                              <div className="flex items-center gap-1">
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleSave(account.id)} disabled={saving}>
-                                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-emerald-600" />}
+                              <>
+                                <Button variant="success" size="icon-sm" onClick={() => handleSave(account.id)} disabled={saving}>
+                                  {saving ? <Loader2 className="animate-spin" /> : <Check />}
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancel}>
-                                  <X className="h-3.5 w-3.5 text-slate-400" />
+                                <Button variant="default" size="icon-sm" onClick={handleCancel}>
+                                  <X className="text-white" />
                                 </Button>
-                              </div>
+                              </>
                             ) : (
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(account)}>
-                                <Pencil className="h-3.5 w-3.5 text-slate-400" />
+                              <Button variant="default" size="icon-sm" onClick={() => handleEdit(account)}>
+                                <Pencil className="text-white" />
                               </Button>
                             )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
         </div>
       </main>
     </>

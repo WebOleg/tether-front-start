@@ -51,6 +51,7 @@ import type {
   ChargebacksResponse,
   ChargebackAllTimeCode,
   ChargebackAllTimeResponse,
+  TetherInstance,
 } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
@@ -173,12 +174,14 @@ export interface StatsFilterParams {
   date_mode?: DateMode
   model?: string
   emp_account_id?: number
+  tether_instance_id?: number
 }
 
 export interface DashboardFilterParams {
   month?: number
   year?: number
   emp_account_id?: number
+  tether_instance_id?: number
 }
 
 export class ApiError extends Error {
@@ -219,6 +222,7 @@ export type UploadScopedFilters = {
 export type AnalyticsFilters = {
   model?: string
   emp_account_id?: number
+  tether_instance_id?: number
   cb_reason_code?: string
 }
 
@@ -426,7 +430,7 @@ class ApiClient {
   }
 
   async resendOtp(email: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>('/auth/resend-otp', {
+    return this.request<{ message: string }>('/admin/auth/resend-otp', {
       method: 'POST',
       body: JSON.stringify({ email }),
     })
@@ -460,7 +464,8 @@ class ApiClient {
       file: File,
       billingModel: string = 'legacy',
       empAccountId?: number,
-      applyGlobalLock: boolean = false
+      applyGlobalLock: boolean = false,
+      tetherInstanceId?: number
   ): Promise<UploadResult> {
     const token = this.getToken()
     const formData = new FormData()
@@ -469,6 +474,10 @@ class ApiClient {
 
     if (empAccountId) {
       formData.append('emp_account_id', empAccountId.toString())
+    }
+
+    if (tetherInstanceId) {
+      formData.append('tether_instance_id', tetherInstanceId.toString())
     }
 
     if (applyGlobalLock) {
@@ -627,6 +636,27 @@ class ApiClient {
     await this.request(`/admin/debtors/${id}`, { method: 'DELETE' })
   }
 
+  async bulkReassignDebtors(debtorIds: number[], empAccountId: number): Promise<{
+    message: string
+    data: {
+      debtors_updated: number
+      pending_billing_updated: number
+      target_account: {
+        id: number
+        name: string
+        slug: string
+      }
+    }
+  }> {
+    return this.request('/admin/debtors/bulk-reassign', {
+      method: 'POST',
+      body: JSON.stringify({
+        debtor_ids: debtorIds,
+        emp_account_id: empAccountId,
+      }),
+    })
+  }
+
   async getOrphanCount(): Promise<OrphanCountResponse> {
     return this.request<OrphanCountResponse>('/admin/debtors/orphans/count')
   }
@@ -665,6 +695,7 @@ class ApiClient {
       date_mode: params.date_mode || 'transaction',
       model: params.model,
       emp_account_id: params.emp_account_id,
+      tether_instance_id: params.tether_instance_id,
     })
     const response = await this.request<{ data: ChargebackStats }>(
         `/admin/stats/chargeback-rates${query}`
@@ -688,6 +719,7 @@ class ApiClient {
       date_mode: params.date_mode || 'transaction',
       model: params.model,
       emp_account_id: params.emp_account_id,
+      tether_instance_id: params.tether_instance_id,
     })
     const response = await this.request<{ data: ChargebackCodeStats }>(
         `/admin/stats/chargeback-codes${query}`
@@ -703,6 +735,7 @@ class ApiClient {
       date_mode: params.date_mode || 'transaction',
       model: params.model,
       emp_account_id: params.emp_account_id,
+      tether_instance_id: params.tether_instance_id,
     })
     const response = await this.request<{ data: ChargebackBankStats }>(
         `/admin/stats/chargeback-banks${query}`
@@ -942,6 +975,15 @@ class ApiClient {
     return response.data
   }
 
+  // Tether Instances (Multi-Acquirer)
+  async getTetherInstances(activeOnly: boolean = false): Promise<TetherInstance[]> {
+    const query = this.buildQuery(activeOnly ? { active_only: true } : {})
+    const response = await this.request<{ success: boolean; data: TetherInstance[] }>(
+        `/admin/tether-instances${query}`
+    )
+    return response.data
+  }
+
   async getDescriptorSchedules(): Promise<ApiResponse<DescriptorSchedule[]>> {
     return this.request<ApiResponse<DescriptorSchedule[]>>('/admin/billing/descriptors')
   }
@@ -1096,6 +1138,7 @@ class ApiClient {
       date_mode: params.date_mode || 'transaction',
       model: params.model,
       emp_account_id: params.emp_account_id,
+      tether_instance_id: params.tether_instance_id,
     })
     const response = await this.request<{ data: PricePointStats }>(
       `/admin/stats/price-points${query}`

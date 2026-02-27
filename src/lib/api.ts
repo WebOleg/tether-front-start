@@ -49,6 +49,8 @@ import type {
   BavBatchProgress,
   BavBatchBalance,
   ChargebacksResponse,
+  ChargebackAllTimeCode,
+  ChargebackAllTimeResponse,
   TetherInstance,
 } from '@/types'
 
@@ -1268,6 +1270,12 @@ class ApiClient {
     return this.request<{ message: string }>(`/admin/webhook-relays/${id}`, {
       method: 'DELETE',
     })
+  }
+
+  async getChargebackAllTime(filters?: { model?: string; emp_account_id?: number }): Promise<ChargebackAllTimeResponse> {
+    const query = this.buildQuery(filters)
+    const response = await this.request<{ data: ChargebackAllTimeResponse }>(`/admin/stats/chargeback-all-time${query}`)
+    return response.data
   }
 }
 

@@ -967,3 +967,24 @@ export interface BavBatchBalance {
   credits_total: number
   error: string | null
 }
+
+export interface ChargebackAllTimeCode {
+  chargeback_code: string
+  chargeback_reason: string
+  total_amount: number
+  occurrences: number
+  cb_count_percentage: number
+  total_count_percentage: number
+  cb_amount_percentage: number
+  total_amount_percentage: number
+  last_occurrence: string
+}
+export interface ChargebackAllTimeResponse {
+  codes: ChargebackAllTimeCode[]
+  totals: {
+    total_amount: number
+    occurrences: number
+    total_records: number
+    total_records_amount: number
+  }
+}

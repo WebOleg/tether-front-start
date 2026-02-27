@@ -23,7 +23,8 @@ import {
   Gauge,
   DollarSign,
   ScanSearch,
-  Globe
+  Globe,
+  History,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
@@ -57,6 +58,7 @@ const navigation = [
   { name: 'BIC Analytics', href: '/admin/bic-analytics', icon: Building2 },
   { name: 'Uploads', href: '/admin/uploads', icon: Upload },
   { name: 'Upload CB Reasons', href: '/admin/uploads/cb-reasons', icon: ChargebackUploadIcon },
+  { name: 'CB All-Time', href: '/admin/chargebacks/all-time', icon: History },
   { name: 'BAV Auto', href: '/admin/bav-auto', icon: ScanSearch },
   { name: 'Debtors', href: '/admin/debtors', icon: Users },
   { name: 'Chargebacks', href: '/admin/chargebacks', icon: ChargebackIcon },

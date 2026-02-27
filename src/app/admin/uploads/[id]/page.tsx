@@ -565,7 +565,7 @@ export default function UploadDetailPage() {
   const canSync = (vopTotalEligible === 0 || vopPending === 0) && !isValidating
 
   // Build CB lookup map by amount for quick access in price breakdown
-  const cbByAmount = new Map<number, { approved: number; chargebacks: number; cb_rate: number; approved_volume: number; cb_volume: number }>()
+  const cbByAmount = new Map<number, { approved: number; chargebacks: number; cb_rate: number; cb_rate_amount: number; approved_volume: number; cb_volume: number }>()
   if (stats?.cb_breakdown) {
     for (const cb of stats.cb_breakdown) {
       cbByAmount.set(cb.amount, cb)
@@ -949,12 +949,14 @@ export default function UploadDetailPage() {
                             <TableHead className="text-right">Approved</TableHead>
                             <TableHead className="text-right">Chargebacks</TableHead>
                             <TableHead className="text-right">CB Rate</TableHead>
+                            <TableHead className="text-right">CB Rate (€)</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {stats.price_breakdown.map((item, idx) => {
                             const cb = cbByAmount.get(item.amount)
                             const cbRate = cb?.cb_rate ?? 0
+                            const cbRateAmount = cb?.cb_rate_amount ?? 0
                             const isAlert = cbRate > 1
                             return (
                               <TableRow key={idx} className={isAlert ? 'bg-red-50' : ''}>
@@ -966,6 +968,9 @@ export default function UploadDetailPage() {
                                 <TableCell className={`text-right font-semibold ${isAlert ? 'text-red-700' : 'text-slate-700'}`}>
                                   {cb ? `${cbRate}%` : '—'}
                                   {isAlert && <AlertTriangle className="inline h-3 w-3 ml-1 text-red-500" />}
+                                </TableCell>
+                                <TableCell className={`text-right font-semibold ${isAlert ? 'text-red-700' : 'text-slate-700'}`}>
+                                  {cb ? `${cbRateAmount}%` : '—'}
                                 </TableCell>
                               </TableRow>
                             )

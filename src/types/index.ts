@@ -203,6 +203,7 @@ export interface CbBreakdownItem {
   approved_volume: number
   cb_volume: number
   cb_rate: number
+  cb_rate_amount: number
 }
 
 export interface ValidationStats {

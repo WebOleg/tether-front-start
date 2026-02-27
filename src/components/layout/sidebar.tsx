@@ -32,7 +32,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useLayoutEffect } from 'react'
 
 export const ChargebackIcon = ({ className }: { className?: string }) => {
   return (
@@ -84,6 +84,33 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
   const [isDragging, setIsDragging] = useState(false)
   const startXRef = useRef<number>(0)
   const currentXRef = useRef<number>(0)
+  const mobileNavRef = useRef<HTMLElement>(null)
+  const desktopNavRef = useRef<HTMLElement>(null)
+
+  const scrollNavToActive = (nav: HTMLElement | null) => {
+    if (!nav) return
+    const activeEl = nav.querySelector<HTMLElement>('[data-active="true"]')
+    if (activeEl) {
+      nav.scrollTop = Math.max(0, activeEl.offsetTop - nav.clientHeight / 2 + activeEl.offsetHeight / 2)
+    } else {
+      nav.scrollTop = 0
+    }
+  }
+
+  // Scroll both navs to active item whenever the route changes
+  useLayoutEffect(() => {
+    scrollNavToActive(desktopNavRef.current)
+    scrollNavToActive(mobileNavRef.current)
+  }, [pathname])
+
+  // Also re-apply when mobile menu opens (in case it was closed when route changed)
+  useLayoutEffect(() => {
+    if (isMobileOpen) {
+      scrollNavToActive(mobileNavRef.current)
+    } else if (mobileNavRef.current) {
+      mobileNavRef.current.scrollTop = 0
+    }
+  }, [isMobileOpen])
 
   const handleLogout = async () => {
     await api.logout()
@@ -181,13 +208,14 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
               <div className="w-8 h-1 bg-slate-600 rounded-full mx-auto opacity-50"></div>
               <p className="text-xs text-slate-500 mt-1">Swipe left to close</p>
             </div>
-            <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
+            <nav ref={mobileNavRef} className="flex-1 space-y-1 p-4 overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-500">
               {navigation.map((item, index) => {
                 const isActive = checkIsActive(item.href);
                 return (
                     <Link
                         key={item.name}
                         href={item.href}
+                        data-active={isActive ? 'true' : undefined}
                         onClick={handleNavClick}
                         className={cn(
                             'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
@@ -253,13 +281,14 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, isMobileOpen = 
           </span>
           </h1>
         </div>
-        <nav className="flex-1 space-y-1 p-4 overflow-hidden">
+        <nav ref={desktopNavRef} className="flex-1 space-y-1 p-4 overflow-y-auto [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-600 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-500">
           {navigation.map((item) => {
             const isActive = checkIsActive(item.href);
             const NavItem = (
                 <Link
                     key={item.name}
                     href={item.href}
+                    data-active={isActive ? 'true' : undefined}
                     onClick={handleNavClick}
                     className={cn(
                         'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',

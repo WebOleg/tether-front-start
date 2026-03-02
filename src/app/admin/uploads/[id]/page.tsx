@@ -30,6 +30,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
 import {
   ArrowLeft,
@@ -49,6 +50,7 @@ import {
   Send,
   UserCheck,
   PlayCircle,
+  Timer,
 } from 'lucide-react'
 import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
@@ -105,6 +107,7 @@ export default function UploadDetailPage() {
   const [bavModalOpen, setBavModalOpen] = useState(false)
   const [voidConfirmOpen, setVoidConfirmOpen] = useState(false)
   const [skipBicBlacklist, setSkipBicBlacklist] = useState(false)
+  const [cooldownUpdating, setCooldownUpdating] = useState(false)
 
   const defaultCounts = { all: 0, flywheel: 0, recovery: 0, legacy: 0 }
   const modelCounts = stats?.model_counts || defaultCounts
@@ -202,6 +205,19 @@ export default function UploadDetailPage() {
   const handleTypeChange = (value: string) => {
     setDebtorType(value as DebtorType)
     setCurrentPage(1)
+  }
+
+  const handleCooldownToggle = async (checked: boolean) => {
+    setCooldownUpdating(true)
+    try {
+      const result = await api.setUploadCooldown(uploadId, checked)
+      setUpload(result.data)
+      toast.success(`30-day cooldown ${checked ? 'enabled' : 'disabled'} successfully`)
+    } catch (error) {
+      toast.error('Failed to update 30-day cooldown')
+    } finally {
+      setCooldownUpdating(false)
+    }
   }
 
   // Manual validation trigger
@@ -635,6 +651,18 @@ export default function UploadDetailPage() {
                   className="rounded border-slate-300"
                 />
                 <span className={`${isValidating ? 'text-slate-400' : 'text-slate-600'}`}>Skip BIC Blacklist</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch
+                  checked={upload?.is_30d_cool ?? false}
+                  onCheckedChange={handleCooldownToggle}
+                  disabled={cooldownUpdating || loading}
+                  id="cooldown-switch"
+                />
+                <span className={`flex items-center gap-1 ${cooldownUpdating || loading ? 'text-slate-400' : 'text-slate-600'}`}>
+                  <Timer className="h-3.5 w-3.5" />
+                  30 Day Cool
+                </span>
               </label>
               <span className="text-sm text-slate-500">
               {stats?.total || 0} records

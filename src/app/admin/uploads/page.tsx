@@ -107,7 +107,7 @@ export default function UploadsPage() {
   const [loading, setLoading] = useState(true)
   const [file, setFile] = useState<File | null>(null)
   const [billingModel, setBillingModel] = useState<string>('legacy')
-  const [is30dCool, setIs30dCool] = useState<boolean | null>(null)
+  const [is30dCool, setIs30dCool] = useState<boolean | null>(true)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<UploadStatusState | null>(null)
   const [activeUploadId, setActiveUploadId] = useState<number | null>(null)
@@ -311,6 +311,9 @@ export default function UploadsPage() {
     completedUploadsRef.current.clear()
 
     try {
+      //TODO: remove this line
+      console.log(file, billingModel, selectedEmpAccountId, applyGlobalLock, is30dCool)
+
       // Pass the lock flag to the API
       const result = await api.uploadFile(file, billingModel, selectedEmpAccountId, applyGlobalLock, undefined, billingModel === 'legacy' ? is30dCool : null)
       setActiveUploadId(result.upload.id)
@@ -323,7 +326,7 @@ export default function UploadsPage() {
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
-      setIs30dCool(true)
+      setIs30dCool(billingModel === 'legacy' ? true : null)
     } catch (error) {
       if (error instanceof ApiError) {
         setUploadStatus({
@@ -439,7 +442,14 @@ export default function UploadsPage() {
                     <div className="w-full sm:w-[200px]">
                       <Select
                           value={billingModel}
-                          onValueChange={setBillingModel}
+                          onValueChange={(value) => {
+                            setBillingModel(value)
+                            if (value !== 'legacy') {
+                              setIs30dCool(null)
+                            } else {
+                              setIs30dCool(true)
+                            }
+                          }}
                           disabled={isUploading}
                       >
                         <SelectTrigger id="billing-model" className="bg-white">
@@ -496,12 +506,27 @@ export default function UploadsPage() {
 
                     <div className="w-full sm:w-40">
                       <Select
-                          value={is30dCool ? 'true' : 'false'}
+                          value={is30dCool === null ? '' : is30dCool ? 'true' : 'false'}
                           onValueChange={(value) => setIs30dCool(value === 'true')}
                           disabled={isUploading || billingModel !== 'legacy'}
                       >
                         <SelectTrigger className="bg-white">
-                          <SelectValue placeholder="30 Day Cool" />
+                          {is30dCool === null ? (
+                            <div className="flex items-center gap-2">
+                              <Timer className="h-4 w-4 text-blue-600" />
+                              <span className="text-slate-900">30 Day Cool</span>
+                            </div>
+                          ) : is30dCool ? (
+                            <div className="flex items-center gap-2">
+                              <Timer className="h-4 w-4 text-blue-600" />
+                              <span>30 Day Cool</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Timer className="h-4 w-4 text-slate-400" />
+                              <span>No Cooldown</span>
+                            </div>
+                          )}
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="true">

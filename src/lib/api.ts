@@ -282,6 +282,16 @@ export interface BicCbCodeBreakdown {
   }>
 }
 
+export interface UploadReassignResponse {
+  message: string
+  data: {
+    upload: Upload
+    debtors_updated: number
+    pending_billing_updated: number
+    skipped_submitted: number
+  }
+}
+
 class ApiClient {
   private token: string | null = null
 
@@ -604,6 +614,16 @@ class ApiClient {
         { method: 'DELETE' }
     )
     return response
+  }
+
+  async reassignUpload(uploadId: number, empAccountId: number): Promise<UploadReassignResponse> {
+    return this.request<UploadReassignResponse>(
+        `/admin/uploads/${uploadId}/reassign`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ emp_account_id: empAccountId }),
+        }
+    )
   }
 
   async getDebtors(filters?: DebtorFilters): Promise<ApiResponse<Debtor[]>> {

@@ -49,8 +49,9 @@ import {
   Send,
   UserCheck,
   PlayCircle,
+  RefreshCw,
 } from 'lucide-react'
-import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
+import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, EmpAccount, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { Progress } from '@/components/ui/progress'
 import { ModelTabs } from '@/components/ui/model-tabs'
@@ -105,6 +106,12 @@ export default function UploadDetailPage() {
   const [bavModalOpen, setBavModalOpen] = useState(false)
   const [voidConfirmOpen, setVoidConfirmOpen] = useState(false)
   const [skipBicBlacklist, setSkipBicBlacklist] = useState(false)
+
+  // Reassign state
+  const [reassignOpen, setReassignOpen] = useState(false)
+  const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
+  const [reassignAccountId, setReassignAccountId] = useState<number | null>(null)
+  const [reassigning, setReassigning] = useState(false)
 
   const defaultCounts = { all: 0, flywheel: 0, recovery: 0, legacy: 0 }
   const modelCounts = stats?.model_counts || defaultCounts
@@ -482,6 +489,36 @@ export default function UploadDetailPage() {
     }
   }
 
+  const handleReassignOpen = async () => {
+    setReassignOpen(true)
+    try {
+      const accounts = await api.getEmpAccounts()
+      setEmpAccounts(accounts.filter(a => a.is_active))
+    } catch (error) {
+      toast.error('Failed to load EMP accounts')
+    }
+  }
+
+  const handleReassign = async () => {
+    if (!reassignAccountId) return
+
+    setReassigning(true)
+    try {
+      const result = await api.reassignUpload(uploadId, reassignAccountId)
+      toast.success(result.message)
+      setReassignOpen(false)
+      setReassignAccountId(null)
+
+      // Refresh upload data to show new account
+      const uploadData = await api.getUpload(uploadId)
+      setUpload(uploadData)
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to reassign upload')
+    } finally {
+      setReassigning(false)
+    }
+  }
+
   const handleEditClick = (debtor: Debtor) => {
     setEditingDebtor(debtor)
     setEditForm(debtor.raw_data || {})
@@ -600,8 +637,23 @@ export default function UploadDetailPage() {
                   {upload.emp_account && (
                       <span className="ml-3 inline-flex items-center gap-1">
                       <span className="text-slate-400">•</span>
-                      <span className="text-emerald-600 font-medium">{upload.emp_account.name}</span>
+                      <button
+                          onClick={handleReassignOpen}
+                          className="text-emerald-600 font-medium hover:text-emerald-700 hover:underline cursor-pointer transition-colors"
+                          title="Click to change account"
+                      >
+                        {upload.emp_account.name}
+                      </button>
+                      <RefreshCw className="h-3 w-3 text-slate-400 cursor-pointer hover:text-emerald-600" onClick={handleReassignOpen} />
                     </span>
+                  )}
+                  {!upload.emp_account && (
+                      <button
+                          onClick={handleReassignOpen}
+                          className="ml-3 text-sm text-amber-600 hover:text-amber-700 hover:underline cursor-pointer"
+                      >
+                        Assign Account
+                      </button>
                   )}
                 </span>
               </>
@@ -1310,6 +1362,83 @@ export default function UploadDetailPage() {
                   className="bg-red-600 hover:bg-red-700 cursor-pointer"
               >
                 Yes, Void All Transactions
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reassign Account Dialog */}
+        <Dialog open={reassignOpen} onOpenChange={setReassignOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                Reassign EMP Account
+              </DialogTitle>
+              <DialogDescription>
+                Change the EMP account for this upload. All debtors and unsent billing attempts will be updated.
+              </DialogDescription>
+            </DialogHeader>
+
+            {upload.emp_account && (
+                <div className="text-sm text-slate-600">
+                  Current account: <span className="font-medium text-emerald-600">{upload.emp_account.name}</span>
+                </div>
+            )}
+
+            <div className="space-y-2 py-2">
+              <Label>Select new account</Label>
+              <div className="space-y-2">
+                {empAccounts.length === 0 ? (
+                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading accounts...
+                    </div>
+                ) : (
+                    empAccounts
+                        .filter(a => a.id !== upload.emp_account_id)
+                        .map(account => (
+                            <label
+                                key={account.id}
+                                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                    reassignAccountId === account.id
+                                        ? 'border-emerald-300 bg-emerald-50'
+                                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                }`}
+                            >
+                              <input
+                                  type="radio"
+                                  name="reassign_account"
+                                  value={account.id}
+                                  checked={reassignAccountId === account.id}
+                                  onChange={() => setReassignAccountId(account.id)}
+                                  className="text-emerald-600"
+                              />
+                              <span className="font-medium text-sm">{account.name}</span>
+                              <span className="text-xs text-slate-400">{account.slug}</span>
+                            </label>
+                        ))
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => { setReassignOpen(false); setReassignAccountId(null) }}>
+                Cancel
+              </Button>
+              <Button
+                  onClick={handleReassign}
+                  disabled={!reassignAccountId || reassigning}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                {reassigning ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Reassigning...
+                    </>
+                ) : (
+                    'Reassign'
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

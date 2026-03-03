@@ -485,7 +485,7 @@ class ApiClient {
       formData.append('apply_global_lock', '1')
     }
 
-    if (is30dCool !== undefined && is30dCool !== null) {
+    if (billingModel === 'legacy' && is30dCool !== undefined && is30dCool !== null) {
       formData.append('is_30d_cool', is30dCool ? '1' : '0')
     }
 

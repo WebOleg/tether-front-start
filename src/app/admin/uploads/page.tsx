@@ -107,7 +107,7 @@ export default function UploadsPage() {
   const [loading, setLoading] = useState(true)
   const [file, setFile] = useState<File | null>(null)
   const [billingModel, setBillingModel] = useState<string>('legacy')
-  const [is30dCool, setIs30dCool] = useState<boolean>(true)
+  const [is30dCool, setIs30dCool] = useState<boolean | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<UploadStatusState | null>(null)
   const [activeUploadId, setActiveUploadId] = useState<number | null>(null)
@@ -312,7 +312,7 @@ export default function UploadsPage() {
 
     try {
       // Pass the lock flag to the API
-      const result = await api.uploadFile(file, billingModel, selectedEmpAccountId, applyGlobalLock, undefined, is30dCool)
+      const result = await api.uploadFile(file, billingModel, selectedEmpAccountId, applyGlobalLock, undefined, billingModel === 'legacy' ? is30dCool : null)
       setActiveUploadId(result.upload.id)
 
       if (result.skipped && result.skipped.total > 0) {
@@ -498,7 +498,7 @@ export default function UploadsPage() {
                       <Select
                           value={is30dCool ? 'true' : 'false'}
                           onValueChange={(value) => setIs30dCool(value === 'true')}
-                          disabled={isUploading}
+                          disabled={isUploading || billingModel !== 'legacy'}
                       >
                         <SelectTrigger className="bg-white">
                           <SelectValue placeholder="30 Day Cool" />
@@ -798,17 +798,19 @@ export default function UploadsPage() {
                                     <span className="text-sm text-slate-400">-</span>
                                 )}
                               </TableCell>
-                              <TableCell>
-                                {upload.is_30d_cool ? (
+                              <TableCell className="text-center">
+                                {upload.is_30d_cool === true ? (
                                     <Badge className="flex items-center gap-1 w-fit bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100">
                                       <Timer className="h-3 w-3" />
                                       30 Day Cool
                                     </Badge>
-                                ) : (
+                                ) : upload.is_30d_cool === false ? (
                                     <Badge variant="outline" className="flex items-center gap-1 w-fit text-slate-400">
                                       <Timer className="h-3 w-3" />
                                       No Cooldown
                                     </Badge>
+                                ) : (
+                                    <span className="text-sm text-slate-400">-</span>
                                 )}
                               </TableCell>
                               <TableCell className="text-slate-500">

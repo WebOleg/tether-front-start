@@ -297,7 +297,7 @@ function BillingContent() {
                             <TableCell>
                               <div className="flex flex-col">
                                 <span className="font-medium text-slate-700">
-                                  {debtor?.iban_masked || 'Unknown Debtor'}
+                                  {debtor?.iban || 'Unknown Debtor'}
                                 </span>
                                 <span className="font-mono text-xs text-slate-400 mt-0.5 select-all">
                                   {attempt.transaction_id || attempt.id}

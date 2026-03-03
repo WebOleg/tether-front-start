@@ -109,6 +109,9 @@ export interface Upload {
   emp_account?: EmpAccountRef | null
   tether_instance_id?: number | null
   is_30d_cool?: boolean | null
+  can_resync?: boolean
+  resync_count?: number
+  max_resync?: number
 }
 
 export type UploadStatus = 'pending' | 'processing' | 'completed' | 'failed'

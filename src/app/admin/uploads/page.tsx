@@ -311,9 +311,6 @@ export default function UploadsPage() {
     completedUploadsRef.current.clear()
 
     try {
-      //TODO: remove this line
-      console.log(file, billingModel, selectedEmpAccountId, applyGlobalLock, is30dCool)
-
       // Pass the lock flag to the API
       const result = await api.uploadFile(file, billingModel, selectedEmpAccountId, applyGlobalLock, undefined, billingModel === 'legacy' ? is30dCool : null)
       setActiveUploadId(result.upload.id)

@@ -213,6 +213,11 @@ export default function UploadDetailPage() {
       const result = await api.setUploadCooldown(uploadId, checked)
       setUpload(result.data)
       toast.success(`30-day cooldown ${checked ? 'enabled' : 'disabled'} successfully`)
+      // When cooldown is turned OFF, refresh stats so ready_for_sync is recalculated
+      // and the Sync to Gateway button becomes active for a resync
+      if (!checked) {
+        await Promise.all([fetchValidationStats(), fetchBillingStats()])
+      }
     } catch (error) {
       toast.error('Failed to update 30-day cooldown')
     } finally {
@@ -464,7 +469,12 @@ export default function UploadDetailPage() {
       return
     }
 
-    if (!confirm(`Send ${stats?.ready_for_sync || 0} debtors to payment gateway?`)) {
+    const isResync = upload?.can_resync === true
+    const confirmMessage = isResync
+      ? `30-day cooldown is OFF. Re-send ${stats?.ready_for_sync || 0} debtors to the gateway again?`
+      : `Send ${stats?.ready_for_sync || 0} debtors to payment gateway?`
+
+    if (!confirm(confirmMessage)) {
       return
     }
 
@@ -475,7 +485,7 @@ export default function UploadDetailPage() {
       if (result.data.duplicate) {
         toast.warning('Billing already in progress for this upload')
       } else if (result.data.queued) {
-        toast.success(result.message)
+        toast.success(isResync ? 'Resync queued successfully' : result.message)
         await fetchBillingStats()
       } else {
         toast.info(result.message)
@@ -573,6 +583,7 @@ export default function UploadDetailPage() {
   const vopPending = vopStats ? vopStats.pending : 0
   const vopTotalEligible = vopStats ? vopStats.total_eligible : 0
   const hasBillingActivity = billingStats && billingStats.total_attempts > 0
+  const isResync = upload?.can_resync === true
 
   // VOP result counts from by_result
   const vopPassed = (vopStats?.by_result?.verified || 0) + (vopStats?.by_result?.likely_verified || 0)
@@ -770,12 +781,23 @@ export default function UploadDetailPage() {
                   onClick={handleSync}
                   disabled={syncing || billingStats?.is_processing || (stats?.ready_for_sync || 0) === 0 || !canSync}
                   className="gap-2"
-                  title={!canSync ? `VOP verification required (${vopPending} pending)` : undefined}
+                  title={
+                    !canSync
+                      ? `VOP verification required (${vopPending} pending)`
+                      : isResync
+                      ? 'Cooldown is OFF — resync debtors to gateway'
+                      : undefined
+                  }
               >
                 {syncing || billingStats?.is_processing ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
                       {billingStats?.is_processing ? 'Processing...' : 'Syncing...'}
+                    </>
+                ) : isResync ? (
+                    <>
+                      <Send className="h-4 w-4" />
+                      Resync to Gateway ({stats?.ready_for_sync || 0})
                     </>
                 ) : (
                     <>

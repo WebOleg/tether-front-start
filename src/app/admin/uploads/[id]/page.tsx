@@ -106,6 +106,7 @@ export default function UploadDetailPage() {
   const [debtorType, setDebtorType] = useState<DebtorType>('all')
   const [bavModalOpen, setBavModalOpen] = useState(false)
   const [voidConfirmOpen, setVoidConfirmOpen] = useState(false)
+  const [resyncConfirmOpen, setResyncConfirmOpen] = useState(false)
   const [skipBicBlacklist, setSkipBicBlacklist] = useState(false)
   const [cooldownUpdating, setCooldownUpdating] = useState(false)
 
@@ -175,6 +176,17 @@ export default function UploadDetailPage() {
     }
   }, [uploadId])
 
+  const fetchUpload = useCallback(async () => {
+    try {
+      const data = await api.getUpload(uploadId)
+      setUpload(data)
+      return data
+    } catch (error) {
+      console.error('Failed to fetch upload:', error)
+      return null
+    }
+  }, [uploadId])
+
   const fetchDebtors = useCallback(async (pageNum?: number, searchQuery?: string) => {
     try {
       const debtorsResponse = await api.getUploadDebtors(uploadId, withTypeParam({
@@ -210,14 +222,12 @@ export default function UploadDetailPage() {
   const handleCooldownToggle = async (checked: boolean) => {
     setCooldownUpdating(true)
     try {
+      // Use PATCH response directly — it has the freshest can_resync / is_30d_cool values
       const result = await api.setUploadCooldown(uploadId, checked)
       setUpload(result.data)
       toast.success(`30-day cooldown ${checked ? 'enabled' : 'disabled'} successfully`)
-      // When cooldown is turned OFF, refresh stats so ready_for_sync is recalculated
-      // and the Sync to Gateway button becomes active for a resync
-      if (!checked) {
-        await Promise.all([fetchValidationStats(), fetchBillingStats()])
-      }
+      // Also refresh stats so ready_for_sync is current
+      await Promise.all([fetchValidationStats(), fetchBillingStats()])
     } catch (error) {
       toast.error('Failed to update 30-day cooldown')
     } finally {
@@ -302,11 +312,14 @@ export default function UploadDetailPage() {
       if (data && !data.is_processing) {
         clearInterval(interval)
         toast.success('Billing processing completed!')
+        // Refresh upload (can_resync) and validation stats (ready_for_sync)
+        // so the Resync button reflects the correct post-sync state
+        await Promise.all([fetchUpload(), fetchValidationStats()])
       }
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [billingStats?.is_processing, fetchBillingStats])
+  }, [billingStats?.is_processing, fetchBillingStats, fetchUpload, fetchValidationStats])
 
   // Polling effect for VOP verification progress
   useEffect(() => {
@@ -468,16 +481,12 @@ export default function UploadDetailPage() {
       })
       return
     }
+    setResyncConfirmOpen(true)
+  }
 
+  const executeSync = async () => {
+    setResyncConfirmOpen(false)
     const isResync = upload?.can_resync === true
-    const confirmMessage = isResync
-      ? `30-day cooldown is OFF. Re-send ${stats?.ready_for_sync || 0} debtors to the gateway again?`
-      : `Send ${stats?.ready_for_sync || 0} debtors to payment gateway?`
-
-    if (!confirm(confirmMessage)) {
-      return
-    }
-
     setSyncing(true)
     try {
       const result = await api.syncToGateway(uploadId, debtorType !== 'all' ? { debtor_type: debtorType } : undefined)
@@ -584,6 +593,8 @@ export default function UploadDetailPage() {
   const vopTotalEligible = vopStats ? vopStats.total_eligible : 0
   const hasBillingActivity = billingStats && billingStats.total_attempts > 0
   const isResync = upload?.can_resync === true
+  const hasEverSynced = (billingStats?.total_attempts ?? 0) > 0 || (upload?.resync_count ?? 0) > 0
+  const resyncLimitReached = (upload?.resync_count ?? 0) >= (upload?.max_resync ?? 5)
 
   // VOP result counts from by_result
   const vopPassed = (vopStats?.by_result?.verified || 0) + (vopStats?.by_result?.likely_verified || 0)
@@ -676,8 +687,8 @@ export default function UploadDetailPage() {
                 </span>
               </label>
               <span className="text-sm text-slate-500">
-              {stats?.total || 0} records
-            </span>
+                {stats?.total || 0} records
+              </span>
               {/* Validate button - show when not yet validated or needs re-validation */}
               {!isValidating && (
                   <Button
@@ -703,7 +714,7 @@ export default function UploadDetailPage() {
                   </Badge>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-2">
               {validationCompleted && vopPending > 0 && (
                   <Button
                       variant="outline"
@@ -777,35 +788,67 @@ export default function UploadDetailPage() {
                   </Button>
               )}
 
-              <Button
-                  onClick={handleSync}
-                  disabled={syncing || billingStats?.is_processing || (stats?.ready_for_sync || 0) === 0 || !canSync}
-                  className="gap-2"
-                  title={
-                    !canSync
-                      ? `VOP verification required (${vopPending} pending)`
-                      : isResync
-                      ? 'Cooldown is OFF — resync debtors to gateway'
-                      : undefined
-                  }
-              >
-                {syncing || billingStats?.is_processing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {billingStats?.is_processing ? 'Processing...' : 'Syncing...'}
-                    </>
-                ) : isResync ? (
-                    <>
-                      <Send className="h-4 w-4" />
-                      Resync to Gateway ({stats?.ready_for_sync || 0})
-                    </>
-                ) : (
-                    <>
-                      <Send className="h-4 w-4" />
-                      Sync to Gateway ({stats?.ready_for_sync || 0})
-                    </>
-                )}
-              </Button>
+              {hasEverSynced && (
+                <Button
+                    onClick={handleSync}
+                    disabled={
+                      syncing
+                      || billingStats?.is_processing
+                      || !canSync
+                      || !isResync
+                      || resyncLimitReached
+                      || (upload?.valid_count || 0) === 0
+                    }
+                    className="gap-2"
+                    title={
+                      resyncLimitReached
+                        ? `Resync limit reached (${upload?.resync_count ?? 0}/${upload?.max_resync ?? 5})`
+                        : !isResync
+                        ? 'Enable resync by turning off the 30-day cooldown'
+                        : !canSync
+                        ? `VOP verification required (${vopPending} pending)`
+                        : `Resync ${upload?.valid_count || 0} debtors to gateway (${upload?.resync_count ?? 0}/${upload?.max_resync ?? 5} used)`
+                    }
+                >
+                  {syncing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Syncing...
+                      </>
+                  ) : (
+                      <>
+                        <Send className="h-4 w-4" />
+                        Resync to Gateway ({upload?.valid_count || 0})
+                        <span className="text-xs opacity-70 ml-1">{upload?.resync_count ?? 0}/{upload?.max_resync ?? 5}</span>
+                      </>
+                  )}
+                </Button>
+              )}
+
+              {!hasEverSynced && (
+                <Button
+                    onClick={handleSync}
+                    disabled={syncing || billingStats?.is_processing || (stats?.ready_for_sync || 0) === 0 || !canSync}
+                    className="gap-2"
+                    title={
+                      !canSync
+                        ? `VOP verification required (${vopPending} pending)`
+                        : undefined
+                    }
+                >
+                  {syncing || billingStats?.is_processing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {billingStats?.is_processing ? 'Processing...' : 'Syncing...'}
+                      </>
+                  ) : (
+                      <>
+                        <Send className="h-4 w-4" />
+                        Sync to Gateway ({stats?.ready_for_sync || 0})
+                      </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
 
@@ -1328,6 +1371,50 @@ export default function UploadDetailPage() {
             onOpenChange={setBavModalOpen}
             onComplete={handleBavComplete}
         />
+
+        <Dialog open={resyncConfirmOpen} onOpenChange={setResyncConfirmOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-blue-700">
+                <Send className="h-5 w-5" />
+                {isResync ? 'Confirm Resync to Gateway' : 'Confirm Sync to Gateway'}
+              </DialogTitle>
+              <DialogDescription className="pt-2">
+                {isResync
+                  ? <>30-day cooldown is <strong>OFF</strong>. Debtors will be re-sent to the payment gateway even if previously billed.</>
+                  : <>Debtors will be sent to the payment gateway for billing.</>
+                }
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 my-2 text-sm text-blue-800 space-y-1">
+              <p><span className="font-semibold">Debtors to send:</span> {isResync ? upload?.valid_count || 0 : stats?.ready_for_sync || 0}</p>
+              {isResync && (
+                <p><span className="font-semibold">Resync usage:</span> {(upload?.resync_count ?? 0) + 1} of {upload?.max_resync ?? 5} after this action</p>
+              )}
+              {isResync && (
+                <p className="text-blue-600 text-xs">Debtors already approved or chargebacked will be skipped by the gateway.</p>
+              )}
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button className="cursor-pointer mr-2" variant="outline" onClick={() => setResyncConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                  onClick={executeSync}
+                  disabled={syncing}
+                  className="cursor-pointer"
+              >
+                {syncing ? (
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" />Sending...</>
+                ) : (
+                  <><Send className="h-4 w-4 mr-2" />{isResync ? 'Yes, Resync Now' : 'Yes, Sync Now'}</>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={voidConfirmOpen} onOpenChange={setVoidConfirmOpen}>
           <DialogContent>

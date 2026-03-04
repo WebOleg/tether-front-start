@@ -112,6 +112,20 @@ export interface Upload {
   can_resync?: boolean
   resync_count?: number
   max_resync?: number
+  approved_count?: number
+  ready_for_sync_count?: number
+  ready_for_sync_amount?: number
+  billing_runs?: BillingRun[]
+}
+
+export interface BillingRun {
+  run: number
+  status: string
+  batch_id: string
+  started_at: string | null
+  completed_at: string | null
+  recovered_count: number
+  recovered_amount: number
 }
 
 export type UploadStatus = 'pending' | 'processing' | 'completed' | 'failed'

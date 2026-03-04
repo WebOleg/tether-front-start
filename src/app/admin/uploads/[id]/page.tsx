@@ -51,8 +51,9 @@ import {
   UserCheck,
   PlayCircle,
   Timer,
+  History,
 } from 'lucide-react'
-import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
+import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, BillingRun, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { Progress } from '@/components/ui/progress'
 import { ModelTabs } from '@/components/ui/model-tabs'
@@ -107,6 +108,7 @@ export default function UploadDetailPage() {
   const [bavModalOpen, setBavModalOpen] = useState(false)
   const [voidConfirmOpen, setVoidConfirmOpen] = useState(false)
   const [resyncConfirmOpen, setResyncConfirmOpen] = useState(false)
+  const [recentRetriesOpen, setRecentRetriesOpen] = useState(false)
   const [skipBicBlacklist, setSkipBicBlacklist] = useState(false)
   const [cooldownUpdating, setCooldownUpdating] = useState(false)
 
@@ -121,6 +123,7 @@ export default function UploadDetailPage() {
   const isValidating = validating || stats?.is_processing
   const validationCompleted = stats ? !stats.is_processing && stats.pending === 0 : false
   const hasNeverValidated = stats ? stats.valid === 0 && stats.invalid === 0 && stats.blacklisted === 0 && stats.pending === (stats.total || 0) : false
+  const DEFAULT_MAX_RESYNC = 3
 
   useEffect(() => {
     if (stats?.is_processing) {
@@ -594,7 +597,7 @@ export default function UploadDetailPage() {
   const hasBillingActivity = billingStats && billingStats.total_attempts > 0
   const isResync = upload?.can_resync === true
   const hasEverSynced = (billingStats?.total_attempts ?? 0) > 0 || (upload?.resync_count ?? 0) > 0
-  const resyncLimitReached = (upload?.resync_count ?? 0) >= (upload?.max_resync ?? 5)
+  const resyncLimitReached = (upload?.resync_count ?? 0) >= (upload?.max_resync ?? DEFAULT_MAX_RESYNC)
 
   // VOP result counts from by_result
   const vopPassed = (vopStats?.by_result?.verified || 0) + (vopStats?.by_result?.likely_verified || 0)
@@ -849,6 +852,21 @@ export default function UploadDetailPage() {
                   )}
                 </Button>
               )}
+
+              {(upload?.billing_runs?.length ?? 0) > 0 && (
+                <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setRecentRetriesOpen(true)}
+                    title={`Recent sync attempts (${upload?.billing_runs?.length ?? 0})`}
+                    className="relative ml-1"
+                >
+                  <History className="h-4 w-4" />
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">
+                    {upload?.billing_runs?.length}
+                  </span>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -924,7 +942,7 @@ export default function UploadDetailPage() {
           )}
 
           {stats && (
-              <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-10 gap-4">
+              <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-4">
                 <Card>
                   <CardContent className="pt-4">
                     <div className="flex items-center gap-2">
@@ -1020,6 +1038,24 @@ export default function UploadDetailPage() {
                       <span className="text-sm text-slate-500">Ready for Sync</span>
                     </div>
                     <p className="text-2xl font-semibold mt-1">{stats.ready_for_sync}</p>
+                  </CardContent>
+                </Card>
+                <Card className={(upload.ready_for_sync_count ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-blue-600 rounded-full" />
+                      <span className="text-sm text-slate-500">Ready Count</span>
+                    </div>
+                    <p className="text-2xl font-semibold mt-1">{upload.ready_for_sync_count ?? 0}</p>
+                  </CardContent>
+                </Card>
+                <Card className={(upload.ready_for_sync_amount ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-blue-400 rounded-full" />
+                      <span className="text-sm text-slate-500">Ready Amount</span>
+                    </div>
+                    <p className="text-xl font-semibold mt-1">{formatCurrency(upload.ready_for_sync_amount ?? 0)}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -1412,6 +1448,65 @@ export default function UploadDetailPage() {
                   <><Send className="h-4 w-4 mr-2" />{isResync ? 'Yes, Resync Now' : 'Yes, Sync Now'}</>
                 )}
               </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={recentRetriesOpen} onOpenChange={setRecentRetriesOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-slate-700">
+                <History className="h-5 w-5" />
+                Recent Sync Attempts
+              </DialogTitle>
+              <DialogDescription className="pt-1">
+                {upload?.resync_count ?? 0} of {upload?.max_resync ?? 3} resyncs used
+              </DialogDescription>
+            </DialogHeader>
+
+            {(upload?.billing_runs?.length ?? 0) === 0 ? (
+              <p className="text-sm text-slate-500 py-4 text-center">No sync attempts recorded.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">Run</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Started At</TableHead>
+                      <TableHead>Completed At</TableHead>
+                      <TableHead className="text-right">Recovered</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(upload?.billing_runs ?? []).map((run: BillingRun) => (
+                      <TableRow key={run.run}>
+                        <TableCell className="font-medium">#{run.run}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            run.status === 'completed'
+                              ? 'bg-green-100 text-green-700'
+                              : run.status === 'failed'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {run.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600">{run.started_at ? formatDate(run.started_at) : '—'}</TableCell>
+                        <TableCell className="text-sm text-slate-600">{run.completed_at ? formatDate(run.completed_at) : '—'}</TableCell>
+                        <TableCell className="text-right text-sm">{run.recovered_count}</TableCell>
+                        <TableCell className="text-right text-sm">{formatCurrency(run.recovered_amount)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRecentRetriesOpen(false)}>Close</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

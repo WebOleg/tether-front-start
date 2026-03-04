@@ -232,6 +232,7 @@ export interface ValidationStats {
   blacklisted: number
   chargebacked: number
   ready_for_sync: number
+  current_resync_count?: number
   skipped?: SkippedCounts | null
   model_counts?: ModelCounts
   is_processing: boolean
@@ -583,6 +584,7 @@ export interface BillingSyncResponse {
 export interface BillingStats {
   upload_id: number
   is_processing: boolean
+  is_resync_processing?: boolean
   billing_status: string
   total_attempts: number
   approved: number

@@ -54,6 +54,7 @@ import {
   Timer,
   History,
   ListChecks,
+  RefreshCw,
 } from 'lucide-react'
 import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, BillingRun, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
@@ -231,8 +232,8 @@ export default function UploadDetailPage() {
       const result = await api.setUploadCooldown(uploadId, checked)
       setUpload(result.data)
       toast.success(`30-day cooldown ${checked ? 'enabled' : 'disabled'} successfully`)
-      // Also refresh stats so ready_for_sync is current
-      await Promise.all([fetchValidationStats(), fetchBillingStats()])
+      // Also refresh stats so ready_for_sync is current, and re-fetch upload for latest can_resync
+      await Promise.all([fetchValidationStats(), fetchBillingStats(), fetchUpload()])
     } catch (error) {
       toast.error('Failed to update 30-day cooldown')
     } finally {
@@ -310,11 +311,11 @@ export default function UploadDetailPage() {
   }, [isValidating, uploadId, fetchValidationStats, fetchDebtors, fetchVopStats])
 
   useEffect(() => {
-    if (!billingStats?.is_processing) return
+    if (!billingStats?.is_processing && !billingStats?.is_resync_processing) return
 
     const interval = setInterval(async () => {
       const [data] = await Promise.all([fetchBillingStats(), fetchValidationStats()])
-      if (data && !data.is_processing) {
+      if (data && !data.is_processing && !data.is_resync_processing) {
         clearInterval(interval)
         toast.success('Billing processing completed!')
         // Refresh upload (can_resync) so the Resync button reflects the correct post-sync state
@@ -323,7 +324,7 @@ export default function UploadDetailPage() {
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [billingStats?.is_processing, fetchBillingStats, fetchUpload, fetchValidationStats])
+  }, [billingStats?.is_processing, billingStats?.is_resync_processing, fetchBillingStats, fetchUpload, fetchValidationStats])
 
   // Polling effect for VOP verification progress
   useEffect(() => {
@@ -490,7 +491,8 @@ export default function UploadDetailPage() {
 
   const executeSync = async () => {
     setResyncConfirmOpen(false)
-    const isResync = upload?.can_resync === true
+    const hadPriorSync = (billingStats?.total_attempts ?? 0) > 0 || (upload?.resync_count ?? 0) > 0
+    const isResync = upload?.can_resync === true && hadPriorSync
     setSyncing(true)
     try {
       const result = await api.syncToGateway(uploadId, debtorType !== 'all' ? { debtor_type: debtorType } : undefined)
@@ -596,8 +598,8 @@ export default function UploadDetailPage() {
   const vopPending = vopStats ? vopStats.pending : 0
   const vopTotalEligible = vopStats ? vopStats.total_eligible : 0
   const hasBillingActivity = billingStats && billingStats.total_attempts > 0
-  const isResync = upload?.can_resync === true
   const hasEverSynced = (billingStats?.total_attempts ?? 0) > 0 || (upload?.resync_count ?? 0) > 0
+  const isResync = upload?.can_resync === true && hasEverSynced
   const resyncLimitReached = (upload?.resync_count ?? 0) >= (upload?.max_resync ?? DEFAULT_MAX_RESYNC)
   // Only show resync stat cards when a sync has fully completed (not mid-run) and limit not reached
   const showResyncStats = hasEverSynced && !billingStats?.is_processing && !resyncLimitReached
@@ -713,10 +715,10 @@ export default function UploadDetailPage() {
                     Validating...
                   </Badge>
               )}
-              {billingStats?.is_processing && (
+              {(billingStats?.is_processing || billingStats?.is_resync_processing) && (
                   <Badge className="bg-blue-100 text-blue-800 gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    Billing in progress
+                    {billingStats?.is_resync_processing ? 'Resync in progress' : 'Billing in progress'}
                   </Badge>
               )}
             </div>
@@ -752,7 +754,7 @@ export default function UploadDetailPage() {
                   </Button>
               )}
 
-              {billingStats?.is_processing && (
+              {(billingStats?.is_processing || billingStats?.is_resync_processing) && (
                   <Button
                       variant="destructive"
                       onClick={handleCancelBilling}
@@ -777,7 +779,7 @@ export default function UploadDetailPage() {
                   <Button
                       variant="destructive"
                       onClick={handleVoidClick}
-                      disabled={voiding || billingStats?.is_processing}
+                      disabled={voiding || billingStats?.is_processing || billingStats?.is_resync_processing}
                       className="gap-2 mr-2 cursor-pointer bg-red-900 hover:bg-red-950"
                   >
                     {voiding ? (
@@ -800,6 +802,7 @@ export default function UploadDetailPage() {
                     disabled={
                       syncing
                       || billingStats?.is_processing
+                      || billingStats?.is_resync_processing
                       || !canSync
                       || !isResync
                       || resyncLimitReached
@@ -816,10 +819,10 @@ export default function UploadDetailPage() {
                         : `Resync ${upload?.valid_count || 0} debtors to gateway (${upload?.resync_count ?? 0}/${upload?.max_resync ?? 5} used)`
                     }
                 >
-                  {syncing || billingStats?.is_processing ? (
+                  {syncing || billingStats?.is_processing || billingStats?.is_resync_processing ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        {billingStats?.is_processing ? 'Processing...' : 'Syncing...'}
+                        {billingStats?.is_processing || billingStats?.is_resync_processing ? 'Processing...' : 'Syncing...'}
                       </>
                   ) : (
                       <>
@@ -834,7 +837,7 @@ export default function UploadDetailPage() {
               {!hasEverSynced && (
                 <Button
                     onClick={handleSync}
-                    disabled={syncing || billingStats?.is_processing || (stats?.ready_for_sync || 0) === 0 || !canSync}
+                    disabled={syncing || billingStats?.is_processing || billingStats?.is_resync_processing || (stats?.ready_for_sync || 0) === 0 || !canSync}
                     className="gap-2"
                     title={
                       !canSync
@@ -842,10 +845,10 @@ export default function UploadDetailPage() {
                         : undefined
                     }
                 >
-                  {syncing || billingStats?.is_processing ? (
+                  {syncing || billingStats?.is_processing || billingStats?.is_resync_processing ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        {billingStats?.is_processing ? 'Processing...' : 'Syncing...'}
+                        {billingStats?.is_processing || billingStats?.is_resync_processing ? 'Processing...' : 'Syncing...'}
                       </>
                   ) : (
                       <>
@@ -1043,6 +1046,15 @@ export default function UploadDetailPage() {
                       <span className="text-xs text-slate-500 truncate">Ready for Sync</span>
                     </div>
                     <p className="text-lg font-bold leading-tight">{stats.ready_for_sync}</p>
+                  </CardContent>
+                </Card>
+                <Card className={`py-0 ${(stats.current_resync_count ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <RefreshCw className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Current Resync Count</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">{stats.current_resync_count ?? 0}</p>
                   </CardContent>
                 </Card>
                 <Card className={`py-0 ${showResyncStats && (upload.ready_for_sync_count ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>

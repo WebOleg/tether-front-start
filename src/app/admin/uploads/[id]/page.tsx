@@ -49,9 +49,11 @@ import {
   CreditCard,
   Send,
   UserCheck,
+  UserX,
   PlayCircle,
   Timer,
   History,
+  ListChecks,
 } from 'lucide-react'
 import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, BillingRun, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
@@ -311,13 +313,12 @@ export default function UploadDetailPage() {
     if (!billingStats?.is_processing) return
 
     const interval = setInterval(async () => {
-      const data = await fetchBillingStats()
+      const [data] = await Promise.all([fetchBillingStats(), fetchValidationStats()])
       if (data && !data.is_processing) {
         clearInterval(interval)
         toast.success('Billing processing completed!')
-        // Refresh upload (can_resync) and validation stats (ready_for_sync)
-        // so the Resync button reflects the correct post-sync state
-        await Promise.all([fetchUpload(), fetchValidationStats()])
+        // Refresh upload (can_resync) so the Resync button reflects the correct post-sync state
+        await fetchUpload()
       }
     }, 5000)
 
@@ -598,6 +599,8 @@ export default function UploadDetailPage() {
   const isResync = upload?.can_resync === true
   const hasEverSynced = (billingStats?.total_attempts ?? 0) > 0 || (upload?.resync_count ?? 0) > 0
   const resyncLimitReached = (upload?.resync_count ?? 0) >= (upload?.max_resync ?? DEFAULT_MAX_RESYNC)
+  // Only show resync stat cards when a sync has fully completed (not mid-run) and limit not reached
+  const showResyncStats = hasEverSynced && !billingStats?.is_processing && !resyncLimitReached
 
   // VOP result counts from by_result
   const vopPassed = (vopStats?.by_result?.verified || 0) + (vopStats?.by_result?.likely_verified || 0)
@@ -813,10 +816,10 @@ export default function UploadDetailPage() {
                         : `Resync ${upload?.valid_count || 0} debtors to gateway (${upload?.resync_count ?? 0}/${upload?.max_resync ?? 5} used)`
                     }
                 >
-                  {syncing ? (
+                  {syncing || billingStats?.is_processing ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Syncing...
+                        {billingStats?.is_processing ? 'Processing...' : 'Syncing...'}
                       </>
                   ) : (
                       <>
@@ -942,120 +945,122 @@ export default function UploadDetailPage() {
           )}
 
           {stats && (
-              <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-4">
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full" />
-                      <span className="text-sm text-slate-500">Valid</span>
+              <div className="px-6 py-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+                {/* Row 1: 8 cards */}
+                <Card className="py-0">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <CheckCircle className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Valid</span>
                     </div>
-                    <p className="text-2xl font-semibold mt-1">{stats.valid}</p>
+                    <p className="text-lg font-bold leading-tight">{stats.valid}</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-orange-500 rounded-full" />
-                      <span className="text-sm text-slate-500">Invalid</span>
+                <Card className="py-0">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <XCircle className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Invalid</span>
                     </div>
-                    <p className="text-2xl font-semibold mt-1">{stats.invalid}</p>
+                    <p className="text-lg font-bold leading-tight">{stats.invalid}</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-purple-500 rounded-full" />
-                      <span className="text-sm text-slate-500">Blacklisted</span>
+                <Card className="py-0">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Ban className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Blacklisted</span>
                     </div>
-                    <p className="text-2xl font-semibold mt-1">{stats.blacklisted}</p>
+                    <p className="text-lg font-bold leading-tight">{stats.blacklisted}</p>
                   </CardContent>
                 </Card>
-                <Card className={stats.chargebacked > 0 ? 'border-red-300 bg-red-50' : ''}>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-red-600 rounded-full" />
-                      <span className="text-sm text-slate-500">Chargebacked</span>
+                <Card className={`py-0 ${stats.chargebacked > 0 ? 'border-red-300 bg-red-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <AlertTriangle className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Chargebacked</span>
                     </div>
-                    <p className="text-2xl font-semibold mt-1">
+                    <p className="text-lg font-bold leading-tight">
                       {stats.chargebacked}
                       {(upload?.billed_with_emp_count ?? 0) > 0 && (
-                          <span className="text-sm text-slate-500 ml-2">
-                      ({Math.round((stats.chargebacked / (upload?.billed_with_emp_count ?? 1)) * 100)}%)
-                    </span>
+                        <span className="text-xs text-slate-500 ml-1">
+                          ({Math.round((stats.chargebacked / (upload?.billed_with_emp_count ?? 1)) * 100)}%)
+                        </span>
                       )}
                     </p>
                   </CardContent>
                 </Card>
-                <Card className={(upload.bav_passed_count ?? 0) > 0 ? 'border-green-300 bg-green-50' : ''}>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full" />
-                      <span className="text-sm text-slate-500">BAV Passed</span>
+                <Card className={`py-0 ${(upload.bav_passed_count ?? 0) > 0 ? 'border-green-300 bg-green-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <UserCheck className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">BAV Passed</span>
                     </div>
-                    <p className="text-2xl font-semibold mt-1">{upload.bav_passed_count ?? 0}</p>
+                    <p className="text-lg font-bold leading-tight">{upload.bav_passed_count ?? 0}</p>
                   </CardContent>
                 </Card>
-                <Card className={(upload.bav_excluded_count ?? 0) > 0 ? 'border-amber-300 bg-amber-50' : ''}>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-amber-500 rounded-full" />
-                      <span className="text-sm text-slate-500">BAV Excluded</span>
+                <Card className={`py-0 ${(upload.bav_excluded_count ?? 0) > 0 ? 'border-amber-300 bg-amber-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <UserX className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">BAV Excluded</span>
                     </div>
-                    <p className="text-2xl font-semibold mt-1">{upload.bav_excluded_count ?? 0}</p>
+                    <p className="text-lg font-bold leading-tight">{upload.bav_excluded_count ?? 0}</p>
                   </CardContent>
                 </Card>
-                <Card className={vopPassed > 0 ? 'border-green-300 bg-green-50' : ''}>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-3 w-3 text-green-600" />
-                      <span className="text-sm text-slate-500">VOP Passed</span>
+                <Card className={`py-0 ${vopPassed > 0 ? 'border-green-300 bg-green-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <ShieldCheck className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">VOP Passed</span>
                     </div>
-                    <p className="text-2xl font-semibold mt-1">{vopPassed}</p>
+                    <p className="text-lg font-bold leading-tight">{vopPassed}</p>
                   </CardContent>
                 </Card>
-                <Card className={vopFailed > 0 ? 'border-red-300 bg-red-50' : ''}>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <ShieldX className="h-3 w-3 text-red-600" />
-                      <span className="text-sm text-slate-500">VOP Failed</span>
+                <Card className={`py-0 ${vopFailed > 0 ? 'border-red-300 bg-red-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <ShieldX className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">VOP Failed</span>
                     </div>
-                    <p className="text-2xl font-semibold mt-1">{vopFailed}</p>
+                    <p className="text-lg font-bold leading-tight">{vopFailed}</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-gray-400 rounded-full" />
-                      <span className="text-sm text-slate-500">Pending</span>
+                {/* Row 2: 4 cards */}
+                <Card className="py-0">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Clock className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Pending</span>
                     </div>
-                    <p className="text-2xl font-semibold mt-1">{stats.pending}</p>
+                    <p className="text-lg font-bold leading-tight">{stats.pending}</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full" />
-                      <span className="text-sm text-slate-500">Ready for Sync</span>
+                <Card className="py-0">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Send className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Ready for Sync</span>
                     </div>
-                    <p className="text-2xl font-semibold mt-1">{stats.ready_for_sync}</p>
+                    <p className="text-lg font-bold leading-tight">{stats.ready_for_sync}</p>
                   </CardContent>
                 </Card>
-                <Card className={(upload.ready_for_sync_count ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-blue-600 rounded-full" />
-                      <span className="text-sm text-slate-500">Ready Count</span>
+                <Card className={`py-0 ${showResyncStats && (upload.ready_for_sync_count ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <ListChecks className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Resync Ready Count</span>
                     </div>
-                    <p className="text-2xl font-semibold mt-1">{upload.ready_for_sync_count ?? 0}</p>
+                    <p className="text-lg font-bold leading-tight">{showResyncStats ? (upload.ready_for_sync_count ?? 0) : 0}</p>
                   </CardContent>
                 </Card>
-                <Card className={(upload.ready_for_sync_amount ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}>
-                  <CardContent className="pt-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-blue-400 rounded-full" />
-                      <span className="text-sm text-slate-500">Ready Amount</span>
+                <Card className={`py-0 ${showResyncStats && (upload.ready_for_sync_amount ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <CreditCard className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Resync Ready Amount</span>
                     </div>
-                    <p className="text-xl font-semibold mt-1">{formatCurrency(upload.ready_for_sync_amount ?? 0)}</p>
+                    <p className="text-base font-bold leading-tight truncate">{formatCurrency(showResyncStats ? (upload.ready_for_sync_amount ?? 0) : 0)}</p>
                   </CardContent>
                 </Card>
               </div>

@@ -711,6 +711,7 @@ export default function UploadsPage() {
                     <TableHead className="text-center">CB %</TableHead>
                     <TableHead className="text-center">CB Amt %</TableHead>
                     <TableHead>Cool 30d</TableHead>
+                    <TableHead className="text-center">Resync</TableHead>
                     <TableHead>Uploaded</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -718,13 +719,13 @@ export default function UploadsPage() {
                 <TableBody>
                   {loading ? (
                       <TableRow>
-                          <TableCell colSpan={12} className="text-center py-8">
+                          <TableCell colSpan={13} className="text-center py-8">
                           <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
                         </TableCell>
                       </TableRow>
                   ) : uploads.length === 0 ? (
                       <TableRow>
-                          <TableCell colSpan={12} className="text-center py-8 text-slate-500">
+                          <TableCell colSpan={13} className="text-center py-8 text-slate-500">
                           No uploads yet
                         </TableCell>
                       </TableRow>
@@ -833,6 +834,21 @@ export default function UploadsPage() {
                                     </Badge>
                                 ) : (
                                     <span className="text-sm text-slate-400">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {upload.resync_count !== undefined ? (
+                                  <span className={`text-sm font-medium ${
+                                    upload.resync_count >= (upload.max_resync ?? 3)
+                                      ? 'text-red-500'
+                                      : upload.resync_count > 0
+                                      ? 'text-amber-600'
+                                      : 'text-slate-400'
+                                  }`}>
+                                    {upload.resync_count} / {upload.max_resync ?? 3}
+                                  </span>
+                                ) : (
+                                  <span className="text-sm text-slate-400">-</span>
                                 )}
                               </TableCell>
                               <TableCell className="text-slate-500">

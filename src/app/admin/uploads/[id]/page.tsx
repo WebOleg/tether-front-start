@@ -602,7 +602,7 @@ export default function UploadDetailPage() {
   const isResync = upload?.can_resync === true && hasEverSynced
   const resyncLimitReached = (upload?.resync_count ?? 0) >= (upload?.max_resync ?? DEFAULT_MAX_RESYNC)
   // Only show resync stat cards when a sync has fully completed (not mid-run) and limit not reached
-  const showResyncStats = hasEverSynced && !billingStats?.is_processing && !resyncLimitReached
+  const showResyncStats = hasEverSynced && (!billingStats?.is_processing || billingStats?.is_resync_processing) && !resyncLimitReached
 
   // VOP result counts from by_result
   const vopPassed = (vopStats?.by_result?.verified || 0) + (vopStats?.by_result?.likely_verified || 0)
@@ -827,7 +827,7 @@ export default function UploadDetailPage() {
                   ) : (
                       <>
                         <Send className="h-4 w-4" />
-                        Resync to Gateway ({upload?.valid_count || 0})
+                        Resync to Gateway ({showResyncStats ? (upload.ready_for_sync_count ?? 0) : 0})
                         <span className="text-xs opacity-70 ml-1">{upload?.resync_count ?? 0}/{upload?.max_resync ?? 5}</span>
                       </>
                   )}
@@ -1045,16 +1045,16 @@ export default function UploadDetailPage() {
                       <Send className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                       <span className="text-xs text-slate-500 truncate">Ready for Sync</span>
                     </div>
-                    <p className="text-lg font-bold leading-tight">{stats.ready_for_sync}</p>
+                    <p className="text-lg font-bold leading-tight">{showResyncStats ?  '0' : stats.ready_for_sync ?? 0}</p>
                   </CardContent>
                 </Card>
                 <Card className={`py-0 ${(stats.current_resync_count ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>
                   <CardContent className="p-3">
                     <div className="flex items-center gap-1.5 mb-1">
                       <RefreshCw className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
-                      <span className="text-xs text-slate-500 truncate">Current Resync Count</span>
+                      <span className="text-xs text-slate-500 truncate">Current Resync Remaining</span>
                     </div>
-                    <p className="text-lg font-bold leading-tight">{stats.current_resync_count ?? 0}</p>
+                    <p className="text-lg font-bold leading-tight">{showResyncStats ? stats.ready_for_sync : '0'}</p>
                   </CardContent>
                 </Card>
                 <Card className={`py-0 ${showResyncStats && (upload.ready_for_sync_count ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>
@@ -1063,7 +1063,7 @@ export default function UploadDetailPage() {
                       <ListChecks className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
                       <span className="text-xs text-slate-500 truncate">Resync Ready Count</span>
                     </div>
-                    <p className="text-lg font-bold leading-tight">{showResyncStats ? (upload.ready_for_sync_count ?? 0) : 0}</p>
+                    <p className="text-lg font-bold leading-tight">{showResyncStats ? upload.ready_for_sync_count : '0'}</p>
                   </CardContent>
                 </Card>
                 <Card className={`py-0 ${showResyncStats && (upload.ready_for_sync_amount ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>

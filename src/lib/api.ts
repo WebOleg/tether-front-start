@@ -292,6 +292,32 @@ export interface UploadReassignResponse {
   }
 }
 
+export interface BillingCycleStatus {
+  count: number
+  amount: number
+}
+
+export interface BillingCycle {
+  cycle: number
+  statuses: Record<string, BillingCycleStatus>
+  total_count: number
+  total_amount: number
+}
+
+export interface BillingCyclesResponse {
+  data: {
+    cycles: BillingCycle[]
+    total_cycles: number
+    total_billed_amount: number
+    max_billing_amount: number | null
+    cap_remaining: number | null
+  }
+}
+
+export interface UploadSettingsPayload {
+  max_billing_amount: number | null
+}
+
 class ApiClient {
   private token: string | null = null
 
@@ -623,6 +649,22 @@ class ApiClient {
           method: 'POST',
           body: JSON.stringify({ emp_account_id: empAccountId }),
         }
+    )
+  }
+
+  async updateUploadSettings(uploadId: number, settings: UploadSettingsPayload): Promise<{ message: string; data: Upload }> {
+    return this.request<{ message: string; data: Upload }>(
+        `/admin/uploads/${uploadId}/settings`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(settings),
+        }
+    )
+  }
+
+  async getBillingCycles(uploadId: number): Promise<BillingCyclesResponse> {
+    return this.request<BillingCyclesResponse>(
+        `/admin/uploads/${uploadId}/billing-cycles`
     )
   }
 
@@ -995,7 +1037,6 @@ class ApiClient {
     return response.data
   }
 
-  // Tether Instances (Multi-Acquirer)
   async getTetherInstances(activeOnly: boolean = false): Promise<TetherInstance[]> {
     const query = this.buildQuery(activeOnly ? { active_only: true } : {})
     const response = await this.request<{ success: boolean; data: TetherInstance[] }>(
@@ -1026,7 +1067,6 @@ class ApiClient {
     await this.request(`/admin/billing/descriptors/${id}`, { method: 'DELETE' })
   }
 
-  // Clean Users Export
   async getCleanUsersStats(minDays: number = 30, mode: CleanUsersMode = 'broad', accountId?: number): Promise<CleanUsersStats> {
     const params: Record<string, any> = { min_days: minDays, mode }
     if (accountId) params.account_id = accountId
@@ -1092,7 +1132,6 @@ class ApiClient {
     return response.blob()
   }
 
-  // BAV (Bank Account Verification) Methods
   async getBavBalance(): Promise<BavCredits> {
     const response = await this.request<{ success: boolean; data: BavCredits }>(
       '/admin/bav/balance'
@@ -1130,7 +1169,6 @@ class ApiClient {
     )
   }
 
-  // Caps Methods
   async getCaps(month?: number, year?: number): Promise<CapsData> {
     const params: Record<string, any> = {}
     if (month) params.month = month
@@ -1149,7 +1187,6 @@ class ApiClient {
     })
   }
 
-  // Price Point Analytics
   async getPricePointStats(params: StatsFilterParams = {}): Promise<PricePointStats> {
     const query = this.buildQuery({
       period: params.period,
@@ -1166,7 +1203,6 @@ class ApiClient {
     return response.data
   }
 
-  // Upload CBK Reasons
   async getUploadCbReasons(uploadId: number, filters: UploadCbReasonsFilters): Promise<UploadCbData> {
     const query = this.buildQuery(filters)
     const response = await this.request<UploadCbData>(
@@ -1183,7 +1219,6 @@ class ApiClient {
     return response
   }
 
-  // BAV Batch (Standalone BAV verification)
   async getBavBatches(): Promise<BavBatchItem[]> {
     const response = await this.request<{ data: BavBatchItem[] }>('/admin/bav/batches')
     return response.data

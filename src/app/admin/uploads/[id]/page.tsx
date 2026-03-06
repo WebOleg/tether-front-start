@@ -776,24 +776,24 @@ export default function UploadDetailPage() {
               )}
 
               {((billingStats?.billing_status === 'cancelling' || billingStats?.billing_status === 'cancelled') && (billingStats?.approved + billingStats?.pending) > 0) && (
-                  <Button
-                      variant="destructive"
-                      onClick={handleVoidClick}
-                      disabled={voiding || billingStats?.is_processing || billingStats?.is_resync_processing}
-                      className="gap-2 mr-2 cursor-pointer bg-red-900 hover:bg-red-950"
-                  >
-                    {voiding ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Voiding...
-                        </>
-                    ) : (
-                        <>
-                          <Ban className="h-4 w-4" />
-                          Void All ({(billingStats?.approved + billingStats?.pending)})
-                        </>
-                    )}
-                  </Button>
+                <Button
+                    variant="destructive"
+                    onClick={handleVoidClick}
+                    disabled={voiding || billingStats?.is_processing || billingStats?.is_resync_processing}
+                    className="gap-2 mr-2 cursor-pointer bg-red-500 hover:bg-red-600"
+                >
+                  {voiding ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Voiding...
+                      </>
+                  ) : (
+                      <>
+                        <Ban className="h-4 w-4" />
+                        Void All ({(billingStats?.approved + billingStats?.pending)})
+                      </>
+                  )}
+                </Button>
               )}
 
               {hasEverSynced && (

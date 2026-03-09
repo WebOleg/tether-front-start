@@ -1,5 +1,5 @@
 /**
- * Upload detail page with VOP verification and billing.
+ * Upload detail page with VOP verification, billing cycles and billing cap.
  */
 
 'use client'
@@ -32,6 +32,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
+import type { BillingCyclesResponse } from '@/lib/api'
 import {
   ArrowLeft,
   Loader2,
@@ -55,8 +56,11 @@ import {
   History,
   ListChecks,
   RefreshCw,
+  RotateCcw,
+  Settings,
+  Save,
 } from 'lucide-react'
-import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, BillingRun, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
+import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, BillingRun, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink, EmpAccount } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { Progress } from '@/components/ui/progress'
 import { ModelTabs } from '@/components/ui/model-tabs'
@@ -115,6 +119,18 @@ export default function UploadDetailPage() {
   const [skipBicBlacklist, setSkipBicBlacklist] = useState(false)
   const [cooldownUpdating, setCooldownUpdating] = useState(false)
 
+  // Reassign state
+  const [reassignOpen, setReassignOpen] = useState(false)
+  const [empAccounts, setEmpAccounts] = useState<EmpAccount[]>([])
+  const [reassignAccountId, setReassignAccountId] = useState<number | null>(null)
+  const [reassigning, setReassigning] = useState(false)
+
+  // Billing cycles & cap state
+  const [billingCycles, setBillingCycles] = useState<BillingCyclesResponse | null>(null)
+  const [cyclesLoading, setCyclesLoading] = useState(false)
+  const [maxBillingInput, setMaxBillingInput] = useState<string>('')
+  const [savingCap, setSavingCap] = useState(false)
+
   const defaultCounts = { all: 0, flywheel: 0, recovery: 0, legacy: 0 }
   const modelCounts = stats?.model_counts || defaultCounts
 
@@ -135,6 +151,42 @@ export default function UploadDetailPage() {
       setValidating(false)
     }
   }, [stats?.is_processing, stats?.pending])
+
+  const fetchBillingCycles = useCallback(async () => {
+    try {
+      setCyclesLoading(true)
+      const data = await api.getBillingCycles(uploadId)
+      setBillingCycles(data)
+      if (data.data.max_billing_amount !== null) {
+        setMaxBillingInput(data.data.max_billing_amount.toString())
+      } else {
+        setMaxBillingInput('')
+      }
+    } catch (error) {
+      console.error('Failed to fetch billing cycles:', error)
+    } finally {
+      setCyclesLoading(false)
+    }
+  }, [uploadId])
+
+  const handleSaveCap = async () => {
+    setSavingCap(true)
+    try {
+      const value = maxBillingInput.trim() === '' ? null : parseFloat(maxBillingInput)
+      if (value !== null && (isNaN(value) || value < 0)) {
+        toast.error('Please enter a valid amount or leave empty for no limit')
+        setSavingCap(false)
+        return
+      }
+      await api.updateUploadSettings(uploadId, { max_billing_amount: value })
+      toast.success(value !== null ? `Billing cap set to ${value} EUR` : 'Billing cap removed')
+      await fetchBillingCycles()
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update billing cap')
+    } finally {
+      setSavingCap(false)
+    }
+  }
 
   const fetchVopStats = useCallback(async (typeOverride?: DebtorType) => {
     try {
@@ -265,11 +317,9 @@ export default function UploadDetailPage() {
         const uploadData = await api.getUpload(uploadId)
         setUpload(uploadData)
 
-        // Only load stats, do NOT auto-trigger validation
         const statsData = await api.getUploadValidationStats(uploadId)
         setStats(statsData)
 
-        // If validation is already in progress on backend, track it
         if (statsData?.is_processing) {
           setValidating(true)
         }
@@ -280,6 +330,17 @@ export default function UploadDetailPage() {
 
         const billingData = await api.getBillingStats(uploadId)
         setBillingStats(billingData)
+
+        // Fetch billing cycles
+        try {
+          const cyclesData = await api.getBillingCycles(uploadId)
+          setBillingCycles(cyclesData)
+          if (cyclesData.data.max_billing_amount !== null) {
+            setMaxBillingInput(cyclesData.data.max_billing_amount.toString())
+          }
+        } catch (e) {
+          console.error('Failed to fetch billing cycles:', e)
+        }
 
         setHasFetchedInitial(true)
       } catch (error) {
@@ -318,13 +379,15 @@ export default function UploadDetailPage() {
       if (data && !data.is_processing && !data.is_resync_processing) {
         clearInterval(interval)
         toast.success('Billing processing completed!')
+
         // Refresh upload (can_resync) so the Resync button reflects the correct post-sync state
         await fetchUpload()
+        fetchBillingCycles()
       }
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [billingStats?.is_processing, billingStats?.is_resync_processing, fetchBillingStats, fetchUpload, fetchValidationStats])
+  }, [billingStats?.is_processing, billingStats?.is_resync_processing, fetchBillingStats, fetchUpload, fetchValidationStats, fetchBillingCycles])
 
   // Polling effect for VOP verification progress
   useEffect(() => {
@@ -440,7 +503,7 @@ export default function UploadDetailPage() {
   }
 
   const handleVoidConfirm = async () => {
-    setVoidConfirmOpen(false) // Close modal immediately
+    setVoidConfirmOpen(false)
     setVoiding(true)
 
     try {
@@ -450,7 +513,6 @@ export default function UploadDetailPage() {
     } catch (error: any) {
       console.error(error)
       const errorMessage = error.toString() || 'Failed to queue void process'
-
       toast.error(errorMessage)
     } finally {
       setVoiding(false)
@@ -466,7 +528,6 @@ export default function UploadDetailPage() {
     try {
       await api.cancelBilling(uploadId)
       toast.success('Stop signal sent. Sync will terminate shortly.')
-
       await fetchBillingStats()
     } catch (error) {
       console.error(error)
@@ -502,6 +563,7 @@ export default function UploadDetailPage() {
       } else if (result.data.queued) {
         toast.success(isResync ? 'Resync queued successfully' : result.message)
         await fetchBillingStats()
+        await fetchBillingCycles()
       } else {
         toast.info(result.message)
       }
@@ -520,6 +582,35 @@ export default function UploadDetailPage() {
       }
     } finally {
       setSyncing(false)
+    }
+  }
+
+  const handleReassignOpen = async () => {
+    setReassignOpen(true)
+    try {
+      const accounts = await api.getEmpAccounts()
+      setEmpAccounts(accounts.filter(a => a.is_active))
+    } catch (error) {
+      toast.error('Failed to load EMP accounts')
+    }
+  }
+
+  const handleReassign = async () => {
+    if (!reassignAccountId) return
+
+    setReassigning(true)
+    try {
+      const result = await api.reassignUpload(uploadId, reassignAccountId)
+      toast.success(result.message)
+      setReassignOpen(false)
+      setReassignAccountId(null)
+
+      const uploadData = await api.getUpload(uploadId)
+      setUpload(uploadData)
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to reassign upload')
+    } finally {
+      setReassigning(false)
     }
   }
 
@@ -604,13 +695,11 @@ export default function UploadDetailPage() {
   // Only show resync stat cards when a sync has fully completed (not mid-run) and limit not reached
   const showResyncStats = hasEverSynced && (!billingStats?.is_processing || billingStats?.is_resync_processing) && !resyncLimitReached
 
-  // VOP result counts from by_result
   const vopPassed = (vopStats?.by_result?.verified || 0) + (vopStats?.by_result?.likely_verified || 0)
   const vopFailed = (vopStats?.by_result?.mismatch || 0) + (vopStats?.by_result?.rejected || 0) + (vopStats?.by_result?.inconclusive || 0)
 
   const canSync = (vopTotalEligible === 0 || vopPending === 0) && !isValidating
 
-  // Build CB lookup map by amount for quick access in price breakdown
   const cbByAmount = new Map<number, { approved: number; chargebacks: number; cb_rate: number; cb_rate_amount: number; approved_volume: number; cb_volume: number }>()
   if (stats?.cb_breakdown) {
     for (const cb of stats.cb_breakdown) {
@@ -646,8 +735,23 @@ export default function UploadDetailPage() {
                   {upload.emp_account && (
                       <span className="ml-3 inline-flex items-center gap-1">
                       <span className="text-slate-400">•</span>
-                      <span className="text-emerald-600 font-medium">{upload.emp_account.name}</span>
+                      <button
+                          onClick={handleReassignOpen}
+                          className="text-emerald-600 font-medium hover:text-emerald-700 hover:underline cursor-pointer transition-colors"
+                          title="Click to change account"
+                      >
+                        {upload.emp_account.name}
+                      </button>
+                      <RefreshCw className="h-3 w-3 text-slate-400 cursor-pointer hover:text-emerald-600" onClick={handleReassignOpen} />
                     </span>
+                  )}
+                  {!upload.emp_account && (
+                      <button
+                          onClick={handleReassignOpen}
+                          className="ml-3 text-sm text-amber-600 hover:text-amber-700 hover:underline cursor-pointer"
+                      >
+                        Assign Account
+                      </button>
                   )}
                 </span>
               </>
@@ -697,7 +801,6 @@ export default function UploadDetailPage() {
               <span className="text-sm text-slate-500">
                 {stats?.total || 0} records
               </span>
-              {/* Validate button - show when not yet validated or needs re-validation */}
               {!isValidating && (
                   <Button
                       variant="outline"
@@ -1075,6 +1178,7 @@ export default function UploadDetailPage() {
                     <p className="text-base font-bold leading-tight truncate">{formatCurrency(showResyncStats ? (upload.ready_for_sync_amount ?? 0) : 0)}</p>
                   </CardContent>
                 </Card>
+
               </div>
           )}
 
@@ -1156,60 +1260,156 @@ export default function UploadDetailPage() {
                           <CheckCircle className="h-4 w-4 text-green-600" />
                           <span className="text-sm text-green-700">Approved</span>
                         </div>
-                        <p className="text-xl font-semibold text-green-800 mt-1">
-                          {billingStats.approved}
-                        </p>
-                        <p className="text-xs text-green-600">
-                          {formatCurrency(billingStats.approved_amount, 'EUR')}
-                        </p>
+                        <p className="text-xl font-semibold text-green-800 mt-1">{billingStats.approved}</p>
+                        <p className="text-xs text-green-600">{formatCurrency(billingStats.approved_amount, 'EUR')}</p>
                       </div>
                       <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-yellow-600" />
                           <span className="text-sm text-yellow-700">Pending</span>
                         </div>
-                        <p className="text-xl font-semibold text-yellow-800 mt-1">
-                          {billingStats.pending}
-                        </p>
-                        <p className="text-xs text-yellow-600">
-                          {formatCurrency(billingStats.pending_amount, 'EUR')}
-                        </p>
+                        <p className="text-xl font-semibold text-yellow-800 mt-1">{billingStats.pending}</p>
+                        <p className="text-xs text-yellow-600">{formatCurrency(billingStats.pending_amount, 'EUR')}</p>
                       </div>
                       <div className="bg-red-50 rounded-lg p-3 border border-red-200">
                         <div className="flex items-center gap-2">
                           <XCircle className="h-4 w-4 text-red-600" />
                           <span className="text-sm text-red-700">Declined</span>
                         </div>
-                        <p className="text-xl font-semibold text-red-800 mt-1">
-                          {billingStats.declined}
-                        </p>
-                        <p className="text-xs text-red-600">
-                          {formatCurrency(billingStats.declined_amount, 'EUR')}
-                        </p>
+                        <p className="text-xl font-semibold text-red-800 mt-1">{billingStats.declined}</p>
+                        <p className="text-xs text-red-600">{formatCurrency(billingStats.declined_amount, 'EUR')}</p>
                       </div>
                       <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
                         <div className="flex items-center gap-2">
                           <AlertCircle className="h-4 w-4 text-slate-600" />
                           <span className="text-sm text-slate-700">Errors</span>
                         </div>
-                        <p className="text-xl font-semibold text-slate-800 mt-1">
-                          {billingStats.error}
-                        </p>
-                        <p className="text-xs text-slate-600">
-                          {formatCurrency(billingStats.error_amount, 'EUR')}
-                        </p>
+                        <p className="text-xl font-semibold text-slate-800 mt-1">{billingStats.error}</p>
+                        <p className="text-xs text-slate-600">{formatCurrency(billingStats.error_amount, 'EUR')}</p>
                       </div>
                     </div>
                     <div className="mt-3 pt-3 border-t flex justify-between items-center">
-                  <span className="text-sm text-slate-500">
-                    Total attempts: {billingStats.total_attempts}
-                  </span>
+                      <span className="text-sm text-slate-500">Total attempts: {billingStats.total_attempts}</span>
                       <Link href={`/admin/billing?upload_id=${uploadId}`}>
-                        <Button variant="outline" size="sm">
-                          View Details
-                        </Button>
+                        <Button variant="outline" size="sm">View Details</Button>
                       </Link>
                     </div>
+                  </CardContent>
+                </Card>
+              </div>
+          )}
+
+          {/* Billing Cycles & Cap Section */}
+          {(hasBillingActivity || billingCycles?.data?.max_billing_amount !== null) && (
+              <div className="px-6 pb-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <RotateCcw className="h-5 w-5" />
+                      Billing Cycles
+                      {cyclesLoading && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4 mb-4 p-3 bg-slate-50 rounded-lg border">
+                      <div className="flex items-center gap-2">
+                        <Settings className="h-4 w-4 text-slate-500" />
+                        <Label className="text-sm font-medium text-slate-700 whitespace-nowrap">Max Billing Cap (EUR):</Label>
+                      </div>
+                      <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="No limit"
+                          value={maxBillingInput}
+                          onChange={(e) => setMaxBillingInput(e.target.value)}
+                          className="w-36 h-8"
+                      />
+                      <Button size="sm" onClick={handleSaveCap} disabled={savingCap} className="gap-1 h-8">
+                        {savingCap ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                        Save
+                      </Button>
+                      {billingCycles?.data?.max_billing_amount !== null && (
+                          <div className="flex items-center gap-3 ml-4 text-sm">
+                            <span className="text-slate-500">
+                              Total billed: <span className="font-semibold text-slate-700">{formatCurrency(billingCycles?.data?.total_billed_amount ?? 0, 'EUR')}</span>
+                            </span>
+                            <span className="text-slate-500">
+                              Remaining: <span className={`font-semibold ${(billingCycles?.data?.cap_remaining ?? 0) <= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {formatCurrency(billingCycles?.data?.cap_remaining ?? 0, 'EUR')}
+                              </span>
+                            </span>
+                          </div>
+                      )}
+                    </div>
+
+                    {billingCycles?.data?.cycles && billingCycles.data.cycles.length > 0 ? (
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Cycle</TableHead>
+                                <TableHead className="text-right">Approved</TableHead>
+                                <TableHead className="text-right">Pending</TableHead>
+                                <TableHead className="text-right">Declined</TableHead>
+                                <TableHead className="text-right">Chargebacked</TableHead>
+                                <TableHead className="text-right">Error</TableHead>
+                                <TableHead className="text-right">Void</TableHead>
+                                <TableHead className="text-right">Total</TableHead>
+                                <TableHead className="text-right">Amount</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {billingCycles.data.cycles.map((cycle) => (
+                                  <TableRow key={cycle.cycle}>
+                                    <TableCell className="font-semibold">Cycle {cycle.cycle}</TableCell>
+                                    <TableCell className="text-right">
+                                      {cycle.statuses.approved ? (
+                                          <span className="inline-flex items-center gap-1">
+                                            <span className="text-green-700 font-medium">{cycle.statuses.approved.count}</span>
+                                            <span className="text-xs text-green-600">({formatCurrency(cycle.statuses.approved.amount, 'EUR')})</span>
+                                          </span>
+                                      ) : '—'}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {cycle.statuses.pending ? (
+                                          <span className="inline-flex items-center gap-1">
+                                            <span className="text-yellow-700 font-medium">{cycle.statuses.pending.count}</span>
+                                            <span className="text-xs text-yellow-600">({formatCurrency(cycle.statuses.pending.amount, 'EUR')})</span>
+                                          </span>
+                                      ) : '—'}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {cycle.statuses.declined ? <span className="text-red-700 font-medium">{cycle.statuses.declined.count}</span> : '—'}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {cycle.statuses.chargebacked ? <span className="text-purple-700 font-medium">{cycle.statuses.chargebacked.count}</span> : '—'}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {cycle.statuses.error ? <span className="text-slate-600">{cycle.statuses.error.count}</span> : '—'}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      {cycle.statuses.void ? <span className="text-gray-500">{cycle.statuses.void.count}</span> : '—'}
+                                    </TableCell>
+                                    <TableCell className="text-right font-semibold">{cycle.total_count}</TableCell>
+                                    <TableCell className="text-right font-semibold">{formatCurrency(cycle.total_amount, 'EUR')}</TableCell>
+                                  </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                          <div className="mt-3 pt-3 border-t flex justify-between items-center">
+                            <span className="text-sm text-slate-500">
+                              {billingCycles.data.total_cycles} cycle{billingCycles.data.total_cycles !== 1 ? 's' : ''} completed
+                            </span>
+                            <Button variant="outline" size="sm" onClick={fetchBillingCycles} className="gap-1">
+                              <RefreshCw className="h-3 w-3" />
+                              Refresh
+                            </Button>
+                          </div>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-slate-500 text-center py-4">No billing cycles yet</p>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -1283,29 +1483,17 @@ export default function UploadDetailPage() {
                                   <span className={statusConfig.color} title={statusConfig.label}>
                                     {statusConfig.icon}
                                   </span>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            onClick={() => handleEditClick(debtor)}
-                                        >
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditClick(debtor)}>
                                           <Pencil className="h-4 w-4" />
                                         </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-red-600 hover:text-red-700"
-                                            onClick={() => handleDelete(debtor)}
-                                        >
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={() => handleDelete(debtor)}>
                                           <Trash2 className="h-4 w-4" />
                                         </Button>
                                       </div>
                                     </TableCell>
-
                                     <TableCell>
                                       <ModelBadge model={debtor.debtor_profile?.billing_model} />
                                     </TableCell>
-
                                     {headers.map((h, idx) => (
                                         <TableCell key={`cell-${debtor.id}-${idx}-${h}`} className="whitespace-nowrap max-w-[200px] truncate">
                                           {rawData[h] || '-'}
@@ -1399,17 +1587,12 @@ export default function UploadDetailPage() {
               ))}
             </div>
             <DialogFooter className="gap-2">
-              <Button
-                  variant="destructive"
-                  onClick={() => editingDebtor && handleDelete(editingDebtor)}
-              >
+              <Button variant="destructive" onClick={() => editingDebtor && handleDelete(editingDebtor)}>
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete
               </Button>
               <div className="flex-1" />
-              <Button variant="outline" onClick={() => setEditingDebtor(null)}>
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={() => setEditingDebtor(null)}>Cancel</Button>
               <Button onClick={handleSave} disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 Save Changes
@@ -1539,7 +1722,6 @@ export default function UploadDetailPage() {
                 Are you sure you want to <strong>VOID all approved/pending transactions</strong> for this upload?
               </DialogDescription>
             </DialogHeader>
-
             <div className="bg-red-50 border border-red-200 rounded-md p-3 my-2 text-sm text-red-800">
               <p className="font-semibold">Warning:</p>
               <ul className="list-disc list-inside mt-1 space-y-1">
@@ -1548,17 +1730,83 @@ export default function UploadDetailPage() {
                 <li>Funds will not be transferred to your account.</li>
               </ul>
             </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button className="cursor-pointer mr-2" variant="outline" onClick={() => setVoidConfirmOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleVoidConfirm} className="bg-red-600 hover:bg-red-700 cursor-pointer">Yes, Void All Transactions</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Reassign Account Dialog */}
+        <Dialog open={reassignOpen} onOpenChange={setReassignOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                Reassign EMP Account
+              </DialogTitle>
+              <DialogDescription>
+                Change the EMP account for this upload. All debtors and unsent billing attempts will be updated.
+              </DialogDescription>
+            </DialogHeader>
+
+            {upload.emp_account && (
+                <div className="text-sm text-slate-600">
+                  Current account: <span className="font-medium text-emerald-600">{upload.emp_account.name}</span>
+                </div>
+            )}
+
+            <div className="space-y-2 py-2">
+              <Label>Select new account</Label>
+              <div className="space-y-2">
+                {empAccounts.length === 0 ? (
+                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading accounts...
+                    </div>
+                ) : (
+                    empAccounts
+                        .filter(a => a.id !== upload.emp_account_id)
+                        .map(account => (
+                            <label
+                                key={account.id}
+                                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                    reassignAccountId === account.id
+                                        ? 'border-emerald-300 bg-emerald-50'
+                                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                }`}
+                            >
+                              <input
+                                  type="radio"
+                                  name="reassign_account"
+                                  value={account.id}
+                                  checked={reassignAccountId === account.id}
+                                  onChange={() => setReassignAccountId(account.id)}
+                                  className="text-emerald-600"
+                              />
+                              <span className="font-medium text-sm">{account.name}</span>
+                              <span className="text-xs text-slate-400">{account.slug}</span>
+                            </label>
+                        ))
+                )}
+              </div>
+            </div>
 
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button className="cursor-pointer mr-2" variant="outline" onClick={() => setVoidConfirmOpen(false)}>
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={() => { setReassignOpen(false); setReassignAccountId(null) }}>Cancel</Button>
               <Button
-                  variant="destructive"
-                  onClick={handleVoidConfirm}
-                  className="bg-red-600 hover:bg-red-700 cursor-pointer"
+                  onClick={handleReassign}
+                  disabled={!reassignAccountId || reassigning}
+                  className="bg-emerald-600 hover:bg-emerald-700"
               >
-                Yes, Void All Transactions
+                {reassigning ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Reassigning...
+                    </>
+                ) : (
+                    'Reassign'
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

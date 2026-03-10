@@ -142,7 +142,6 @@ export default function UploadDetailPage() {
   const isValidating = validating || stats?.is_processing
   const validationCompleted = stats ? !stats.is_processing && stats.pending === 0 : false
   const hasNeverValidated = stats ? stats.valid === 0 && stats.invalid === 0 && stats.blacklisted === 0 && stats.pending === (stats.total || 0) : false
-  const DEFAULT_MAX_RESYNC = 3
 
   useEffect(() => {
     if (stats?.is_processing) {
@@ -691,7 +690,7 @@ export default function UploadDetailPage() {
   const hasBillingActivity = billingStats && billingStats.total_attempts > 0
   const hasEverSynced = (billingStats?.total_attempts ?? 0) > 0 || (upload?.resync_count ?? 0) > 0
   const isResync = upload?.can_resync === true && hasEverSynced
-  const resyncLimitReached = (upload?.resync_count ?? 0) >= (upload?.max_resync ?? DEFAULT_MAX_RESYNC)
+  const resyncLimitReached = (upload?.resync_count ?? 0) >= (upload?.max_resync ?? 3)
   // Only show resync stat cards when a sync has fully completed (not mid-run) and limit not reached
   const showResyncStats = hasEverSynced && (!billingStats?.is_processing || billingStats?.is_resync_processing) && !resyncLimitReached
 
@@ -914,12 +913,12 @@ export default function UploadDetailPage() {
                     className="gap-2"
                     title={
                       resyncLimitReached
-                        ? `Resync limit reached (${upload?.resync_count ?? 0}/${upload?.max_resync ?? 5})`
+                        ? `Resync limit reached (${upload?.resync_count ?? 0}/${upload?.max_resync ?? 3})`
                         : !isResync
                         ? 'Enable resync by turning off the 30-day cooldown'
                         : !canSync
                         ? `VOP verification required (${vopPending} pending)`
-                        : `Resync ${upload?.valid_count || 0} debtors to gateway (${upload?.resync_count ?? 0}/${upload?.max_resync ?? 5} used)`
+                        : `Resync ${upload?.ready_for_sync_count ?? 0} debtors to gateway (${upload?.resync_count ?? 0}/${upload?.max_resync ?? 3} used)`
                     }
                 >
                   {syncing || billingStats?.is_processing || billingStats?.is_resync_processing ? (
@@ -931,7 +930,7 @@ export default function UploadDetailPage() {
                       <>
                         <Send className="h-4 w-4" />
                         Resync to Gateway ({showResyncStats ? (upload.ready_for_sync_count ?? 0) : 0})
-                        <span className="text-xs opacity-70 ml-1">{upload?.resync_count ?? 0}/{upload?.max_resync ?? 5}</span>
+                        <span className="text-xs opacity-70 ml-1">{upload?.resync_count ?? 0}/{upload?.max_resync ?? 3}</span>
                       </>
                   )}
                 </Button>
@@ -1175,7 +1174,7 @@ export default function UploadDetailPage() {
                       <CreditCard className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
                       <span className="text-xs text-slate-500 truncate">Resync Ready Amount</span>
                     </div>
-                    <p className="text-base font-bold leading-tight truncate">{formatCurrency(showResyncStats ? (upload.ready_for_sync_amount ?? 0) : 0)}</p>
+                    <p className="text-base font-bold leading-tight truncate">{formatCurrency(showResyncStats ? (upload.ready_for_sync_amount ?? 0) : 0, 'EUR')}</p>
                   </CardContent>
                 </Card>
 
@@ -1624,9 +1623,9 @@ export default function UploadDetailPage() {
             </DialogHeader>
 
             <div className="bg-blue-50 border border-blue-200 rounded-md p-3 my-2 text-sm text-blue-800 space-y-1">
-              <p><span className="font-semibold">Debtors to send:</span> {isResync ? upload?.valid_count || 0 : stats?.ready_for_sync || 0}</p>
+              <p><span className="font-semibold">Debtors to send:</span> {isResync ? upload?.ready_for_sync_count ?? 0 : stats?.ready_for_sync || 0}</p>
               {isResync && (
-                <p><span className="font-semibold">Resync usage:</span> {(upload?.resync_count ?? 0) + 1} of {upload?.max_resync ?? 5} after this action</p>
+                <p><span className="font-semibold">Resync usage:</span> {(upload?.resync_count ?? 0) + 1} of {upload?.max_resync ?? 3} after this action</p>
               )}
               {isResync && (
                 <p className="text-blue-600 text-xs">Debtors already approved or chargebacked will be skipped by the gateway.</p>
@@ -1697,7 +1696,7 @@ export default function UploadDetailPage() {
                         <TableCell className="text-sm text-slate-600">{run.started_at ? formatDate(run.started_at) : '—'}</TableCell>
                         <TableCell className="text-sm text-slate-600">{run.completed_at ? formatDate(run.completed_at) : '—'}</TableCell>
                         <TableCell className="text-right text-sm">{run.recovered_count}</TableCell>
-                        <TableCell className="text-right text-sm">{formatCurrency(run.recovered_amount)}</TableCell>
+                        <TableCell className="text-right text-sm">{formatCurrency(run.recovered_amount, 'EUR')}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

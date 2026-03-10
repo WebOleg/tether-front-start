@@ -1183,62 +1183,56 @@ export default function UploadDetailPage() {
           )}
 
           {stats?.price_breakdown && stats.price_breakdown.length > 0 && (
-              <div className="px-6 pb-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Price Breakdown</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Price</TableHead>
-                            <TableHead className="text-right">Valid</TableHead>
-                            <TableHead className="text-right">Subtotal</TableHead>
-                            <TableHead className="text-right">Approved</TableHead>
-                            <TableHead className="text-right">Chargebacks</TableHead>
-                            <TableHead className="text-right">CB Rate</TableHead>
-                            <TableHead className="text-right">CB Rate (€)</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {stats.price_breakdown.map((item, idx) => {
-                            const cb = cbByAmount.get(item.amount)
-                            const cbRate = cb?.cb_rate ?? 0
-                            const cbRateAmount = cb?.cb_rate_amount ?? 0
-                            const isAlert = cbRate > 1
-                            return (
-                              <TableRow key={idx} className={isAlert ? 'bg-red-50' : ''}>
-                                <TableCell className="font-semibold">{formatCurrency(item.amount, 'EUR')}</TableCell>
-                                <TableCell className="text-right">{item.count}</TableCell>
-                                <TableCell className="text-right text-slate-600">{formatCurrency(item.total, 'EUR')}</TableCell>
-                                <TableCell className="text-right text-green-700">{cb?.approved ?? '—'}</TableCell>
-                                <TableCell className="text-right text-red-700">{cb?.chargebacks ?? '—'}</TableCell>
-                                <TableCell className={`text-right font-semibold ${isAlert ? 'text-red-700' : 'text-slate-700'}`}>
-                                  {cb ? `${cbRate}%` : '—'}
-                                  {isAlert && <AlertTriangle className="inline h-3 w-3 ml-1 text-red-500" />}
-                                </TableCell>
-                                <TableCell className={`text-right font-semibold ${isAlert ? 'text-red-700' : 'text-slate-700'}`}>
-                                  {cb ? `${cbRateAmount}%` : '—'}
-                                </TableCell>
-                              </TableRow>
-                            )
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
-                    <div className="mt-3 pt-3 border-t flex justify-between items-center">
-                      <span className="text-sm font-medium text-slate-700">
-                        Total Valid Amount: {formatCurrency(stats.valid_total_amount || 0, 'EUR')}
-                      </span>
-                      <span className="text-sm text-slate-500">
-                        {stats.valid} valid records
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
+            <div className="px-6 pb-4 mt-4">
+              <h3 className="text-sm font-semibold text-slate-700 mb-2">Price Breakdown</h3>
+              <div className="rounded-lg border bg-white overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Price</TableHead>
+                      <TableHead className="text-right">Valid</TableHead>
+                      <TableHead className="text-right">Subtotal</TableHead>
+                      <TableHead className="text-right">Approved</TableHead>
+                      <TableHead className="text-right">Chargebacks</TableHead>
+                      <TableHead className="text-right">CB Rate</TableHead>
+                      <TableHead className="text-right">CB Rate (€)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {stats.price_breakdown.map((item, idx) => {
+                      const cb = cbByAmount.get(item.amount)
+                      const cbRate = cb?.cb_rate ?? 0
+                      const cbRateAmount = cb?.cb_rate_amount ?? 0
+                      const isAlert = cbRate > 1
+                      return (
+                        <TableRow key={idx} className={isAlert ? 'bg-red-50' : ''}>
+                          <TableCell className="font-semibold">{formatCurrency(item.amount, 'EUR')}</TableCell>
+                          <TableCell className="text-right">{item.count}</TableCell>
+                          <TableCell className="text-right text-slate-600">{formatCurrency(item.total, 'EUR')}</TableCell>
+                          <TableCell className="text-right text-green-700">{cb?.approved ?? '—'}</TableCell>
+                          <TableCell className="text-right text-red-700">{cb?.chargebacks ?? '—'}</TableCell>
+                          <TableCell className={`text-right font-semibold ${isAlert ? 'text-red-700' : 'text-slate-700'}`}>
+                            {cb ? `${cbRate}%` : '—'}
+                            {isAlert && <AlertTriangle className="inline h-3 w-3 ml-1 text-red-500" />}
+                          </TableCell>
+                          <TableCell className={`text-right font-semibold ${isAlert ? 'text-red-700' : 'text-slate-700'}`}>
+                            {cb ? `${cbRateAmount}%` : '—'}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
               </div>
+              <div className="mt-2 flex justify-between items-center px-1">
+                <span className="text-sm font-medium text-slate-700">
+                  Total Valid Amount: {formatCurrency(stats.valid_total_amount || 0, 'EUR')}
+                </span>
+                <span className="text-sm text-slate-500">
+                  {stats.valid} valid records
+                </span>
+              </div>
+            </div>
           )}
 
           {hasBillingActivity && billingStats && (

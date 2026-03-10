@@ -1236,61 +1236,63 @@ export default function UploadDetailPage() {
           )}
 
           {hasBillingActivity && billingStats && (
-              <div className="px-6 pb-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <CreditCard className="h-5 w-5" />
-                      Billing Status
-                      {billingStats.is_processing && (
-                          <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      <div className="bg-green-50 rounded-lg p-3 border border-green-200">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span className="text-sm text-green-700">Approved</span>
-                        </div>
-                        <p className="text-xl font-semibold text-green-800 mt-1">{billingStats.approved}</p>
-                        <p className="text-xs text-green-600">{formatCurrency(billingStats.approved_amount, 'EUR')}</p>
-                      </div>
-                      <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-yellow-600" />
-                          <span className="text-sm text-yellow-700">Pending</span>
-                        </div>
-                        <p className="text-xl font-semibold text-yellow-800 mt-1">{billingStats.pending}</p>
-                        <p className="text-xs text-yellow-600">{formatCurrency(billingStats.pending_amount, 'EUR')}</p>
-                      </div>
-                      <div className="bg-red-50 rounded-lg p-3 border border-red-200">
-                        <div className="flex items-center gap-2">
-                          <XCircle className="h-4 w-4 text-red-600" />
-                          <span className="text-sm text-red-700">Declined</span>
-                        </div>
-                        <p className="text-xl font-semibold text-red-800 mt-1">{billingStats.declined}</p>
-                        <p className="text-xs text-red-600">{formatCurrency(billingStats.declined_amount, 'EUR')}</p>
-                      </div>
-                      <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className="h-4 w-4 text-slate-600" />
-                          <span className="text-sm text-slate-700">Errors</span>
-                        </div>
-                        <p className="text-xl font-semibold text-slate-800 mt-1">{billingStats.error}</p>
-                        <p className="text-xs text-slate-600">{formatCurrency(billingStats.error_amount, 'EUR')}</p>
-                      </div>
+            <div className="px-6 pb-3">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5" />
+                  Billing Status
+                  {billingStats.is_processing && (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
+                  )}
+                  <span className="text-xs font-normal text-slate-400 ml-1">({billingStats.total_attempts} attempts)</span>
+                </h3>
+                <Link href={`/admin/billing?upload_id=${uploadId}`}>
+                  <Button variant="outline" size="sm" className="h-6 text-xs px-2">View Details</Button>
+                </Link>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                <Card className="py-0 border-green-300 bg-green-50">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <CheckCircle className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Approved</span>
                     </div>
-                    <div className="mt-3 pt-3 border-t flex justify-between items-center">
-                      <span className="text-sm text-slate-500">Total attempts: {billingStats.total_attempts}</span>
-                      <Link href={`/admin/billing?upload_id=${uploadId}`}>
-                        <Button variant="outline" size="sm">View Details</Button>
-                      </Link>
+                    <p className="text-lg font-bold leading-tight text-green-800">{billingStats.approved}</p>
+                    <p className="text-xs text-green-600 leading-tight truncate">{formatCurrency(billingStats.approved_amount, 'EUR')}</p>
+                  </CardContent>
+                </Card>
+                <Card className="py-0 border-yellow-300 bg-yellow-50">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Clock className="h-3.5 w-3.5 text-yellow-600 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Pending</span>
                     </div>
+                    <p className="text-lg font-bold leading-tight text-yellow-800">{billingStats.pending}</p>
+                    <p className="text-xs text-yellow-600 leading-tight truncate">{formatCurrency(billingStats.pending_amount, 'EUR')}</p>
+                  </CardContent>
+                </Card>
+                <Card className="py-0 border-red-300 bg-red-50">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <XCircle className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Declined</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight text-red-800">{billingStats.declined}</p>
+                    <p className="text-xs text-red-600 leading-tight truncate">{formatCurrency(billingStats.declined_amount, 'EUR')}</p>
+                  </CardContent>
+                </Card>
+                <Card className="py-0">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <AlertCircle className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Errors</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">{billingStats.error}</p>
+                    <p className="text-xs text-slate-500 leading-tight truncate">{formatCurrency(billingStats.error_amount, 'EUR')}</p>
                   </CardContent>
                 </Card>
               </div>
+            </div>
           )}
 
           {/* Billing Cycles & Cap Section */}

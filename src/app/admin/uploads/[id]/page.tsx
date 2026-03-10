@@ -1257,8 +1257,10 @@ export default function UploadDetailPage() {
                       <CheckCircle className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
                       <span className="text-xs text-slate-500 truncate">Approved</span>
                     </div>
-                    <p className="text-lg font-bold leading-tight text-green-800">{billingStats.approved}</p>
-                    <p className="text-xs text-green-600 leading-tight truncate">{formatCurrency(billingStats.approved_amount, 'EUR')}</p>
+                    <div className="flex items-baseline gap-1.5">
+                      <p className="text-lg font-bold leading-tight text-green-800">{billingStats.approved}</p>
+                      <p className="text-xs text-green-600 leading-tight truncate">{formatCurrency(billingStats.approved_amount, 'EUR')}</p>
+                    </div>
                   </CardContent>
                 </Card>
                 <Card className="py-0 border-yellow-300 bg-yellow-50">
@@ -1267,8 +1269,10 @@ export default function UploadDetailPage() {
                       <Clock className="h-3.5 w-3.5 text-yellow-600 flex-shrink-0" />
                       <span className="text-xs text-slate-500 truncate">Pending</span>
                     </div>
-                    <p className="text-lg font-bold leading-tight text-yellow-800">{billingStats.pending}</p>
-                    <p className="text-xs text-yellow-600 leading-tight truncate">{formatCurrency(billingStats.pending_amount, 'EUR')}</p>
+                    <div className="flex items-baseline gap-1.5">
+                      <p className="text-lg font-bold leading-tight text-yellow-800">{billingStats.pending}</p>
+                      <p className="text-xs text-yellow-600 leading-tight truncate">{formatCurrency(billingStats.pending_amount, 'EUR')}</p>
+                    </div>
                   </CardContent>
                 </Card>
                 <Card className="py-0 border-red-300 bg-red-50">
@@ -1277,8 +1281,10 @@ export default function UploadDetailPage() {
                       <XCircle className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
                       <span className="text-xs text-slate-500 truncate">Declined</span>
                     </div>
-                    <p className="text-lg font-bold leading-tight text-red-800">{billingStats.declined}</p>
-                    <p className="text-xs text-red-600 leading-tight truncate">{formatCurrency(billingStats.declined_amount, 'EUR')}</p>
+                    <div className="flex items-baseline gap-1.5">
+                      <p className="text-lg font-bold leading-tight text-red-800">{billingStats.declined}</p>
+                      <p className="text-xs text-red-600 leading-tight truncate">{formatCurrency(billingStats.declined_amount, 'EUR')}</p>
+                    </div>
                   </CardContent>
                 </Card>
                 <Card className="py-0">
@@ -1287,8 +1293,10 @@ export default function UploadDetailPage() {
                       <AlertCircle className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
                       <span className="text-xs text-slate-500 truncate">Errors</span>
                     </div>
-                    <p className="text-lg font-bold leading-tight">{billingStats.error}</p>
-                    <p className="text-xs text-slate-500 leading-tight truncate">{formatCurrency(billingStats.error_amount, 'EUR')}</p>
+                    <div className="flex items-baseline gap-1.5">
+                      <p className="text-lg font-bold leading-tight">{billingStats.error}</p>
+                      <p className="text-xs text-slate-500 leading-tight truncate">{formatCurrency(billingStats.error_amount, 'EUR')}</p>
+                    </div>
                   </CardContent>
                 </Card>
               </div>

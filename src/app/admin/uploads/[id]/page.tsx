@@ -691,6 +691,7 @@ export default function UploadDetailPage() {
   const hasEverSynced = (billingStats?.total_attempts ?? 0) > 0 || (upload?.resync_count ?? 0) > 0
   const isResync = upload?.can_resync === true && hasEverSynced
   const resyncLimitReached = (upload?.resync_count ?? 0) >= (upload?.max_resync ?? 3)
+  const isVoidedOrCancelled = ['void', 'voiding', 'cancelled', 'cancelling'].includes(upload?.status ?? '')
   // Only show resync stat cards when a sync has fully completed (not mid-run) and limit not reached
   const showResyncStats = hasEverSynced && (!billingStats?.is_processing || billingStats?.is_resync_processing) && !resyncLimitReached
 
@@ -1150,31 +1151,31 @@ export default function UploadDetailPage() {
                     <p className="text-lg font-bold leading-tight">{showResyncStats ?  '0' : stats.ready_for_sync ?? 0}</p>
                   </CardContent>
                 </Card>
-                <Card className={`py-0 ${(stats.current_resync_count ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>
+                <Card className={`py-0 ${(stats.current_resync_count ?? 0) > 0 && !isVoidedOrCancelled ? 'border-blue-300 bg-blue-50' : ''}`}>
                   <CardContent className="p-3">
                     <div className="flex items-center gap-1.5 mb-1">
                       <RefreshCw className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                       <span className="text-xs text-slate-500 truncate">Current Resync Remaining</span>
                     </div>
-                    <p className="text-lg font-bold leading-tight">{showResyncStats ? stats.ready_for_sync : '0'}</p>
+                    <p className="text-lg font-bold leading-tight">{showResyncStats && !isVoidedOrCancelled ? stats.ready_for_sync : '0'}</p>
                   </CardContent>
                 </Card>
-                <Card className={`py-0 ${showResyncStats && (upload.ready_for_sync_count ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>
+                <Card className={`py-0 ${showResyncStats && !isVoidedOrCancelled && (upload.ready_for_sync_count ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>
                   <CardContent className="p-3">
                     <div className="flex items-center gap-1.5 mb-1">
                       <ListChecks className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
                       <span className="text-xs text-slate-500 truncate">Resync Ready Count</span>
                     </div>
-                    <p className="text-lg font-bold leading-tight">{showResyncStats ? upload.ready_for_sync_count : '0'}</p>
+                    <p className="text-lg font-bold leading-tight">{showResyncStats && !isVoidedOrCancelled ? upload.ready_for_sync_count : '0'}</p>
                   </CardContent>
                 </Card>
-                <Card className={`py-0 ${showResyncStats && (upload.ready_for_sync_amount ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>
+                <Card className={`py-0 ${showResyncStats && !isVoidedOrCancelled && (upload.ready_for_sync_amount ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>
                   <CardContent className="p-3">
                     <div className="flex items-center gap-1.5 mb-1">
                       <CreditCard className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
                       <span className="text-xs text-slate-500 truncate">Resync Ready Amount</span>
                     </div>
-                    <p className="text-base font-bold leading-tight truncate">{formatCurrency(showResyncStats ? (upload.ready_for_sync_amount ?? 0) : 0, 'EUR')}</p>
+                    <p className="text-base font-bold leading-tight truncate">{formatCurrency(showResyncStats && !isVoidedOrCancelled ? (upload.ready_for_sync_amount ?? 0) : 0, 'EUR')}</p>
                   </CardContent>
                 </Card>
 

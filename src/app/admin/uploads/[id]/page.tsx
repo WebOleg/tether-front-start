@@ -1236,7 +1236,7 @@ export default function UploadDetailPage() {
           )}
 
           {hasBillingActivity && billingStats && (
-            <div className="px-6 pb-3">
+            <div className="px-6 pb-3 mt-4">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
                   <CreditCard className="h-3.5 w-3.5" />
@@ -1305,117 +1305,106 @@ export default function UploadDetailPage() {
 
           {/* Billing Cycles & Cap Section */}
           {(hasBillingActivity || billingCycles?.data?.max_billing_amount !== null) && (
-              <div className="px-6 pb-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <RotateCcw className="h-5 w-5" />
-                      Billing Cycles
-                      {cyclesLoading && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-4 mb-4 p-3 bg-slate-50 rounded-lg border">
-                      <div className="flex items-center gap-2">
-                        <Settings className="h-4 w-4 text-slate-500" />
-                        <Label className="text-sm font-medium text-slate-700 whitespace-nowrap">Max Billing Cap (EUR):</Label>
-                      </div>
-                      <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="No limit"
-                          value={maxBillingInput}
-                          onChange={(e) => setMaxBillingInput(e.target.value)}
-                          className="w-36 h-8"
-                      />
-                      <Button size="sm" onClick={handleSaveCap} disabled={savingCap} className="gap-1 h-8">
-                        {savingCap ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                        Save
-                      </Button>
-                      {billingCycles?.data?.max_billing_amount !== null && (
-                          <div className="flex items-center gap-3 ml-4 text-sm">
-                            <span className="text-slate-500">
-                              Total billed: <span className="font-semibold text-slate-700">{formatCurrency(billingCycles?.data?.total_billed_amount ?? 0, 'EUR')}</span>
-                            </span>
-                            <span className="text-slate-500">
-                              Remaining: <span className={`font-semibold ${(billingCycles?.data?.cap_remaining ?? 0) <= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {formatCurrency(billingCycles?.data?.cap_remaining ?? 0, 'EUR')}
-                              </span>
-                            </span>
-                          </div>
-                      )}
-                    </div>
-
-                    {billingCycles?.data?.cycles && billingCycles.data.cycles.length > 0 ? (
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Cycle</TableHead>
-                                <TableHead className="text-right">Approved</TableHead>
-                                <TableHead className="text-right">Pending</TableHead>
-                                <TableHead className="text-right">Declined</TableHead>
-                                <TableHead className="text-right">Chargebacked</TableHead>
-                                <TableHead className="text-right">Error</TableHead>
-                                <TableHead className="text-right">Void</TableHead>
-                                <TableHead className="text-right">Total</TableHead>
-                                <TableHead className="text-right">Amount</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {billingCycles.data.cycles.map((cycle) => (
-                                  <TableRow key={cycle.cycle}>
-                                    <TableCell className="font-semibold">Cycle {cycle.cycle}</TableCell>
-                                    <TableCell className="text-right">
-                                      {cycle.statuses.approved ? (
-                                          <span className="inline-flex items-center gap-1">
-                                            <span className="text-green-700 font-medium">{cycle.statuses.approved.count}</span>
-                                            <span className="text-xs text-green-600">({formatCurrency(cycle.statuses.approved.amount, 'EUR')})</span>
-                                          </span>
-                                      ) : '—'}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                      {cycle.statuses.pending ? (
-                                          <span className="inline-flex items-center gap-1">
-                                            <span className="text-yellow-700 font-medium">{cycle.statuses.pending.count}</span>
-                                            <span className="text-xs text-yellow-600">({formatCurrency(cycle.statuses.pending.amount, 'EUR')})</span>
-                                          </span>
-                                      ) : '—'}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                      {cycle.statuses.declined ? <span className="text-red-700 font-medium">{cycle.statuses.declined.count}</span> : '—'}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                      {cycle.statuses.chargebacked ? <span className="text-purple-700 font-medium">{cycle.statuses.chargebacked.count}</span> : '—'}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                      {cycle.statuses.error ? <span className="text-slate-600">{cycle.statuses.error.count}</span> : '—'}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                      {cycle.statuses.void ? <span className="text-gray-500">{cycle.statuses.void.count}</span> : '—'}
-                                    </TableCell>
-                                    <TableCell className="text-right font-semibold">{cycle.total_count}</TableCell>
-                                    <TableCell className="text-right font-semibold">{formatCurrency(cycle.total_amount, 'EUR')}</TableCell>
-                                  </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                          <div className="mt-3 pt-3 border-t flex justify-between items-center">
-                            <span className="text-sm text-slate-500">
-                              {billingCycles.data.total_cycles} cycle{billingCycles.data.total_cycles !== 1 ? 's' : ''} completed
-                            </span>
-                            <Button variant="outline" size="sm" onClick={fetchBillingCycles} className="gap-1">
-                              <RefreshCw className="h-3 w-3" />
-                              Refresh
-                            </Button>
-                          </div>
-                        </div>
-                    ) : (
-                        <p className="text-sm text-slate-500 text-center py-4">No billing cycles yet</p>
+              <div className="px-6 pb-4 mt-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                  <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-1.5 shrink-0">
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Billing Cycles
+                    {cyclesLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
+                  </h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Settings className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <Label className="text-xs text-slate-500 whitespace-nowrap">Cap (EUR):</Label>
+                    <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="No limit"
+                        value={maxBillingInput}
+                        onChange={(e) => setMaxBillingInput(e.target.value)}
+                        className="w-28 h-7 text-xs"
+                    />
+                    <Button size="sm" onClick={handleSaveCap} disabled={savingCap} className="gap-1 h-7 text-xs px-2">
+                      {savingCap ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                      Save
+                    </Button>
+                    {billingCycles?.data?.max_billing_amount !== null && (
+                        <span className="text-xs text-slate-500">
+                          Billed: <span className="font-semibold text-slate-700">{formatCurrency(billingCycles?.data?.total_billed_amount ?? 0, 'EUR')}</span>
+                          <span className="mx-1 text-slate-300">·</span>
+                          Remaining: <span className={`font-semibold ${(billingCycles?.data?.cap_remaining ?? 0) <= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatCurrency(billingCycles?.data?.cap_remaining ?? 0, 'EUR')}
+                          </span>
+                        </span>
                     )}
-                  </CardContent>
-                </Card>
+                    <Button variant="default" size="sm" onClick={fetchBillingCycles} className="gap-1 h-7 text-xs px-2">
+                      <RefreshCw className="h-3 w-3" />
+                      Refresh
+                    </Button>
+                  </div>
+                </div>
+
+                {billingCycles?.data?.cycles && billingCycles.data.cycles.length > 0 ? (
+                    <div className="rounded-lg border bg-white overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Cycle</TableHead>
+                            <TableHead className="text-right">Approved</TableHead>
+                            <TableHead className="text-right">Pending</TableHead>
+                            <TableHead className="text-right">Declined</TableHead>
+                            <TableHead className="text-right">Chargebacked</TableHead>
+                            <TableHead className="text-right">Error</TableHead>
+                            <TableHead className="text-right">Void</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {billingCycles.data.cycles.map((cycle) => (
+                              <TableRow key={cycle.cycle}>
+                                <TableCell className="font-semibold">Cycle {cycle.cycle}</TableCell>
+                                <TableCell className="text-right">
+                                  {cycle.statuses.approved ? (
+                                      <span className="inline-flex items-center gap-1">
+                                        <span className="text-green-700 font-medium">{cycle.statuses.approved.count}</span>
+                                        <span className="text-xs text-green-600">({formatCurrency(cycle.statuses.approved.amount, 'EUR')})</span>
+                                      </span>
+                                  ) : '—'}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {cycle.statuses.pending ? (
+                                      <span className="inline-flex items-center gap-1">
+                                        <span className="text-yellow-700 font-medium">{cycle.statuses.pending.count}</span>
+                                        <span className="text-xs text-yellow-600">({formatCurrency(cycle.statuses.pending.amount, 'EUR')})</span>
+                                      </span>
+                                  ) : '—'}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {cycle.statuses.declined ? <span className="text-red-700 font-medium">{cycle.statuses.declined.count}</span> : '—'}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {cycle.statuses.chargebacked ? <span className="text-purple-700 font-medium">{cycle.statuses.chargebacked.count}</span> : '—'}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {cycle.statuses.error ? <span className="text-slate-600">{cycle.statuses.error.count}</span> : '—'}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {cycle.statuses.void ? <span className="text-gray-500">{cycle.statuses.void.count}</span> : '—'}
+                                </TableCell>
+                                <TableCell className="text-right font-semibold">{cycle.total_count}</TableCell>
+                                <TableCell className="text-right font-semibold">{formatCurrency(cycle.total_amount, 'EUR')}</TableCell>
+                              </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      <div className="px-3 py-2 border-t bg-slate-50 text-xs text-slate-500">
+                        {billingCycles.data.total_cycles} cycle{billingCycles.data.total_cycles !== 1 ? 's' : ''} completed
+                      </div>
+                    </div>
+                ) : (
+                    <p className="text-sm text-slate-500 py-2">No billing cycles yet</p>
+                )}
               </div>
           )}
 

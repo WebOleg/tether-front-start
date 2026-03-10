@@ -30,6 +30,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
 import type { BillingCyclesResponse } from '@/lib/api'
 import {
@@ -49,13 +50,17 @@ import {
   CreditCard,
   Send,
   UserCheck,
+  UserX,
   PlayCircle,
+  Timer,
+  History,
+  ListChecks,
   RefreshCw,
-  Settings,
   RotateCcw,
+  Settings,
   Save,
 } from 'lucide-react'
-import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, EmpAccount, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink } from '@/types'
+import type { Upload, Debtor, ValidationStats, VopStats, BillingStats, BillingRun, PaginationMeta as PaginationMetaType, PaginationLinks, PaginationLink, EmpAccount } from '@/types'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { Progress } from '@/components/ui/progress'
 import { ModelTabs } from '@/components/ui/model-tabs'
@@ -109,7 +114,10 @@ export default function UploadDetailPage() {
   const [debtorType, setDebtorType] = useState<DebtorType>('all')
   const [bavModalOpen, setBavModalOpen] = useState(false)
   const [voidConfirmOpen, setVoidConfirmOpen] = useState(false)
+  const [resyncConfirmOpen, setResyncConfirmOpen] = useState(false)
+  const [recentRetriesOpen, setRecentRetriesOpen] = useState(false)
   const [skipBicBlacklist, setSkipBicBlacklist] = useState(false)
+  const [cooldownUpdating, setCooldownUpdating] = useState(false)
 
   // Reassign state
   const [reassignOpen, setReassignOpen] = useState(false)
@@ -225,6 +233,17 @@ export default function UploadDetailPage() {
     }
   }, [uploadId])
 
+  const fetchUpload = useCallback(async () => {
+    try {
+      const data = await api.getUpload(uploadId)
+      setUpload(data)
+      return data
+    } catch (error) {
+      console.error('Failed to fetch upload:', error)
+      return null
+    }
+  }, [uploadId])
+
   const fetchDebtors = useCallback(async (pageNum?: number, searchQuery?: string) => {
     try {
       const debtorsResponse = await api.getUploadDebtors(uploadId, withTypeParam({
@@ -255,6 +274,22 @@ export default function UploadDetailPage() {
   const handleTypeChange = (value: string) => {
     setDebtorType(value as DebtorType)
     setCurrentPage(1)
+  }
+
+  const handleCooldownToggle = async (checked: boolean) => {
+    setCooldownUpdating(true)
+    try {
+      // Use PATCH response directly — it has the freshest can_resync / is_30d_cool values
+      const result = await api.setUploadCooldown(uploadId, checked)
+      setUpload(result.data)
+      toast.success(`30-day cooldown ${checked ? 'enabled' : 'disabled'} successfully`)
+      // Also refresh stats so ready_for_sync is current, and re-fetch upload for latest can_resync
+      await Promise.all([fetchValidationStats(), fetchBillingStats(), fetchUpload()])
+    } catch (error) {
+      toast.error('Failed to update 30-day cooldown')
+    } finally {
+      setCooldownUpdating(false)
+    }
   }
 
   // Manual validation trigger
@@ -336,19 +371,22 @@ export default function UploadDetailPage() {
   }, [isValidating, uploadId, fetchValidationStats, fetchDebtors, fetchVopStats])
 
   useEffect(() => {
-    if (!billingStats?.is_processing) return
+    if (!billingStats?.is_processing && !billingStats?.is_resync_processing) return
 
     const interval = setInterval(async () => {
-      const data = await fetchBillingStats()
-      if (data && !data.is_processing) {
+      const [data] = await Promise.all([fetchBillingStats(), fetchValidationStats()])
+      if (data && !data.is_processing && !data.is_resync_processing) {
         clearInterval(interval)
         toast.success('Billing processing completed!')
+
+        // Refresh upload (can_resync) so the Resync button reflects the correct post-sync state
+        await fetchUpload()
         fetchBillingCycles()
       }
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [billingStats?.is_processing, fetchBillingStats, fetchBillingCycles])
+  }, [billingStats?.is_processing, billingStats?.is_resync_processing, fetchBillingStats, fetchUpload, fetchValidationStats, fetchBillingCycles])
 
   // Polling effect for VOP verification progress
   useEffect(() => {
@@ -508,11 +546,13 @@ export default function UploadDetailPage() {
       })
       return
     }
+    setResyncConfirmOpen(true)
+  }
 
-    if (!confirm(`Send ${stats?.ready_for_sync || 0} debtors to payment gateway?`)) {
-      return
-    }
-
+  const executeSync = async () => {
+    setResyncConfirmOpen(false)
+    const hadPriorSync = (billingStats?.total_attempts ?? 0) > 0 || (upload?.resync_count ?? 0) > 0
+    const isResync = upload?.can_resync === true && hadPriorSync
     setSyncing(true)
     try {
       const result = await api.syncToGateway(uploadId, debtorType !== 'all' ? { debtor_type: debtorType } : undefined)
@@ -520,7 +560,7 @@ export default function UploadDetailPage() {
       if (result.data.duplicate) {
         toast.warning('Billing already in progress for this upload')
       } else if (result.data.queued) {
-        toast.success(result.message)
+        toast.success(isResync ? 'Resync queued successfully' : result.message)
         await fetchBillingStats()
         await fetchBillingCycles()
       } else {
@@ -648,6 +688,12 @@ export default function UploadDetailPage() {
   const vopPending = vopStats ? vopStats.pending : 0
   const vopTotalEligible = vopStats ? vopStats.total_eligible : 0
   const hasBillingActivity = billingStats && billingStats.total_attempts > 0
+  const hasEverSynced = (billingStats?.total_attempts ?? 0) > 0 || (upload?.resync_count ?? 0) > 0
+  const isResync = upload?.can_resync === true && hasEverSynced
+  const resyncLimitReached = (upload?.resync_count ?? 0) >= (upload?.max_resync ?? 3)
+  const isVoidedOrCancelled = ['void', 'voiding', 'cancelled', 'cancelling'].includes(upload?.status ?? '')
+  // Only show resync stat cards when a sync has fully completed (not mid-run) and limit not reached
+  const showResyncStats = hasEverSynced && (!billingStats?.is_processing || billingStats?.is_resync_processing) && !resyncLimitReached
 
   const vopPassed = (vopStats?.by_result?.verified || 0) + (vopStats?.by_result?.likely_verified || 0)
   const vopFailed = (vopStats?.by_result?.mismatch || 0) + (vopStats?.by_result?.rejected || 0) + (vopStats?.by_result?.inconclusive || 0)
@@ -740,9 +786,21 @@ export default function UploadDetailPage() {
                 />
                 <span className={`${isValidating ? 'text-slate-400' : 'text-slate-600'}`}>Skip BIC Blacklist</span>
               </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <Switch
+                  checked={upload?.is_30d_cool ?? false}
+                  onCheckedChange={handleCooldownToggle}
+                  disabled={cooldownUpdating || loading}
+                  id="cooldown-switch"
+                />
+                <span className={`flex items-center gap-1 ${cooldownUpdating || loading ? 'text-slate-400' : 'text-slate-600'}`}>
+                  <Timer className="h-3.5 w-3.5" />
+                  30 Day Cool
+                </span>
+              </label>
               <span className="text-sm text-slate-500">
-              {stats?.total || 0} records
-            </span>
+                {stats?.total || 0} records
+              </span>
               {!isValidating && (
                   <Button
                       variant="outline"
@@ -760,14 +818,14 @@ export default function UploadDetailPage() {
                     Validating...
                   </Badge>
               )}
-              {billingStats?.is_processing && (
+              {(billingStats?.is_processing || billingStats?.is_resync_processing) && (
                   <Badge className="bg-blue-100 text-blue-800 gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    Billing in progress
+                    {billingStats?.is_resync_processing ? 'Resync in progress' : 'Billing in progress'}
                   </Badge>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-2">
               {validationCompleted && vopPending > 0 && (
                   <Button
                       variant="outline"
@@ -799,7 +857,7 @@ export default function UploadDetailPage() {
                   </Button>
               )}
 
-              {billingStats?.is_processing && (
+              {(billingStats?.is_processing || billingStats?.is_resync_processing) && (
                   <Button
                       variant="destructive"
                       onClick={handleCancelBilling}
@@ -821,44 +879,103 @@ export default function UploadDetailPage() {
               )}
 
               {((billingStats?.billing_status === 'cancelling' || billingStats?.billing_status === 'cancelled') && (billingStats?.approved + billingStats?.pending) > 0) && (
-                  <Button
-                      variant="destructive"
-                      onClick={handleVoidClick}
-                      disabled={voiding || billingStats?.is_processing}
-                      className="gap-2 mr-2 cursor-pointer bg-red-900 hover:bg-red-950"
-                  >
-                    {voiding ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Voiding...
-                        </>
-                    ) : (
-                        <>
-                          <Ban className="h-4 w-4" />
-                          Void All ({(billingStats?.approved + billingStats?.pending)})
-                        </>
-                    )}
-                  </Button>
+                <Button
+                    variant="destructive"
+                    onClick={handleVoidClick}
+                    disabled={voiding || billingStats?.is_processing || billingStats?.is_resync_processing}
+                    className="gap-2 mr-2 cursor-pointer bg-red-500 hover:bg-red-600"
+                >
+                  {voiding ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Voiding...
+                      </>
+                  ) : (
+                      <>
+                        <Ban className="h-4 w-4" />
+                        Void All ({(billingStats?.approved + billingStats?.pending)})
+                      </>
+                  )}
+                </Button>
               )}
 
-              <Button
-                  onClick={handleSync}
-                  disabled={syncing || billingStats?.is_processing || (stats?.ready_for_sync || 0) === 0 || !canSync}
-                  className="gap-2"
-                  title={!canSync ? `VOP verification required (${vopPending} pending)` : undefined}
-              >
-                {syncing || billingStats?.is_processing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {billingStats?.is_processing ? 'Processing...' : 'Syncing...'}
-                    </>
-                ) : (
-                    <>
-                      <Send className="h-4 w-4" />
-                      Sync to Gateway ({stats?.ready_for_sync || 0})
-                    </>
-                )}
-              </Button>
+              {hasEverSynced && (
+                <Button
+                    onClick={handleSync}
+                    disabled={
+                      syncing
+                      || billingStats?.is_processing
+                      || billingStats?.is_resync_processing
+                      || !canSync
+                      || !isResync
+                      || resyncLimitReached
+                      || (upload?.valid_count || 0) === 0
+                    }
+                    className="gap-2"
+                    title={
+                      resyncLimitReached
+                        ? `Resync limit reached (${upload?.resync_count ?? 0}/${upload?.max_resync ?? 3})`
+                        : !isResync
+                        ? 'Enable resync by turning off the 30-day cooldown'
+                        : !canSync
+                        ? `VOP verification required (${vopPending} pending)`
+                        : `Resync ${upload?.ready_for_sync_count ?? 0} debtors to gateway (${upload?.resync_count ?? 0}/${upload?.max_resync ?? 3} used)`
+                    }
+                >
+                  {syncing || billingStats?.is_processing || billingStats?.is_resync_processing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {billingStats?.is_processing || billingStats?.is_resync_processing ? 'Processing...' : 'Syncing...'}
+                      </>
+                  ) : (
+                      <>
+                        <Send className="h-4 w-4" />
+                        Resync to Gateway ({showResyncStats ? (upload.ready_for_sync_count ?? 0) : 0})
+                        <span className="text-xs opacity-70 ml-1">{upload?.resync_count ?? 0}/{upload?.max_resync ?? 3}</span>
+                      </>
+                  )}
+                </Button>
+              )}
+
+              {!hasEverSynced && (
+                <Button
+                    onClick={handleSync}
+                    disabled={syncing || billingStats?.is_processing || billingStats?.is_resync_processing || (stats?.ready_for_sync || 0) === 0 || !canSync}
+                    className="gap-2"
+                    title={
+                      !canSync
+                        ? `VOP verification required (${vopPending} pending)`
+                        : undefined
+                    }
+                >
+                  {syncing || billingStats?.is_processing || billingStats?.is_resync_processing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {billingStats?.is_processing || billingStats?.is_resync_processing ? 'Processing...' : 'Syncing...'}
+                      </>
+                  ) : (
+                      <>
+                        <Send className="h-4 w-4" />
+                        Sync to Gateway ({stats?.ready_for_sync || 0})
+                      </>
+                  )}
+                </Button>
+              )}
+
+              {(upload?.billing_runs?.length ?? 0) > 0 && (
+                <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setRecentRetriesOpen(true)}
+                    title={`Recent sync attempts (${upload?.billing_runs?.length ?? 0})`}
+                    className="relative ml-1"
+                >
+                  <History className="h-4 w-4" />
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">
+                    {upload?.billing_runs?.length}
+                  </span>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -934,17 +1051,134 @@ export default function UploadDetailPage() {
           )}
 
           {stats && (
-              <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-10 gap-4">
-                <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-green-500 rounded-full" /><span className="text-sm text-slate-500">Valid</span></div><p className="text-2xl font-semibold mt-1">{stats.valid}</p></CardContent></Card>
-                <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-orange-500 rounded-full" /><span className="text-sm text-slate-500">Invalid</span></div><p className="text-2xl font-semibold mt-1">{stats.invalid}</p></CardContent></Card>
-                <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-purple-500 rounded-full" /><span className="text-sm text-slate-500">Blacklisted</span></div><p className="text-2xl font-semibold mt-1">{stats.blacklisted}</p></CardContent></Card>
-                <Card className={stats.chargebacked > 0 ? 'border-red-300 bg-red-50' : ''}><CardContent className="pt-4"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-red-600 rounded-full" /><span className="text-sm text-slate-500">Chargebacked</span></div><p className="text-2xl font-semibold mt-1">{stats.chargebacked}{(upload?.billed_with_emp_count ?? 0) > 0 && (<span className="text-sm text-slate-500 ml-2">({Math.round((stats.chargebacked / (upload?.billed_with_emp_count ?? 1)) * 100)}%)</span>)}</p></CardContent></Card>
-                <Card className={(upload.bav_passed_count ?? 0) > 0 ? 'border-green-300 bg-green-50' : ''}><CardContent className="pt-4"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-green-500 rounded-full" /><span className="text-sm text-slate-500">BAV Passed</span></div><p className="text-2xl font-semibold mt-1">{upload.bav_passed_count ?? 0}</p></CardContent></Card>
-                <Card className={(upload.bav_excluded_count ?? 0) > 0 ? 'border-amber-300 bg-amber-50' : ''}><CardContent className="pt-4"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-amber-500 rounded-full" /><span className="text-sm text-slate-500">BAV Excluded</span></div><p className="text-2xl font-semibold mt-1">{upload.bav_excluded_count ?? 0}</p></CardContent></Card>
-                <Card className={vopPassed > 0 ? 'border-green-300 bg-green-50' : ''}><CardContent className="pt-4"><div className="flex items-center gap-2"><ShieldCheck className="h-3 w-3 text-green-600" /><span className="text-sm text-slate-500">VOP Passed</span></div><p className="text-2xl font-semibold mt-1">{vopPassed}</p></CardContent></Card>
-                <Card className={vopFailed > 0 ? 'border-red-300 bg-red-50' : ''}><CardContent className="pt-4"><div className="flex items-center gap-2"><ShieldX className="h-3 w-3 text-red-600" /><span className="text-sm text-slate-500">VOP Failed</span></div><p className="text-2xl font-semibold mt-1">{vopFailed}</p></CardContent></Card>
-                <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-gray-400 rounded-full" /><span className="text-sm text-slate-500">Pending</span></div><p className="text-2xl font-semibold mt-1">{stats.pending}</p></CardContent></Card>
-                <Card><CardContent className="pt-4"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-blue-500 rounded-full" /><span className="text-sm text-slate-500">Ready for Sync</span></div><p className="text-2xl font-semibold mt-1">{stats.ready_for_sync}</p></CardContent></Card>
+              <div className="px-6 py-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+                {/* Row 1: 8 cards */}
+                <Card className="py-0">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <CheckCircle className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Valid</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">{stats.valid}</p>
+                  </CardContent>
+                </Card>
+                <Card className="py-0">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <XCircle className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Invalid</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">{stats.invalid}</p>
+                  </CardContent>
+                </Card>
+                <Card className="py-0">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Ban className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Blacklisted</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">{stats.blacklisted}</p>
+                  </CardContent>
+                </Card>
+                <Card className={`py-0 ${stats.chargebacked > 0 ? 'border-red-300 bg-red-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <AlertTriangle className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Chargebacked</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">
+                      {stats.chargebacked}
+                      {(upload?.billed_with_emp_count ?? 0) > 0 && (
+                        <span className="text-xs text-slate-500 ml-1">
+                          ({Math.round((stats.chargebacked / (upload?.billed_with_emp_count ?? 1)) * 100)}%)
+                        </span>
+                      )}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className={`py-0 ${(upload.bav_passed_count ?? 0) > 0 ? 'border-green-300 bg-green-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <UserCheck className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">BAV Passed</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">{upload.bav_passed_count ?? 0}</p>
+                  </CardContent>
+                </Card>
+                <Card className={`py-0 ${(upload.bav_excluded_count ?? 0) > 0 ? 'border-amber-300 bg-amber-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <UserX className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">BAV Excluded</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">{upload.bav_excluded_count ?? 0}</p>
+                  </CardContent>
+                </Card>
+                <Card className={`py-0 ${vopPassed > 0 ? 'border-green-300 bg-green-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <ShieldCheck className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">VOP Passed</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">{vopPassed}</p>
+                  </CardContent>
+                </Card>
+                <Card className={`py-0 ${vopFailed > 0 ? 'border-red-300 bg-red-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <ShieldX className="h-3.5 w-3.5 text-red-600 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">VOP Failed</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">{vopFailed}</p>
+                  </CardContent>
+                </Card>
+                {/* Row 2: 4 cards */}
+                <Card className="py-0">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Clock className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Pending</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">{stats.pending}</p>
+                  </CardContent>
+                </Card>
+                <Card className="py-0">
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Send className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Ready for Sync</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">{showResyncStats ?  '0' : stats.ready_for_sync ?? 0}</p>
+                  </CardContent>
+                </Card>
+                <Card className={`py-0 ${(stats.current_resync_count ?? 0) > 0 && !isVoidedOrCancelled ? 'border-blue-300 bg-blue-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <RefreshCw className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Current Resync Remaining</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">{showResyncStats && !isVoidedOrCancelled ? stats.ready_for_sync : '0'}</p>
+                  </CardContent>
+                </Card>
+                <Card className={`py-0 ${showResyncStats && !isVoidedOrCancelled && (upload.ready_for_sync_count ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <ListChecks className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Resync Ready Count</span>
+                    </div>
+                    <p className="text-lg font-bold leading-tight">{showResyncStats && !isVoidedOrCancelled ? upload.ready_for_sync_count : '0'}</p>
+                  </CardContent>
+                </Card>
+                <Card className={`py-0 ${showResyncStats && !isVoidedOrCancelled && (upload.ready_for_sync_amount ?? 0) > 0 ? 'border-blue-300 bg-blue-50' : ''}`}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <CreditCard className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
+                      <span className="text-xs text-slate-500 truncate">Resync Ready Amount</span>
+                    </div>
+                    <p className="text-base font-bold leading-tight truncate">{formatCurrency(showResyncStats && !isVoidedOrCancelled ? (upload.ready_for_sync_amount ?? 0) : 0, 'EUR')}</p>
+                  </CardContent>
+                </Card>
+
               </div>
           )}
 
@@ -1373,6 +1607,109 @@ export default function UploadDetailPage() {
             onOpenChange={setBavModalOpen}
             onComplete={handleBavComplete}
         />
+
+        <Dialog open={resyncConfirmOpen} onOpenChange={setResyncConfirmOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-blue-700">
+                <Send className="h-5 w-5" />
+                {isResync ? 'Confirm Resync to Gateway' : 'Confirm Sync to Gateway'}
+              </DialogTitle>
+              <DialogDescription className="pt-2">
+                {isResync
+                  ? <>30-day cooldown is <strong>OFF</strong>. Debtors will be re-sent to the payment gateway even if previously billed.</>
+                  : <>Debtors will be sent to the payment gateway for billing.</>
+                }
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 my-2 text-sm text-blue-800 space-y-1">
+              <p><span className="font-semibold">Debtors to send:</span> {isResync ? upload?.ready_for_sync_count ?? 0 : stats?.ready_for_sync || 0}</p>
+              {isResync && (
+                <p><span className="font-semibold">Resync usage:</span> {(upload?.resync_count ?? 0) + 1} of {upload?.max_resync ?? 3} after this action</p>
+              )}
+              {isResync && (
+                <p className="text-blue-600 text-xs">Debtors already approved or chargebacked will be skipped by the gateway.</p>
+              )}
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button className="cursor-pointer mr-2" variant="outline" onClick={() => setResyncConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                  onClick={executeSync}
+                  disabled={syncing}
+                  className="cursor-pointer"
+              >
+                {syncing ? (
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" />Sending...</>
+                ) : (
+                  <><Send className="h-4 w-4 mr-2" />{isResync ? 'Yes, Resync Now' : 'Yes, Sync Now'}</>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={recentRetriesOpen} onOpenChange={setRecentRetriesOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-slate-700">
+                <History className="h-5 w-5" />
+                Recent Sync Attempts
+              </DialogTitle>
+              <DialogDescription className="pt-1">
+                {upload?.resync_count ?? 0} of {upload?.max_resync ?? 3} resyncs used
+              </DialogDescription>
+            </DialogHeader>
+
+            {(upload?.billing_runs?.length ?? 0) === 0 ? (
+              <p className="text-sm text-slate-500 py-4 text-center">No sync attempts recorded.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">Run</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Started At</TableHead>
+                      <TableHead>Completed At</TableHead>
+                      <TableHead className="text-right">Recovered</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(upload?.billing_runs ?? []).map((run: BillingRun) => (
+                      <TableRow key={run.run}>
+                        <TableCell className="font-medium">#{run.run}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            run.status === 'completed'
+                              ? 'bg-green-100 text-green-700'
+                              : run.status === 'failed'
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {run.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600">{run.started_at ? formatDate(run.started_at) : '—'}</TableCell>
+                        <TableCell className="text-sm text-slate-600">{run.completed_at ? formatDate(run.completed_at) : '—'}</TableCell>
+                        <TableCell className="text-right text-sm">{run.recovered_count}</TableCell>
+                        <TableCell className="text-right text-sm">{formatCurrency(run.recovered_amount, 'EUR')}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRecentRetriesOpen(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={voidConfirmOpen} onOpenChange={setVoidConfirmOpen}>
           <DialogContent>

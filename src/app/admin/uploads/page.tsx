@@ -44,7 +44,8 @@ import {
   Filter,
   CreditCard,
   Euro,
-  Lock
+  Lock,
+  Timer
 } from 'lucide-react'
 import type { Upload, SkippedCounts, PaginationLinks, PaginationLink, PaginationMeta as PaginationMetaType, EmpAccount } from '@/types'
 import {
@@ -106,6 +107,7 @@ export default function UploadsPage() {
   const [loading, setLoading] = useState(true)
   const [file, setFile] = useState<File | null>(null)
   const [billingModel, setBillingModel] = useState<string>('legacy')
+  const [is30dCool, setIs30dCool] = useState<boolean | null>(true)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<UploadStatusState | null>(null)
   const [activeUploadId, setActiveUploadId] = useState<number | null>(null)
@@ -310,7 +312,7 @@ export default function UploadsPage() {
 
     try {
       // Pass the lock flag to the API
-      const result = await api.uploadFile(file, billingModel, selectedEmpAccountId, applyGlobalLock)
+      const result = await api.uploadFile(file, billingModel, selectedEmpAccountId, applyGlobalLock, undefined, billingModel === 'legacy' ? is30dCool : null)
       setActiveUploadId(result.upload.id)
 
       if (result.skipped && result.skipped.total > 0) {
@@ -321,6 +323,7 @@ export default function UploadsPage() {
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
+      setIs30dCool(billingModel === 'legacy' ? true : null)
     } catch (error) {
       if (error instanceof ApiError) {
         setUploadStatus({
@@ -436,7 +439,14 @@ export default function UploadsPage() {
                     <div className="w-full sm:w-[200px]">
                       <Select
                           value={billingModel}
-                          onValueChange={setBillingModel}
+                          onValueChange={(value) => {
+                            setBillingModel(value)
+                            if (value !== 'legacy') {
+                              setIs30dCool(null)
+                            } else {
+                              setIs30dCool(true)
+                            }
+                          }}
                           disabled={isUploading}
                       >
                         <SelectTrigger id="billing-model" className="bg-white">
@@ -487,6 +497,47 @@ export default function UploadsPage() {
                                 </div>
                               </SelectItem>
                           ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="w-full sm:w-40">
+                      <Select
+                          value={is30dCool === null ? '' : is30dCool ? 'true' : 'false'}
+                          onValueChange={(value) => setIs30dCool(value === 'true')}
+                          disabled={isUploading || billingModel !== 'legacy'}
+                      >
+                        <SelectTrigger className="bg-white">
+                          {is30dCool === null ? (
+                            <div className="flex items-center gap-2">
+                              <Timer className="h-4 w-4 text-blue-600" />
+                              <span className="text-slate-900">30 Day Cool</span>
+                            </div>
+                          ) : is30dCool ? (
+                            <div className="flex items-center gap-2">
+                              <Timer className="h-4 w-4 text-blue-600" />
+                              <span>30 Day Cool</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Timer className="h-4 w-4 text-slate-400" />
+                              <span>No Cooldown</span>
+                            </div>
+                          )}
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="true">
+                            <div className="flex items-center gap-2">
+                              <Timer className="h-4 w-4 text-blue-600" />
+                              <span>30 Day Cool</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="false">
+                            <div className="flex items-center gap-2">
+                              <Timer className="h-4 w-4 text-slate-400" />
+                              <span>No Cooldown</span>
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -659,6 +710,8 @@ export default function UploadsPage() {
                     <TableHead className="text-center">Approved</TableHead>
                     <TableHead className="text-center">CB %</TableHead>
                     <TableHead className="text-center">CB Amt %</TableHead>
+                    <TableHead>Cool 30d</TableHead>
+                    <TableHead className="text-center">Resync</TableHead>
                     <TableHead>Uploaded</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -666,13 +719,13 @@ export default function UploadsPage() {
                 <TableBody>
                   {loading ? (
                       <TableRow>
-                        <TableCell colSpan={11} className="text-center py-8">
+                          <TableCell colSpan={13} className="text-center py-8">
                           <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
                         </TableCell>
                       </TableRow>
                   ) : uploads.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={11} className="text-center py-8 text-slate-500">
+                          <TableCell colSpan={13} className="text-center py-8 text-slate-500">
                           No uploads yet
                         </TableCell>
                       </TableRow>
@@ -766,6 +819,36 @@ export default function UploadsPage() {
                               </span>
                                 ) : (
                                     <span className="text-sm text-slate-400">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {upload.is_30d_cool === true ? (
+                                    <Badge className="flex items-center gap-1 w-fit bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100">
+                                      <Timer className="h-3 w-3" />
+                                      30 Day Cool
+                                    </Badge>
+                                ) : upload.is_30d_cool === false ? (
+                                    <Badge variant="outline" className="flex items-center gap-1 w-fit text-slate-400">
+                                      <Timer className="h-3 w-3" />
+                                      No Cooldown
+                                    </Badge>
+                                ) : (
+                                    <span className="text-sm text-slate-400">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {upload.resync_count !== undefined ? (
+                                  <span className={`text-sm font-medium ${
+                                    upload.resync_count >= (upload.max_resync ?? 3)
+                                      ? 'text-red-500'
+                                      : upload.resync_count > 0
+                                      ? 'text-amber-600'
+                                      : 'text-slate-400'
+                                  }`}>
+                                    {upload.resync_count} / {upload.max_resync ?? 3}
+                                  </span>
+                                ) : (
+                                  <span className="text-sm text-slate-400">-</span>
                                 )}
                               </TableCell>
                               <TableCell className="text-slate-500">

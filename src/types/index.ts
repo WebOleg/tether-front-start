@@ -108,6 +108,24 @@ export interface Upload {
   emp_account_id?: number | null
   emp_account?: EmpAccountRef | null
   tether_instance_id?: number | null
+  is_30d_cool?: boolean | null
+  can_resync?: boolean
+  resync_count?: number
+  max_resync?: number
+  approved_count?: number
+  ready_for_sync_count?: number
+  ready_for_sync_amount?: number
+  billing_runs?: BillingRun[]
+}
+
+export interface BillingRun {
+  run: number
+  status: string
+  batch_id: string
+  started_at: string | null
+  completed_at: string | null
+  recovered_count: number
+  recovered_amount: number
 }
 
 export type UploadStatus = 'pending' | 'processing' | 'completed' | 'failed'
@@ -214,6 +232,7 @@ export interface ValidationStats {
   blacklisted: number
   chargebacked: number
   ready_for_sync: number
+  current_resync_count?: number
   skipped?: SkippedCounts | null
   model_counts?: ModelCounts
   is_processing: boolean
@@ -565,6 +584,7 @@ export interface BillingSyncResponse {
 export interface BillingStats {
   upload_id: number
   is_processing: boolean
+  is_resync_processing?: boolean
   billing_status: string
   total_attempts: number
   approved: number

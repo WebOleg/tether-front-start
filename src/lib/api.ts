@@ -501,7 +501,8 @@ class ApiClient {
       billingModel: string = 'legacy',
       empAccountId?: number,
       applyGlobalLock: boolean = false,
-      tetherInstanceId?: number
+      tetherInstanceId?: number,
+      is30dCool?: boolean | null
   ): Promise<UploadResult> {
     const token = this.getToken()
     const formData = new FormData()
@@ -518,6 +519,10 @@ class ApiClient {
 
     if (applyGlobalLock) {
       formData.append('apply_global_lock', '1')
+    }
+
+    if (billingModel === 'legacy' && is30dCool !== undefined && is30dCool !== null) {
+      formData.append('is_30d_cool', is30dCool ? '1' : '0')
     }
 
     const headers: HeadersInit = { 'Accept': 'application/json' }
@@ -642,6 +647,14 @@ class ApiClient {
     return response
   }
 
+
+  async setUploadCooldown(uploadId: number, is30dCool: boolean): Promise<{ data: Upload }> {
+    return this.request<{ data: Upload }>(`/admin/uploads/${uploadId}/cooldown`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_30d_cool: is30dCool }),
+    })
+  }
+  
   async reassignUpload(uploadId: number, empAccountId: number): Promise<UploadReassignResponse> {
     return this.request<UploadReassignResponse>(
         `/admin/uploads/${uploadId}/reassign`,

@@ -437,7 +437,7 @@ export default function UploadsPage() {
                     </p>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
                     <div className="w-full sm:w-[200px]">
                       <Select
                           value={billingModel}
@@ -543,6 +543,17 @@ export default function UploadsPage() {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={skipChargebackCheck}
+                        onChange={(e) => setSkipChargebackCheck(e.target.checked)}
+                        disabled={isUploading}
+                        className="rounded border-slate-300"
+                      />
+                      <span className={isUploading ? 'text-slate-400' : 'text-slate-600'}>Skip CB Check</span>
+                    </label>
                   </div>
                 </div>
 

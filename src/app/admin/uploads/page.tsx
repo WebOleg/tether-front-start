@@ -108,6 +108,7 @@ export default function UploadsPage() {
   const [file, setFile] = useState<File | null>(null)
   const [billingModel, setBillingModel] = useState<string>('legacy')
   const [is30dCool, setIs30dCool] = useState<boolean | null>(true)
+  const [skipChargebackCheck, setSkipChargebackCheck] = useState<boolean>(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState<UploadStatusState | null>(null)
   const [activeUploadId, setActiveUploadId] = useState<number | null>(null)
@@ -312,7 +313,7 @@ export default function UploadsPage() {
 
     try {
       // Pass the lock flag to the API
-      const result = await api.uploadFile(file, billingModel, selectedEmpAccountId, applyGlobalLock, undefined, billingModel === 'legacy' ? is30dCool : null)
+      const result = await api.uploadFile(file, billingModel, selectedEmpAccountId, applyGlobalLock, undefined, billingModel === 'legacy' ? is30dCool : null, skipChargebackCheck)
       setActiveUploadId(result.upload.id)
 
       if (result.skipped && result.skipped.total > 0) {
@@ -324,6 +325,7 @@ export default function UploadsPage() {
         fileInputRef.current.value = ''
       }
       setIs30dCool(billingModel === 'legacy' ? true : null)
+      setSkipChargebackCheck(false)
     } catch (error) {
       if (error instanceof ApiError) {
         setUploadStatus({

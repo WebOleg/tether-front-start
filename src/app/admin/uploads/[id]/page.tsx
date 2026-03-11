@@ -787,16 +787,7 @@ export default function UploadDetailPage() {
                 />
                 <span className={`${isValidating ? 'text-slate-400' : 'text-slate-600'}`}>Skip BIC Blacklist</span>
               </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-  <input
-    type="checkbox"
-    checked={skipChargebackCheck}
-    onChange={(e) => setSkipChargebackCheck(e.target.checked)}
-    disabled={isValidating}
-    className="rounded border-slate-300"
-  />
-  <span className={`${isValidating ? 'text-slate-400' : 'text-slate-600'}`}>Skip CB Check</span>
-</label>
+              
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <Switch
                   checked={upload?.is_30d_cool ?? false}

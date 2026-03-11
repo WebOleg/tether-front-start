@@ -288,7 +288,7 @@ export default function BavAutoPage() {
                   <p className={`font-medium text-lg ${isDragActive ? 'text-blue-700' : 'text-slate-700'}`}>
                     {isDragActive ? 'Drop your CSV here' : 'Click to upload or drag and drop'}
                   </p>
-                  <p className="text-sm text-slate-500">CSV or TXT (max 500 records, 5MB)</p>
+                  <p className="text-sm text-slate-500">CSV or TXT (max 5MB)</p>
                 </div>
                 <input
                   ref={fileInputRef}
@@ -341,8 +341,13 @@ export default function BavAutoPage() {
                     {uploadResult.filename}
                   </CardTitle>
                   <CardDescription className="mt-1">
-                    {uploadResult.total_records} records detected. Review the preview below and confirm to start BAV.
-                  </CardDescription>
+  {uploadResult.total_records} records detected. Review the preview below and confirm to start BAV.
+  {(uploadResult as any).already_verified > 0 && (
+    <span className="block mt-1 text-green-600">
+      {(uploadResult as any).already_verified} already verified (will be skipped), {(uploadResult as any).eligible ?? (uploadResult.total_records - (uploadResult as any).already_verified)} eligible for new verification.
+    </span>
+  )}
+</CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-sm">

@@ -502,7 +502,8 @@ class ApiClient {
       empAccountId?: number,
       applyGlobalLock: boolean = false,
       tetherInstanceId?: number,
-      is30dCool?: boolean | null
+      is30dCool?: boolean | null,
+      skipChargebackCheck?: boolean
   ): Promise<UploadResult> {
     const token = this.getToken()
     const formData = new FormData()
@@ -523,6 +524,10 @@ class ApiClient {
 
     if (billingModel === 'legacy' && is30dCool !== undefined && is30dCool !== null) {
       formData.append('is_30d_cool', is30dCool ? '1' : '0')
+    }
+
+    if (skipChargebackCheck) {
+      formData.append('skip_chargeback_check', '1')
     }
 
     const headers: HeadersInit = { 'Accept': 'application/json' }
@@ -589,7 +594,7 @@ class ApiClient {
     return this.request<ApiResponse<Debtor[]>>(`/admin/uploads/${uploadId}/debtors${query}`)
   }
 
-  async validateUpload(uploadId: number, skipBicBlacklist?: boolean): Promise<{ message: string; status: string }> {
+  async validateUpload(uploadId: number, skipBicBlacklist?: boolean, skipChargebackCheck?: boolean): Promise<{ message: string; status: string }> {
     const token = this.getToken()
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -603,8 +608,11 @@ class ApiClient {
     if (skipBicBlacklist !== undefined) {
       body.skip_bic_blacklist = skipBicBlacklist
     }
+    if (skipChargebackCheck !== undefined) {
+      body.skip_chargeback_check = skipChargebackCheck
+    }
 
-    const response = await fetch(`${API_BASE_URL}/admin/uploads/${uploadId}/validate`, {
+    const response = await fetch( `${API_BASE_URL}/admin/uploads/${uploadId}/validate`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),

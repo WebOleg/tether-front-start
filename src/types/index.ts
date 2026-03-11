@@ -109,6 +109,7 @@ export interface Upload {
   emp_account?: EmpAccountRef | null
   tether_instance_id?: number | null
   is_30d_cool?: boolean | null
+  skip_chargeback_check?: boolean
   can_resync?: boolean
   resync_count?: number
   max_resync?: number
@@ -236,6 +237,7 @@ export interface ValidationStats {
   skipped?: SkippedCounts | null
   model_counts?: ModelCounts
   is_processing: boolean
+  skip_chargeback_check?: boolean
   price_breakdown?: PriceBreakdownItem[]
   valid_total_amount?: number
   cb_breakdown?: CbBreakdownItem[]

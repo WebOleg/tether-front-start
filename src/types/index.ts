@@ -348,6 +348,7 @@ export interface VopLogFilters {
   debtor_id?: number
   result?: VopResult
   bav_verified?: boolean
+  search?: string
   page?: number
   per_page?: number
 }

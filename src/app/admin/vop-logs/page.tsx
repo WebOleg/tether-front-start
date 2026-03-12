@@ -25,11 +25,12 @@ import {
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
 import type { PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType, VopLog, VopResult } from '@/types'
-import { CheckCircle, Search, XCircle } from 'lucide-react'
+import { CheckCircle, Search, X, XCircle } from 'lucide-react'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { formatDate } from '@/lib/utils'
 import { VopResultBadge, VopNameMatchBadge, VopScoreBadge } from '@/components/ui/badges'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
 function VopLogsContent() {
   const router = useRouter()
@@ -47,6 +48,16 @@ function VopLogsContent() {
   const [links, setLinks] = useState<PaginationLinks | null>(null)
   const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
   const [searchInput, setSearchInput] = useState(currentSearch)
+
+  const activeFilterCount =
+    (currentResult !== 'all' ? 1 : 0) +
+    (currentBav !== 'all' ? 1 : 0) +
+    (currentSearch ? 1 : 0)
+
+  const handleResetFilters = () => {
+    setSearchInput('')
+    router.replace(pathname)
+  }
 
   const updateUrl = useCallback((updates: Record<string, string | number | null>) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -131,7 +142,7 @@ function VopLogsContent() {
       />
       <div className="p-6">
         {/* Filters */}
-        <div className="mb-4 flex gap-4">
+        <div className="mb-4 flex flex-wrap gap-3 items-center">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
@@ -143,7 +154,7 @@ function VopLogsContent() {
           </div>
 
           <Select value={currentResult} onValueChange={(value) => updateUrl({ result: value })}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-48 bg-white">
               <SelectValue placeholder="Filter by result" />
             </SelectTrigger>
             <SelectContent>
@@ -157,7 +168,7 @@ function VopLogsContent() {
           </Select>
 
           <Select value={currentBav} onValueChange={(value) => updateUrl({ bav: value })}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-48 bg-white">
               <SelectValue placeholder="Filter by BAV" />
             </SelectTrigger>
             <SelectContent>
@@ -166,6 +177,21 @@ function VopLogsContent() {
               <SelectItem value="not_verified">Not BAV Verified</SelectItem>
             </SelectContent>
           </Select>
+
+          {activeFilterCount > 0 && (
+            <Button
+              variant="outline"
+              onClick={handleResetFilters}
+              className="h-10 px-3 lg:px-4 border-dashed border-slate-300 text-slate-500 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 animate-in fade-in zoom-in-95 duration-200 group"
+              title="Clear all filters"
+            >
+              <X className="mr-2 h-3.5 w-3.5" />
+              Reset Filters
+              <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-medium text-slate-600 group-hover:bg-slate-200 group-hover:text-slate-900">
+                {activeFilterCount}
+              </span>
+            </Button>
+          )}
         </div>
 
         <PaginationMeta

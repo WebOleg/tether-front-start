@@ -31,6 +31,18 @@ import { formatDate } from '@/lib/utils'
 import { VopResultBadge, VopNameMatchBadge, VopScoreBadge } from '@/components/ui/badges'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { SkeletonTableRows } from '@/components/ui/skeleton-table'
+
+const skeletonColumns = [
+  'h-4 w-40',
+  'h-4 w-20',
+  ['h-4 w-28', 'h-3 w-20'],
+  { lines: ['h-4 w-4 rounded-full'], align: 'center' as const },
+  'h-5 w-12 rounded-full',
+  'h-5 w-24 rounded-full',
+  'h-5 w-20 rounded-full',
+  'h-4 w-24',
+]
 
 function VopLogsContent() {
   const router = useRouter()
@@ -217,11 +229,7 @@ function VopLogsContent() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">
-                    Loading...
-                  </TableCell>
-                </TableRow>
+                <SkeletonTableRows columns={skeletonColumns} rows={5} />
               ) : vopLogs.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8">

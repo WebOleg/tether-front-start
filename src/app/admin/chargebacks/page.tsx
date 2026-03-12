@@ -26,6 +26,20 @@ import { RiskBadge } from '@/components/ui/badges'
 import { Building2, Calendar, CalendarClock, RotateCcw, DollarSign, Percent, TrendingUp, FileText, Users, User, Banknote, CirclePercent } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { SkeletonTableRows } from '@/components/ui/skeleton-table'
+
+const chargebackSkeletonColumns = [
+  ['h-4 w-16', 'h-3 w-32'],
+  'h-5 w-16 rounded-full',
+  ['h-3 w-28', 'h-3 w-24'],
+  ['h-4 w-28', 'h-3 w-36'],
+  'h-4 w-40',
+  'h-4 w-24',
+  'h-4 w-24',
+  { lines: ['h-4 w-16'], align: 'right' as const },
+  ['h-4 w-28', 'h-3 w-12'],
+  { lines: ['h-3.5 w-3.5 rounded', 'h-4 w-20'], row: true },
+]
 
 export default function ChargebacksPage() {
   const [chargebackCodes, setChargebackCodes] = useState<ChargebackCodes[]>([])
@@ -416,11 +430,7 @@ export default function ChargebacksPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={10} className="text-center h-24 text-muted-foreground">
-                      Loading chargebacks...
-                    </TableCell>
-                  </TableRow>
+                  <SkeletonTableRows columns={chargebackSkeletonColumns} rows={5} />
                 ) : chargebacks.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={10} className="text-center h-24 text-muted-foreground">

@@ -143,6 +143,7 @@ export default function VopLogsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>IBAN</TableHead>
+                <TableHead>BIC</TableHead>
                 <TableHead>Bank</TableHead>
                 <TableHead>Valid</TableHead>
                 <TableHead>Score</TableHead>
@@ -167,9 +168,16 @@ export default function VopLogsPage() {
               ) : (
                 vopLogs.map((log) => (
                   <TableRow key={log.id}>
-                    <TableCell className="font-mono text-sm">
-                      {log.iban_masked}
+                    <TableCell>
+                      <div className="font-mono text-xs">
+                        {log.iban_masked}
+                      </div>
                     </TableCell>
+                    <TableHead>
+                      <div className="font-mono text-xs">
+                        {log.bic ?? '—'}
+                      </div>
+                    </TableHead>
                     <TableCell>
                       {log.bank_identified ? (
                         <div>

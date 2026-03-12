@@ -249,6 +249,7 @@ export interface VopLog {
   id: number
   debtor_id: number
   upload_id: number
+  iban: string
   iban_masked: string
   iban_valid: boolean
   bank_identified: boolean

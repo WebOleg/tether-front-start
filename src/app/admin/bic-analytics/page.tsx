@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { Header } from '@/components/layout'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -38,6 +38,8 @@ import {
   BarChart3,
   Loader2,
   FileWarning,
+  TrendingUp,
+  Percent,
 } from 'lucide-react'
 import type { BicAnalyticsStats, EmpAccount } from '@/types'
 import { toast } from 'sonner'
@@ -46,6 +48,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatPercent } from '@/lib/utils'
 import { SkeletonTableRows } from '@/components/ui/skeleton-table'
 import type { SkeletonColumnDef } from '@/components/ui/skeleton-table'
+import { Skeleton } from '@/components/ui/skeleton'
 
 import {
   Dialog,
@@ -511,60 +514,93 @@ export default function BicAnalyticsPage() {
           {loading ? (
               <div className="grid gap-4 md:grid-cols-5 mb-6">
                 {[...Array(5)].map((_, i) => (
-                    <Card key={i} className="relative overflow-hidden">
-                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent" style={{ animationDelay: `${i * 0.1}s` }} />
-                      <CardContent className="pt-4">
-                        <div className="h-4 w-24 bg-slate-200 rounded animate-pulse mb-2" />
-                        <div className="h-8 w-16 bg-slate-200 rounded animate-pulse mb-2" />
-                        <div className="h-3 w-32 bg-slate-200 rounded animate-pulse" />
+                    <Card key={i} className="py-2 gap-1">
+                      <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-9 w-9 rounded-lg" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-8 w-16 mb-2" />
+                        <Skeleton className="h-4 w-20" />
                       </CardContent>
                     </Card>
                 ))}
               </div>
           ) : (
-              <div className="grid gap-4 md:grid-cols-5 mb-6">
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="text-sm text-slate-500">Segments</div>
-                    <div className="text-2xl font-bold">{filteredTotals.total_bics}</div>
-                    {activeFilterCount > 0 && bicStats && (
-                        <div className="text-xs text-slate-400">of {bicStats.totals.total_bics}</div>
-                    )}
+              <div className="grid gap-2 md:grid-cols-5 mb-4">
+                <Card className="py-2 gap-0">
+                  <CardHeader className="flex flex-row items-center justify-between pb-0">
+                    <CardTitle className="text-sm font-medium text-slate-600">Segments</CardTitle>
+                    <div className="rounded-lg p-2 bg-blue-100">
+                      <Building2 className="h-5 w-5 text-blue-600" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-xl font-bold text-blue-600">{filteredTotals.total_bics}</div>
+                    <p className="text-sm text-slate-500 mt-1">
+                      {activeFilterCount > 0 && bicStats ? `of ${bicStats.totals.total_bics} total` : 'BIC segments'}
+                    </p>
                   </CardContent>
                 </Card>
-                <Card className={hasHighRisk ? 'border-red-300' : ''}>
-                  <CardContent className="pt-4">
-                    <div className="text-sm text-slate-500 flex items-center gap-1">
-                      High Risk Segments
+
+                <Card className={`py-2 gap-0 ${hasHighRisk ? 'border-red-300' : ''}`}>
+                  <CardHeader className="flex flex-row items-center justify-between pb-0">
+                    <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
+                      High Risk
                       {hasHighRisk && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                    </CardTitle>
+                    <div className={`rounded-lg p-2 ${hasHighRisk ? 'bg-red-100' : 'bg-slate-100'}`}>
+                      <AlertTriangle className={`h-5 w-5 ${hasHighRisk ? 'text-red-500' : 'text-slate-400'}`} />
                     </div>
-                    <div className={`text-2xl font-bold ${hasHighRisk ? 'text-red-600' : ''}`}>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-xl font-bold ${hasHighRisk ? 'text-red-600' : ''}`}>
                       {filteredTotals.high_risk_bics}
                     </div>
+                    <p className="text-sm text-slate-500 mt-1">Segments</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="text-sm text-slate-500">Total Transactions</div>
-                    <div className="text-2xl font-bold">{filteredTotals.total_transactions.toLocaleString()}</div>
+
+                <Card className="py-2 gap-0">
+                  <CardHeader className="flex flex-row items-center justify-between pb-0">
+                    <CardTitle className="text-sm font-medium text-slate-600">Total Transactions</CardTitle>
+                    <div className="rounded-lg p-2 bg-blue-100">
+                      <TrendingUp className="h-5 w-5 text-blue-600" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-xl font-bold text-blue-600">{filteredTotals.total_transactions.toLocaleString()}</div>
+                    <p className="text-sm text-slate-500 mt-1">Count</p>
                   </CardContent>
                 </Card>
-                <Card className={filteredTotals.cb_rate_count >= 25 ? 'border-red-300' : ''}>
-                  <CardContent className="pt-4">
-                    <div className="text-sm text-slate-500">CB % Count</div>
-                    <div className={`text-2xl font-bold ${filteredTotals.cb_rate_count >= 25 ? 'text-red-600' : ''}`}>
+
+                <Card className={`py-2 gap-0 ${filteredTotals.cb_rate_count >= 25 ? 'border-red-300' : ''}`}>
+                  <CardHeader className="flex flex-row items-center justify-between pb-0">
+                    <CardTitle className="text-sm font-medium text-slate-600">CB % Count</CardTitle>
+                    <div className={`rounded-lg p-2 ${filteredTotals.cb_rate_count >= 25 ? 'bg-red-100' : 'bg-slate-100'}`}>
+                      <Percent className={`h-5 w-5 ${filteredTotals.cb_rate_count >= 25 ? 'text-red-600' : 'text-slate-400'}`} />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-xl font-bold ${filteredTotals.cb_rate_count >= 25 ? 'text-red-600' : ''}`}>
                       {formatPercent(filteredTotals.cb_rate_count)}
                     </div>
-                    <div className="text-xs text-slate-400">chargebacks / approved</div>
+                    <p className="text-sm text-slate-500 mt-1">Chargebacks / approved</p>
                   </CardContent>
                 </Card>
-                <Card className={filteredTotals.cb_rate_volume >= 25 ? 'border-red-300' : ''}>
-                  <CardContent className="pt-4">
-                    <div className="text-sm text-slate-500">CB % Volume</div>
-                    <div className={`text-2xl font-bold ${filteredTotals.cb_rate_volume >= 25 ? 'text-red-600' : ''}`}>
+
+                <Card className={`py-2 gap-0 ${filteredTotals.cb_rate_volume >= 25 ? 'border-red-300' : ''}`}>
+                  <CardHeader className="flex flex-row items-center justify-between pb-0">
+                    <CardTitle className="text-sm font-medium text-slate-600">CB % Volume</CardTitle>
+                    <div className={`rounded-lg p-2 ${filteredTotals.cb_rate_volume >= 25 ? 'bg-red-100' : 'bg-slate-100'}`}>
+                      <BarChart3 className={`h-5 w-5 ${filteredTotals.cb_rate_volume >= 25 ? 'text-red-600' : 'text-slate-400'}`} />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-xl font-bold ${filteredTotals.cb_rate_volume >= 25 ? 'text-red-600' : ''}`}>
                       {formatPercent(filteredTotals.cb_rate_volume)}
                     </div>
-                    <div className="text-xs text-slate-400">CB amount / approved amount</div>
+                    <p className="text-sm text-slate-500 mt-1">CB / approved amount</p>
                   </CardContent>
                 </Card>
               </div>

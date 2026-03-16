@@ -42,6 +42,7 @@ import { getChargebackRule } from '@/lib/chargebacks'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatIsoDate, formatPercent, generateMonthOptions } from '@/lib/utils'
 import { ModelTabs } from '@/components/ui/model-tabs'
+import { SkeletonTableRows } from '@/components/ui/skeleton-table'
 
 interface EmpRefreshStats {
   inserted: number
@@ -538,44 +539,55 @@ export default function AnalyticsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {loading ? loadingSpinner : (
-              <>
-                {cbStats && cbStats.countries && cbStats.countries.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Country</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                        <TableHead className="text-right">Approved</TableHead>
-                        <TableHead className="text-right">Chargebacks</TableHead>
-                        <TableHead className="text-right">CB Amount</TableHead>
-                        <TableHead className="text-right">CB Rate</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Country</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-right">Approved</TableHead>
+                  <TableHead className="text-right">Chargebacks</TableHead>
+                  <TableHead className="text-right">CB Amount</TableHead>
+                  <TableHead className="text-right">CB Rate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <SkeletonTableRows rows={5} columns={[
+                    'h-4 w-28',
+                    { lines: ['h-4 w-10'], align: 'right' },
+                    { lines: ['h-4 w-10'], align: 'right' },
+                    { lines: ['h-4 w-10'], align: 'right' },
+                    { lines: ['h-4 w-16'], align: 'right' },
+                    { lines: ['h-4 w-12'], align: 'right' },
+                  ]} />
+                ) : cbStats && cbStats.countries && cbStats.countries.length > 0 ? (
+                  <>
+                    {cbStats.countries.map((country) => (
+                      <TableRow key={country.country} className={country.alert ? 'bg-red-50' : ''}>
+                        <TableCell className="font-medium">{country.country}{country.alert && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2 -translate-y-0.5" />}</TableCell>
+                        <TableCell className="text-right">{country.total}</TableCell>
+                        <TableCell className="text-right">{country.approved}</TableCell>
+                        <TableCell className="text-right">{country.chargebacks}</TableCell>
+                        <TableCell className="text-right">{formatCurrency((country as any).chargeback_amount || 0)}</TableCell>
+                        <TableCell className={`text-right font-medium ${country.alert ? 'text-red-600' : ''}`}>{formatPercent(country.cb_rate_approved)}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {cbStats.countries.map((country) => (
-                        <TableRow key={country.country} className={country.alert ? 'bg-red-50' : ''}>
-                          <TableCell className="font-medium">{country.country}{country.alert && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2 -translate-y-0.5" />}</TableCell>
-                          <TableCell className="text-right">{country.total}</TableCell>
-                          <TableCell className="text-right">{country.approved}</TableCell>
-                          <TableCell className="text-right">{country.chargebacks}</TableCell>
-                          <TableCell className="text-right">{formatCurrency((country as any).chargeback_amount || 0)}</TableCell>
-                          <TableCell className={`text-right font-medium ${country.alert ? 'text-red-600' : ''}`}>{formatPercent(country.cb_rate_approved)}</TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow className="bg-slate-100 font-semibold border-t-2">
-                        <TableCell>Total</TableCell>
-                        <TableCell className="text-right">{cbStats.totals.total}</TableCell>
-                        <TableCell className="text-right">{cbStats.totals.approved}</TableCell>
-                        <TableCell className="text-right">{cbStats.totals.chargebacks}</TableCell>
-                        <TableCell className="text-right">{formatCurrency((cbStats.totals as any).chargeback_amount || 0)}</TableCell>
-                        <TableCell className={`text-right ${cbStats.totals.alert ? 'text-red-600' : ''}`}>{formatPercent(cbStats.totals.cb_rate_approved)}</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                ) : (<p className="text-slate-500 text-center py-4">No chargeback data available</p>)}
-              </>
-            )}
+                    ))}
+                    <TableRow className="bg-slate-100 font-semibold border-t-2">
+                      <TableCell>Total</TableCell>
+                      <TableCell className="text-right">{cbStats.totals.total}</TableCell>
+                      <TableCell className="text-right">{cbStats.totals.approved}</TableCell>
+                      <TableCell className="text-right">{cbStats.totals.chargebacks}</TableCell>
+                      <TableCell className="text-right">{formatCurrency((cbStats.totals as any).chargeback_amount || 0)}</TableCell>
+                      <TableCell className={`text-right ${cbStats.totals.alert ? 'text-red-600' : ''}`}>{formatPercent(cbStats.totals.cb_rate_approved)}</TableCell>
+                    </TableRow>
+                  </>
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-slate-500 py-4">No chargeback data available</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
 
@@ -591,40 +603,49 @@ export default function AnalyticsPage() {
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto">
-              {loading ? loadingSpinner : (
-                <>
-                  {cbCodeStats && cbCodeStats.codes && cbCodeStats.codes.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Code</TableHead>
-                          <TableHead>Reason</TableHead>
-                          <TableHead className="text-right">Count</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {cbCodeStats.codes.map((code) => {
-                          const rule = getChargebackRule(code.chargeback_code)
-                          return (
-                            <TableRow key={code.chargeback_code}>
-                              <TableCell className="font-mono text-sm">{code.chargeback_code}</TableCell>
-                              <TableCell className="text-sm">{rule?.detail || code.chargeback_reason}</TableCell>
-                              <TableCell className="text-right">{code.occurrences}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(code.total_amount)}</TableCell>
-                            </TableRow>
-                          )
-                        })}
-                        <TableRow className="bg-slate-100 font-semibold border-t-2">
-                          <TableCell colSpan={2}>Total</TableCell>
-                          <TableCell className="text-right">{cbCodeStats.totals.occurrences}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(cbCodeStats.totals.total_amount)}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  ) : (<p className="text-slate-500 text-center py-4">No chargeback codes recorded</p>)}
-                </>
-              )}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead className="text-right">Count</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <SkeletonTableRows rows={5} columns={[
+                      'h-4 w-14',
+                      'h-4 w-36',
+                      { lines: ['h-4 w-8'], align: 'right' },
+                      { lines: ['h-4 w-16'], align: 'right' },
+                    ]} />
+                  ) : cbCodeStats && cbCodeStats.codes && cbCodeStats.codes.length > 0 ? (
+                    <>
+                      {cbCodeStats.codes.map((code) => {
+                        const rule = getChargebackRule(code.chargeback_code)
+                        return (
+                          <TableRow key={code.chargeback_code}>
+                            <TableCell className="font-mono text-sm">{code.chargeback_code}</TableCell>
+                            <TableCell className="text-sm">{rule?.detail || code.chargeback_reason}</TableCell>
+                            <TableCell className="text-right">{code.occurrences}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(code.total_amount)}</TableCell>
+                          </TableRow>
+                        )
+                      })}
+                      <TableRow className="bg-slate-100 font-semibold border-t-2">
+                        <TableCell colSpan={2}>Total</TableCell>
+                        <TableCell className="text-right">{cbCodeStats.totals.occurrences}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(cbCodeStats.totals.total_amount)}</TableCell>
+                      </TableRow>
+                    </>
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-slate-500 py-4">No chargeback codes recorded</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
 
@@ -643,40 +664,49 @@ export default function AnalyticsPage() {
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto">
-              {loading ? loadingSpinner : (
-                <>
-                  {filteredBankStats && filteredBankStats.banks && filteredBankStats.banks.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Bank</TableHead>
-                          <TableHead className="text-right">Chargebacks</TableHead>
-                          <TableHead className="text-right">CB Amount</TableHead>
-                          <TableHead className="text-right">CB Rate</TableHead>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Bank</TableHead>
+                    <TableHead className="text-right">Chargebacks</TableHead>
+                    <TableHead className="text-right">CB Amount</TableHead>
+                    <TableHead className="text-right">CB Rate</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <SkeletonTableRows rows={5} columns={[
+                      'h-4 w-32',
+                      { lines: ['h-4 w-10'], align: 'right' },
+                      { lines: ['h-4 w-16'], align: 'right' },
+                      { lines: ['h-4 w-12'], align: 'right' },
+                    ]} />
+                  ) : filteredBankStats && filteredBankStats.banks && filteredBankStats.banks.length > 0 ? (
+                    <>
+                      {filteredBankStats.banks.map((bank) => (
+                        <TableRow key={bank.bank_name} className={`${bank.alert ? "bg-red-50" : ""}`}>
+                          <TableCell className="font-medium">{bank.bank_name}</TableCell>
+                          <TableCell className="text-right">{bank.chargebacks}</TableCell>
+                          <TableCell className="text-right">{formatCurrency((bank as any).chargeback_amount)}</TableCell>
+                          <TableCell className={`text-right font-medium ${bank.alert ? 'text-red-600' : ''}`}>{formatPercent(bank.cb_rate)}</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredBankStats.banks.map((bank) => (
-                          <TableRow key={bank.bank_name} className={`${bank.alert ? "bg-red-50" : ""}`}>
-                            <TableCell className="font-medium">{bank.bank_name}</TableCell>
-                            <TableCell className="text-right">{bank.chargebacks}</TableCell>
-                            <TableCell className="text-right">{formatCurrency((bank as any).chargeback_amount)}</TableCell>
-                            <TableCell className={`text-right font-medium ${bank.alert ? 'text-red-600' : ''}`}>{formatPercent(bank.cb_rate)}</TableCell>
-                          </TableRow>
-                        ))}
-                        {!bankSearchQuery.trim() && (
-                          <TableRow className={`${hasBankAlert ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
-                            <TableCell>Total</TableCell>
-                            <TableCell className="text-right">{cbBankStats?.totals.chargebacks}</TableCell>
-                            <TableCell className="text-right">{formatCurrency((cbBankStats?.totals as any).chargeback_amount || cbBankStats?.totals.total_amount)}</TableCell>
-                            <TableCell className={`text-right ${hasBankAlert ? 'text-red-600' : ''}`}>{formatPercent((cbBankStats?.totals as any).cb_rate || (cbBankStats?.totals as any).total_cb_rate || 0)}</TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  ) : (<p className="text-slate-500 text-center py-4">{bankSearchQuery ? 'No banks found matching your search' : 'No bank data available'}</p>)}
-                </>
-              )}
+                      ))}
+                      {!bankSearchQuery.trim() && (
+                        <TableRow className={`${hasBankAlert ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
+                          <TableCell>Total</TableCell>
+                          <TableCell className="text-right">{cbBankStats?.totals.chargebacks}</TableCell>
+                          <TableCell className="text-right">{formatCurrency((cbBankStats?.totals as any).chargeback_amount || cbBankStats?.totals.total_amount)}</TableCell>
+                          <TableCell className={`text-right ${hasBankAlert ? 'text-red-600' : ''}`}>{formatPercent((cbBankStats?.totals as any).cb_rate || (cbBankStats?.totals as any).total_cb_rate || 0)}</TableCell>
+                        </TableRow>
+                      )}
+                    </>
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-slate-500 py-4">{bankSearchQuery ? 'No banks found matching your search' : 'No bank data available'}</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </div>

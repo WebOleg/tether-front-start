@@ -852,13 +852,11 @@ export default function UploadsPage() {
                               <TableCell className="text-center">
                                 {upload.resync_count !== undefined ? (
                                   <span className={`text-sm font-medium ${
-                                    upload.resync_count >= (upload.max_resync ?? 3)
-                                      ? 'text-red-500'
-                                      : upload.resync_count > 0
-                                      ? 'text-amber-600'
-                                      : 'text-slate-400'
+                                    upload.resync_count > 0
+                                    ? 'text-amber-600'
+                                    : 'text-slate-400'
                                   }`}>
-                                    {upload.resync_count} / {upload.max_resync ?? 3}
+                                    {upload.resync_count}
                                   </span>
                                 ) : (
                                   <span className="text-sm text-slate-400">-</span>

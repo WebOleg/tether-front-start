@@ -249,6 +249,7 @@ export interface VopLog {
   id: number
   debtor_id: number
   upload_id: number
+  iban: string
   iban_masked: string
   iban_valid: boolean
   bank_identified: boolean
@@ -347,6 +348,7 @@ export interface VopLogFilters {
   debtor_id?: number
   result?: VopResult
   bav_verified?: boolean
+  search?: string
   page?: number
   per_page?: number
 }

@@ -10,8 +10,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from '@/components/ui/table'
 import {
@@ -42,6 +40,7 @@ import { getChargebackRule } from '@/lib/chargebacks'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatIsoDate, formatPercent, generateMonthOptions } from '@/lib/utils'
 import { ModelTabs } from '@/components/ui/model-tabs'
+import { SkeletonTableRows } from '@/components/ui/skeleton-table'
 
 interface EmpRefreshStats {
   inserted: number
@@ -527,83 +526,77 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Chargebacks by Country */}
-        <Card className={`mb-8 ${hasAlert ? 'border-red-300' : ''}`}>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-slate-500" />
-                <CardTitle className="text-lg">Chargeback Rates by Country</CardTitle>
-                {hasAlert && <AlertTriangle className="h-5 w-5 text-red-500" />}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loading ? loadingSpinner : (
-              <>
-                {cbStats && cbStats.countries && cbStats.countries.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Country</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                        <TableHead className="text-right">Approved</TableHead>
-                        <TableHead className="text-right">Chargebacks</TableHead>
-                        <TableHead className="text-right">CB Amount</TableHead>
-                        <TableHead className="text-right">CB Rate</TableHead>
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <BarChart3 className="h-5 w-5 text-slate-500" />
+            <h3 className="text-lg font-semibold text-slate-700">Chargeback Rates by Country</h3>
+            {hasAlert && <AlertTriangle className="h-5 w-5 text-red-500" />}
+          </div>
+          <Card className={`bg-white overflow-hidden ${hasAlert ? 'border-red-300' : ''}`}>
+            <CardContent className="p-0">
+              <Table>
+                <TableBody>
+                {loading ? (
+                  <SkeletonTableRows rows={5} columns={[
+                    'h-4 w-28',
+                    { lines: ['h-4 w-10'], align: 'right' },
+                    { lines: ['h-4 w-10'], align: 'right' },
+                    { lines: ['h-4 w-10'], align: 'right' },
+                    { lines: ['h-4 w-16'], align: 'right' },
+                    { lines: ['h-4 w-12'], align: 'right' },
+                  ]} />
+                ) : cbStats && cbStats.countries && cbStats.countries.length > 0 ? (
+                  <>
+                    {cbStats.countries.map((country) => (
+                      <TableRow key={country.country} className={country.alert ? 'bg-red-50' : ''}>
+                        <TableCell className="font-medium">{country.country}{country.alert && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2 -translate-y-0.5" />}</TableCell>
+                        <TableCell className="text-right">{country.total}</TableCell>
+                        <TableCell className="text-right">{country.approved}</TableCell>
+                        <TableCell className="text-right">{country.chargebacks}</TableCell>
+                        <TableCell className="text-right">{formatCurrency((country as any).chargeback_amount || 0)}</TableCell>
+                        <TableCell className={`text-right font-medium ${country.alert ? 'text-red-600' : ''}`}>{formatPercent(country.cb_rate_approved)}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {cbStats.countries.map((country) => (
-                        <TableRow key={country.country} className={country.alert ? 'bg-red-50' : ''}>
-                          <TableCell className="font-medium">{country.country}{country.alert && <AlertTriangle className="h-4 w-4 text-red-500 inline ml-2 -translate-y-0.5" />}</TableCell>
-                          <TableCell className="text-right">{country.total}</TableCell>
-                          <TableCell className="text-right">{country.approved}</TableCell>
-                          <TableCell className="text-right">{country.chargebacks}</TableCell>
-                          <TableCell className="text-right">{formatCurrency((country as any).chargeback_amount || 0)}</TableCell>
-                          <TableCell className={`text-right font-medium ${country.alert ? 'text-red-600' : ''}`}>{formatPercent(country.cb_rate_approved)}</TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow className="bg-slate-100 font-semibold border-t-2">
-                        <TableCell>Total</TableCell>
-                        <TableCell className="text-right">{cbStats.totals.total}</TableCell>
-                        <TableCell className="text-right">{cbStats.totals.approved}</TableCell>
-                        <TableCell className="text-right">{cbStats.totals.chargebacks}</TableCell>
-                        <TableCell className="text-right">{formatCurrency((cbStats.totals as any).chargeback_amount || 0)}</TableCell>
-                        <TableCell className={`text-right ${cbStats.totals.alert ? 'text-red-600' : ''}`}>{formatPercent(cbStats.totals.cb_rate_approved)}</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                ) : (<p className="text-slate-500 text-center py-4">No chargeback data available</p>)}
-              </>
-            )}
+                    ))}
+                    <TableRow className="bg-slate-100 font-semibold border-t-2">
+                      <TableCell>Total</TableCell>
+                      <TableCell className="text-right">{cbStats.totals.total}</TableCell>
+                      <TableCell className="text-right">{cbStats.totals.approved}</TableCell>
+                      <TableCell className="text-right">{cbStats.totals.chargebacks}</TableCell>
+                      <TableCell className="text-right">{formatCurrency((cbStats.totals as any).chargeback_amount || 0)}</TableCell>
+                      <TableCell className={`text-right ${cbStats.totals.alert ? 'text-red-600' : ''}`}>{formatPercent(cbStats.totals.cb_rate_approved)}</TableCell>
+                    </TableRow>
+                  </>
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-slate-500 py-4">No chargeback data available</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </CardContent>
-        </Card>
+          </Card>
+        </div>
 
         {/* By Reason Code & By Bank */}
         <div className="grid gap-6 md:grid-cols-2 mb-8">
-          <Card className="max-h-[500px] flex flex-col">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <PieChart className="h-5 w-5 text-slate-500" />
-                  <CardTitle className="text-lg">By Reason Code</CardTitle>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto">
-              {loading ? loadingSpinner : (
-                <>
-                  {cbCodeStats && cbCodeStats.codes && cbCodeStats.codes.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Code</TableHead>
-                          <TableHead>Reason</TableHead>
-                          <TableHead className="text-right">Count</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <PieChart className="h-5 w-5 text-slate-500" />
+              <h3 className="text-lg font-semibold text-slate-700">By Reason Code</h3>
+            </div>
+            <Card className="bg-white overflow-hidden max-h-[500px] flex flex-col">
+              <CardContent className="flex-1 overflow-y-auto p-0">
+                <Table>
+                  <TableBody>
+                    {loading ? (
+                      <SkeletonTableRows rows={5} columns={[
+                        'h-4 w-14',
+                        'h-4 w-36',
+                        { lines: ['h-4 w-8'], align: 'right' },
+                        { lines: ['h-4 w-16'], align: 'right' },
+                      ]} />
+                    ) : cbCodeStats && cbCodeStats.codes && cbCodeStats.codes.length > 0 ? (
+                      <>
                         {cbCodeStats.codes.map((code) => {
                           const rule = getChargebackRule(code.chargeback_code)
                           return (
@@ -620,42 +613,43 @@ export default function AnalyticsPage() {
                           <TableCell className="text-right">{cbCodeStats.totals.occurrences}</TableCell>
                           <TableCell className="text-right">{formatCurrency(cbCodeStats.totals.total_amount)}</TableCell>
                         </TableRow>
-                      </TableBody>
-                    </Table>
-                  ) : (<p className="text-slate-500 text-center py-4">No chargeback codes recorded</p>)}
-                </>
-              )}
-            </CardContent>
-          </Card>
+                      </>
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-slate-500 py-4">No chargeback codes recorded</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
 
-          <Card className={`h-[500px] flex flex-col ${hasBankAlert ? "border-red-300" : ""}`}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-slate-500" />
-                  <CardTitle className="text-lg">By Bank</CardTitle>
-                  {hasBankAlert && <AlertTriangle className="h-5 w-5 text-red-500" />}
-                </div>
-                <div className="relative">
-                  <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <Input placeholder="Search banks..." value={bankSearchQuery} onChange={(e) => setBankSearchQuery(e.target.value)} className="h-8 text-xs pl-8 w-40" />
-                </div>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-slate-500" />
+                <h3 className="text-lg font-semibold text-slate-700">By Bank</h3>
+                {hasBankAlert && <AlertTriangle className="h-5 w-5 text-red-500" />}
               </div>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto">
-              {loading ? loadingSpinner : (
-                <>
-                  {filteredBankStats && filteredBankStats.banks && filteredBankStats.banks.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Bank</TableHead>
-                          <TableHead className="text-right">Chargebacks</TableHead>
-                          <TableHead className="text-right">CB Amount</TableHead>
-                          <TableHead className="text-right">CB Rate</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
+              <div className="relative">
+                <Search className="h-4 w-4 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input placeholder="Search banks..." value={bankSearchQuery} onChange={(e) => setBankSearchQuery(e.target.value)} className="h-8 text-xs pl-8 w-40" />
+              </div>
+            </div>
+            <Card className={`bg-white overflow-hidden h-[500px] flex flex-col ${hasBankAlert ? "border-red-300" : ""}`}>
+              <CardContent className="flex-1 overflow-y-auto p-0">
+                <Table>
+                  <TableBody>
+                    {loading ? (
+                      <SkeletonTableRows rows={5} columns={[
+                        'h-4 w-32',
+                        { lines: ['h-4 w-10'], align: 'right' },
+                        { lines: ['h-4 w-16'], align: 'right' },
+                        { lines: ['h-4 w-12'], align: 'right' },
+                      ]} />
+                    ) : filteredBankStats && filteredBankStats.banks && filteredBankStats.banks.length > 0 ? (
+                      <>
                         {filteredBankStats.banks.map((bank) => (
                           <TableRow key={bank.bank_name} className={`${bank.alert ? "bg-red-50" : ""}`}>
                             <TableCell className="font-medium">{bank.bank_name}</TableCell>
@@ -672,13 +666,17 @@ export default function AnalyticsPage() {
                             <TableCell className={`text-right ${hasBankAlert ? 'text-red-600' : ''}`}>{formatPercent((cbBankStats?.totals as any).cb_rate || (cbBankStats?.totals as any).total_cb_rate || 0)}</TableCell>
                           </TableRow>
                         )}
-                      </TableBody>
-                    </Table>
-                  ) : (<p className="text-slate-500 text-center py-4">{bankSearchQuery ? 'No banks found matching your search' : 'No bank data available'}</p>)}
-                </>
-              )}
-            </CardContent>
-          </Card>
+                      </>
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-slate-500 py-4">{bankSearchQuery ? 'No banks found matching your search' : 'No bank data available'}</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </main>
     </div>

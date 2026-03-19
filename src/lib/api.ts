@@ -750,9 +750,9 @@ class ApiClient {
     })
   }
 
-  async getVopLogs(filters?: VopLogFilters): Promise<ApiResponse<VopLog[]>> {
+  async getVopLogs(filters?: VopLogFilters, signal?: AbortSignal): Promise<ApiResponse<VopLog[]>> {
     const query = this.buildQuery(filters)
-    return this.request<ApiResponse<VopLog[]>>(`/admin/vop-logs${query}`)
+    return this.request<ApiResponse<VopLog[]>>(`/admin/vop-logs${query}`, { signal })
   }
 
   async getVopLog(id: number): Promise<VopLog> {
@@ -1240,9 +1240,9 @@ class ApiClient {
     return response
   }
 
-  async getBavBatches(): Promise<BavBatchItem[]> {
-    const response = await this.request<{ data: BavBatchItem[] }>('/admin/bav/batches')
-    return response.data
+  async getBavBatches(params?: { page?: number; per_page?: number }): Promise<ApiResponse<BavBatchItem[]>> {
+    const query = this.buildQuery(params)
+    return this.request<ApiResponse<BavBatchItem[]>>(`/admin/bav/batches${query}`)
   }
 
   async uploadBavBatch(file: File): Promise<BavBatchUploadResponse> {

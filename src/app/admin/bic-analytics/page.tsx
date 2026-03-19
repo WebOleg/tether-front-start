@@ -28,7 +28,6 @@ import {
 import { api } from '@/lib/api'
 import type { BicCbCodeBreakdown } from '@/lib/api'
 import {
-  RefreshCw,
   AlertTriangle,
   Download,
   Building2,
@@ -39,12 +38,17 @@ import {
   BarChart3,
   Loader2,
   FileWarning,
+  TrendingUp,
+  Percent,
 } from 'lucide-react'
 import type { BicAnalyticsStats, EmpAccount } from '@/types'
 import { toast } from 'sonner'
 import { ModelTabs } from '@/components/ui/model-tabs'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatPercent } from '@/lib/utils'
+import { SkeletonTableRows } from '@/components/ui/skeleton-table'
+import type { SkeletonColumnDef } from '@/components/ui/skeleton-table'
+import { Skeleton } from '@/components/ui/skeleton'
 
 import {
   Dialog,
@@ -81,6 +85,18 @@ interface BicBreakdownResponse {
 }
 
 type SortField = 'cb_rate_count' | 'cb_rate_volume' | 'chargeback_count' | 'total_transactions' | 'total_volume'
+
+const bicTableSkeletonColumns: SkeletonColumnDef[] = [
+  { lines: ['h-4 w-4', 'h-4 w-4', 'h-4 w-24'], row: true },
+  'h-4 w-8',
+  { lines: ['h-4 w-12'], align: 'right' },
+  { lines: ['h-4 w-10'], align: 'right' },
+  { lines: ['h-4 w-10'], align: 'right' },
+  { lines: ['h-4 w-10'], align: 'right' },
+  { lines: ['h-4 w-16'], align: 'right' },
+  { lines: ['h-4 w-12'], align: 'right' },
+  { lines: ['h-4 w-12'], align: 'right' },
+]
 
 export default function BicAnalyticsPage() {
   const [bicStats, setBicStats] = useState<BicAnalyticsStats | null>(null)
@@ -498,101 +514,131 @@ export default function BicAnalyticsPage() {
           {loading ? (
               <div className="grid gap-4 md:grid-cols-5 mb-6">
                 {[...Array(5)].map((_, i) => (
-                    <Card key={i} className="relative overflow-hidden">
-                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent" style={{ animationDelay: `${i * 0.1}s` }} />
-                      <CardContent className="pt-4">
-                        <div className="h-4 w-24 bg-slate-200 rounded animate-pulse mb-2" />
-                        <div className="h-8 w-16 bg-slate-200 rounded animate-pulse mb-2" />
-                        <div className="h-3 w-32 bg-slate-200 rounded animate-pulse" />
+                    <Card key={i} className="py-2 gap-1">
+                      <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-9 w-9 rounded-lg" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-8 w-16 mb-2" />
+                        <Skeleton className="h-4 w-20" />
                       </CardContent>
                     </Card>
                 ))}
               </div>
           ) : (
-              <div className="grid gap-4 md:grid-cols-5 mb-6">
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="text-sm text-slate-500">Segments</div>
-                    <div className="text-2xl font-bold">{filteredTotals.total_bics}</div>
-                    {activeFilterCount > 0 && bicStats && (
-                        <div className="text-xs text-slate-400">of {bicStats.totals.total_bics}</div>
-                    )}
+              <div className="grid gap-2 md:grid-cols-5 mb-4">
+                <Card className="py-2 gap-0">
+                  <CardHeader className="flex flex-row items-center justify-between pb-0">
+                    <CardTitle className="text-sm font-medium text-slate-600">Segments</CardTitle>
+                    <div className="rounded-lg p-2 bg-blue-100">
+                      <Building2 className="h-5 w-5 text-blue-600" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-xl font-bold text-blue-600">{filteredTotals.total_bics}</div>
+                    <p className="text-sm text-slate-500 mt-1">
+                      {activeFilterCount > 0 && bicStats ? `of ${bicStats.totals.total_bics} total` : 'BIC segments'}
+                    </p>
                   </CardContent>
                 </Card>
-                <Card className={hasHighRisk ? 'border-red-300' : ''}>
-                  <CardContent className="pt-4">
-                    <div className="text-sm text-slate-500 flex items-center gap-1">
-                      High Risk Segments
+
+                <Card className={`py-2 gap-0 ${hasHighRisk ? 'border-red-300' : ''}`}>
+                  <CardHeader className="flex flex-row items-center justify-between pb-0">
+                    <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1">
+                      High Risk
                       {hasHighRisk && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                    </CardTitle>
+                    <div className={`rounded-lg p-2 ${hasHighRisk ? 'bg-red-100' : 'bg-slate-100'}`}>
+                      <AlertTriangle className={`h-5 w-5 ${hasHighRisk ? 'text-red-500' : 'text-slate-400'}`} />
                     </div>
-                    <div className={`text-2xl font-bold ${hasHighRisk ? 'text-red-600' : ''}`}>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-xl font-bold ${hasHighRisk ? 'text-red-600' : ''}`}>
                       {filteredTotals.high_risk_bics}
                     </div>
+                    <p className="text-sm text-slate-500 mt-1">Segments</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="pt-4">
-                    <div className="text-sm text-slate-500">Total Transactions</div>
-                    <div className="text-2xl font-bold">{filteredTotals.total_transactions.toLocaleString()}</div>
+
+                <Card className="py-2 gap-0">
+                  <CardHeader className="flex flex-row items-center justify-between pb-0">
+                    <CardTitle className="text-sm font-medium text-slate-600">Total Transactions</CardTitle>
+                    <div className="rounded-lg p-2 bg-blue-100">
+                      <TrendingUp className="h-5 w-5 text-blue-600" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-xl font-bold text-blue-600">{filteredTotals.total_transactions.toLocaleString()}</div>
+                    <p className="text-sm text-slate-500 mt-1">Count</p>
                   </CardContent>
                 </Card>
-                <Card className={filteredTotals.cb_rate_count >= 25 ? 'border-red-300' : ''}>
-                  <CardContent className="pt-4">
-                    <div className="text-sm text-slate-500">CB % Count</div>
-                    <div className={`text-2xl font-bold ${filteredTotals.cb_rate_count >= 25 ? 'text-red-600' : ''}`}>
+
+                <Card className={`py-2 gap-0 ${filteredTotals.cb_rate_count >= 25 ? 'border-red-300' : ''}`}>
+                  <CardHeader className="flex flex-row items-center justify-between pb-0">
+                    <CardTitle className="text-sm font-medium text-slate-600">CB % Count</CardTitle>
+                    <div className={`rounded-lg p-2 ${filteredTotals.cb_rate_count >= 25 ? 'bg-red-100' : 'bg-slate-100'}`}>
+                      <Percent className={`h-5 w-5 ${filteredTotals.cb_rate_count >= 25 ? 'text-red-600' : 'text-slate-400'}`} />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-xl font-bold ${filteredTotals.cb_rate_count >= 25 ? 'text-red-600' : ''}`}>
                       {formatPercent(filteredTotals.cb_rate_count)}
                     </div>
-                    <div className="text-xs text-slate-400">chargebacks / approved</div>
+                    <p className="text-sm text-slate-500 mt-1">Chargebacks / approved</p>
                   </CardContent>
                 </Card>
-                <Card className={filteredTotals.cb_rate_volume >= 25 ? 'border-red-300' : ''}>
-                  <CardContent className="pt-4">
-                    <div className="text-sm text-slate-500">CB % Volume</div>
-                    <div className={`text-2xl font-bold ${filteredTotals.cb_rate_volume >= 25 ? 'text-red-600' : ''}`}>
+
+                <Card className={`py-2 gap-0 ${filteredTotals.cb_rate_volume >= 25 ? 'border-red-300' : ''}`}>
+                  <CardHeader className="flex flex-row items-center justify-between pb-0">
+                    <CardTitle className="text-sm font-medium text-slate-600">CB % Volume</CardTitle>
+                    <div className={`rounded-lg p-2 ${filteredTotals.cb_rate_volume >= 25 ? 'bg-red-100' : 'bg-slate-100'}`}>
+                      <BarChart3 className={`h-5 w-5 ${filteredTotals.cb_rate_volume >= 25 ? 'text-red-600' : 'text-slate-400'}`} />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-xl font-bold ${filteredTotals.cb_rate_volume >= 25 ? 'text-red-600' : ''}`}>
                       {formatPercent(filteredTotals.cb_rate_volume)}
                     </div>
-                    <div className="text-xs text-slate-400">CB amount / approved amount</div>
+                    <p className="text-sm text-slate-500 mt-1">CB / approved amount</p>
                   </CardContent>
                 </Card>
               </div>
           )}
 
-          <Card className={hasHighRisk ? "border-red-300" : ""}>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-slate-500" />
-                <CardTitle className="text-lg">Transactions by BIC</CardTitle>
-                {hasHighRisk && <AlertTriangle className="h-5 w-5 text-red-500" />}
-                {activeModel !== 'all' && (
-                    <Badge variant="outline" className="ml-2 capitalize">
-                      {activeModel}
-                    </Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <RefreshCw className="h-6 w-6 animate-spin text-slate-400" />
-                  </div>
-              ) : filteredBics.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>BIC</TableHead>
-                        <TableHead>Country</TableHead>
-                        <TableHead className="text-right">Total TX</TableHead>
-                        <TableHead className="text-right">Approved</TableHead>
-                        <TableHead className="text-right">Declined</TableHead>
-                        <TableHead className="text-right">Chargebacks</TableHead>
-                        {/* <TableHead className="text-right">Pending</TableHead> */}
-                        {/* <TableHead className="text-right">Errors</TableHead> */}
-                        <TableHead className="text-right">Volume €</TableHead>
-                        <TableHead className="text-right">CB % Count</TableHead>
-                        <TableHead className="text-right">CB % Volume</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+          {/* Table heading — outside the table wrapper */}
+          <div className="flex items-center gap-2 mb-3">
+            <Building2 className="h-5 w-5 text-slate-500" />
+            <h2 className="text-lg font-semibold text-slate-800">Transactions by BIC</h2>
+            {hasHighRisk && <AlertTriangle className="h-5 w-5 text-red-500" />}
+            {activeModel !== 'all' && (
+                <Badge variant="outline" className="ml-2 capitalize">
+                  {activeModel}
+                </Badge>
+            )}
+          </div>
+
+          {/* Table wrapper — white background, alert-aware border */}
+          <div className={`rounded-lg border bg-white overflow-hidden ${hasHighRisk ? 'border-red-300' : 'border-slate-200'}`}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="px-2">BIC</TableHead>
+                  <TableHead>Country</TableHead>
+                  <TableHead className="text-right">Total TX</TableHead>
+                  <TableHead className="text-right">Approved</TableHead>
+                  <TableHead className="text-right">Declined</TableHead>
+                  <TableHead className="text-right">Chargebacks</TableHead>
+                  <TableHead className="text-right">Volume €</TableHead>
+                  <TableHead className="text-right">CB % Count</TableHead>
+                  <TableHead className="text-right">CB % Volume</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                    <SkeletonTableRows columns={bicTableSkeletonColumns} rows={8} />
+                ) : filteredBics.length > 0 ? (
+                    <>
                       {filteredBics.map((bic) => {
                         // @ts-ignore
                         const amount = Number(bic.amount) || 0;
@@ -602,7 +648,7 @@ export default function BicAnalyticsPage() {
 
                         return (
                             <TableRow key={rowKey} className={bic.is_high_risk ? 'bg-red-50' : ''}>
-                              <TableCell className="font-mono text-sm">
+                              <TableCell className="font-mono text-sm">  
                                 <Button
                                     variant="ghost"
                                     size="icon"
@@ -640,7 +686,8 @@ export default function BicAnalyticsPage() {
                                 {formatPercent(bic.cb_rate_volume)}
                               </TableCell>
                             </TableRow>
-                        )})}
+                        )
+                      })}
                       <TableRow className={`${hasHighRisk ? "bg-red-100" : "bg-slate-100"} font-semibold border-t-2`}>
                         <TableCell colSpan={2}>Total ({filteredTotals.total_bics} Segments)</TableCell>
                         <TableCell className="text-right">{filteredTotals.total_transactions.toLocaleString()}</TableCell>
@@ -655,15 +702,17 @@ export default function BicAnalyticsPage() {
                           {formatPercent(filteredTotals.cb_rate_volume)}
                         </TableCell>
                       </TableRow>
-                    </TableBody>
-                  </Table>
-              ) : (
-                  <p className="text-slate-500 text-center py-4">
-                    {activeFilterCount > 0 ? 'No BICs match the filters' : 'No BIC data available'}
-                  </p>
-              )}
-            </CardContent>
-          </Card>
+                    </>
+                ) : (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-8 text-slate-500">
+                        {activeFilterCount > 0 ? 'No BICs match the filters' : 'No BIC data available'}
+                      </TableCell>
+                    </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </main>
 
         {/* Price Point Breakdown Dialog */}

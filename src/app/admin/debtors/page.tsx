@@ -66,6 +66,26 @@ import {
   ArrowRightLeft,
 } from 'lucide-react'
 import { formatCurrency, formatDateTime, getDaysRemaining } from '@/lib/utils'
+import { SkeletonTableRows } from '@/components/ui/skeleton-table'
+
+const skeletonColumns = [
+  'h-4 w-4',
+  ['h-4 w-28', 'h-3 w-36'],
+  'h-5 w-20 rounded-full',
+  'h-5 w-16 rounded-md',
+  'h-4 w-24',
+  'h-4 w-24',
+  { lines: ['h-4 w-20', 'h-1.5 w-24 rounded-full', 'h-3 w-16'], align: 'right' as const, cellClassName: 'text-right' },
+  'h-4 w-40',
+  'h-4 w-8',
+  { lines: ['h-4 w-16'], align: 'right' as const, cellClassName: 'text-right' },
+  'h-4 w-28',
+  'h-4 w-8',
+  'h-4 w-20',
+  'h-5 w-20 rounded-full',
+  'h-5 w-16 rounded-full',
+  { lines: ['h-8 w-8 rounded', 'h-8 w-8 rounded'], row: true, align: 'right' as const },
+]
 
 interface EditDebtorForm {
   model: string;
@@ -455,11 +475,7 @@ function DebtorsContent() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={16} className="text-center py-8">
-                        Loading...
-                      </TableCell>
-                    </TableRow>
+                    <SkeletonTableRows columns={skeletonColumns} rows={5} />
                 ) : debtors.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={16} className="text-center py-8">

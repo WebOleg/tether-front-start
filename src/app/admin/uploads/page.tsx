@@ -60,6 +60,7 @@ import { toast } from 'sonner'
 import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import { formatCurrency, formatFileSize, formatDate } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/badges'
+import { SkeletonTableRows, type SkeletonColumnDef } from '@/components/ui/skeleton-table'
 
 function formatSkippedMessage(skipped: SkippedCounts): string {
   const parts: string[] = []
@@ -101,6 +102,22 @@ const isValidFileType = (file: File): boolean => {
 
   return hasValidExtension || hasValidMimeType
 }
+
+const uploadTableSkeletonColumns: SkeletonColumnDef[] = [
+  { lines: ['h-4 w-40', 'h-3 w-20'], cellClassName: 'px-0' },
+  'h-4 w-28',
+  'h-5 w-20',
+  { lines: ['h-4 w-8'], align: 'center' },
+  { lines: ['h-4 w-8'], align: 'center' },
+  { lines: ['h-4 w-8'], align: 'center' },
+  { lines: ['h-4 w-12'], align: 'center' },
+  { lines: ['h-4 w-16'], align: 'center' },
+  { lines: ['h-4 w-20'], align: 'center' },
+  'h-5 w-24',
+  { lines: ['h-4 w-10'], align: 'center' },
+  'h-4 w-24',
+  { lines: ['h-8 w-8', 'h-8 w-8'], row: true },
+]
 
 export default function UploadsPage() {
   const [uploads, setUploads] = useState<UploadWithStats[]>([])
@@ -671,7 +688,12 @@ export default function UploadsPage() {
             </CardContent>
           </Card>
 
-          <div className="flex items-center justify-between mb-4">
+          <div className="mb-0 px-2">
+            <h2 className="text-lg font-semibold text-slate-900">Upload History</h2>
+            <p className="text-sm text-slate-500">View all uploaded files and their validation status</p>
+          </div>
+
+          <div className="flex items-center justify-between mb-2 px-2">
             <PaginationMeta
                 meta={meta}
                 label="uploads"
@@ -703,18 +725,11 @@ export default function UploadsPage() {
             </div>
           </div>
 
-          <Card className="py-6">
-            <CardHeader>
-              <CardTitle>Upload History</CardTitle>
-              <CardDescription>
-                View all uploaded files and their validation status
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-6">
+          <div className="bg-white rounded-lg border overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="px-0">File</TableHead>
+                    <TableHead className="text-center">File</TableHead>
                     <TableHead>Account</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-center">Records</TableHead>
@@ -731,11 +746,7 @@ export default function UploadsPage() {
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                      <TableRow>
-                          <TableCell colSpan={13} className="text-center py-8">
-                          <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
-                        </TableCell>
-                      </TableRow>
+                      <SkeletonTableRows rows={8} columns={uploadTableSkeletonColumns} />
                   ) : uploads.length === 0 ? (
                       <TableRow>
                           <TableCell colSpan={13} className="text-center py-8 text-slate-500">
@@ -757,7 +768,7 @@ export default function UploadsPage() {
 
                         return (
                             <TableRow key={upload.id} className="hover:bg-slate-50">
-                              <TableCell className="px-0">
+                              <TableCell className="px-2">
                                 <Link href={`/admin/uploads/${upload.id}`} className="hover:underline">
                                   <div className="flex items-center gap-2">
                                     <FileSpreadsheet className="h-5 w-5 text-slate-400" />
@@ -902,8 +913,7 @@ export default function UploadsPage() {
                   )}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+          </div>
 
           <div className="border-t">
             <Pagination

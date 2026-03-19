@@ -20,6 +20,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { api, ApiError } from '@/lib/api'
+import { SkeletonTableRows } from '@/components/ui/skeleton-table'
+import { Pagination, PaginationMeta } from '@/components/ui/pagination'
 import {
   ScanSearch,
   FileUp,
@@ -37,7 +39,18 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/utils'
-import type { BavBatchItem, BavBatchUploadResponse, BavBatchProgress } from '@/types'
+import type { BavBatchItem, BavBatchUploadResponse, BavBatchProgress, PaginationLink, PaginationLinks, PaginationMeta as PaginationMetaType } from '@/types'
+
+const bavBatchSkeletonColumns = [
+  { lines: ['h-4 w-4 rounded', 'h-4 w-36'], row: true as const },
+  'h-5 w-16 rounded-full',
+  { lines: ['h-4 w-8'], align: 'center' as const },
+  { lines: ['h-4 w-8'], align: 'center' as const },
+  { lines: ['h-4 w-8'], align: 'center' as const },
+  { lines: ['h-4 w-8'], align: 'center' as const },
+  'h-4 w-24',
+  'h-7 w-14',
+]
 
 type Step = 'upload' | 'preview' | 'processing' | 'done'
 
@@ -54,14 +67,24 @@ export default function BavAutoPage() {
   const [credits, setCredits] = useState<{ remaining: number; total: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [recordLimit, setRecordLimit] = useState<number | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [meta, setMeta] = useState<PaginationMetaType | null>(null)
+  const [links, setLinks] = useState<PaginationLinks | null>(null)
+  const [paginationLinks, setPaginationLinks] = useState<PaginationLink[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
 
-  const fetchBatches = async () => {
+  const fetchBatches = async (page = 1) => {
+    setLoading(true)
     try {
-      const data = await api.getBavBatches()
-      setBatches(data)
+      const response = await api.getBavBatches({ page, per_page: 20 })
+      setBatches(response.data)
+      setMeta(response.meta || null)
+      setLinks(response.links || null)
+      if (response.meta && 'links' in response.meta) {
+        setPaginationLinks((response.meta as PaginationMetaType & { links?: PaginationLink[] }).links || [])
+      }
     } catch (e) {
       console.error('Failed to fetch batches:', e)
     } finally {
@@ -81,12 +104,15 @@ export default function BavAutoPage() {
   }
 
   useEffect(() => {
-    fetchBatches()
     fetchBalance()
     return () => {
       if (pollRef.current) clearInterval(pollRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    fetchBatches(currentPage)
+  }, [currentPage])
 
   const startPolling = useCallback((batchId: number) => {
     if (pollRef.current) clearInterval(pollRef.current)
@@ -99,7 +125,8 @@ export default function BavAutoPage() {
         if (status.status === 'completed' || status.status === 'failed') {
           if (pollRef.current) clearInterval(pollRef.current)
           setStep(status.status === 'completed' ? 'done' : 'upload')
-          fetchBatches()
+          setCurrentPage(1)
+          fetchBatches(1)
           fetchBalance()
 
           if (status.status === 'completed') {
@@ -219,7 +246,20 @@ export default function BavAutoPage() {
     setError(null)
     setFile(null)
     setRecordLimit(null)
-    fetchBatches()
+    setCurrentPage(1)
+    fetchBatches(1)
+  }
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) setCurrentPage(prev => prev - 1)
+  }
+
+  const handleNextPage = () => {
+    if (meta && currentPage < meta.last_page) setCurrentPage(prev => prev + 1)
+  }
+
+  const handlePageClick = (page: number) => {
+    setCurrentPage(page)
   }
 
   const statusBadge = (status: string) => {
@@ -341,13 +381,13 @@ export default function BavAutoPage() {
                     {uploadResult.filename}
                   </CardTitle>
                   <CardDescription className="mt-1">
-  {uploadResult.total_records} records detected. Review the preview below and confirm to start BAV.
-  {(uploadResult as any).already_verified > 0 && (
-    <span className="block mt-1 text-green-600">
-      {(uploadResult as any).already_verified} already verified (will be skipped), {(uploadResult as any).eligible ?? (uploadResult.total_records - (uploadResult as any).already_verified)} eligible for new verification.
-    </span>
-  )}
-</CardDescription>
+                    {uploadResult.total_records} records detected. Review the preview below and confirm to start BAV.
+                    {(uploadResult as any).already_verified > 0 && (
+                      <span className="block mt-1 text-green-600">
+                        {(uploadResult as any).already_verified} already verified (will be skipped), {(uploadResult as any).eligible ?? (uploadResult.total_records - (uploadResult as any).already_verified)} eligible for new verification.
+                      </span>
+                    )}
+                  </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-sm">
@@ -555,15 +595,20 @@ export default function BavAutoPage() {
         )}
 
         {/* Batch History */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-slate-500" />
-              Batch History
-            </CardTitle>
-            <CardDescription>Previous BAV verification batches</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <div>
+          <div className="flex items-center gap-2 px-2">
+            <Clock className="h-5 w-5 text-slate-500" />
+            <h2 className="text-lg font-semibold">Batch History</h2>
+          </div>
+          <p className="text-sm text-slate-500 mb-1 px-2">Previous BAV verification batches</p>
+          {meta && (
+            <PaginationMeta
+              meta={meta}
+              label="batches"
+              containerClassName="px-2"
+            />
+          )}
+          <div className="rounded-lg border bg-white">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -579,14 +624,10 @@ export default function BavAutoPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
-                    </TableCell>
-                  </TableRow>
+                  <SkeletonTableRows columns={bavBatchSkeletonColumns} rows={5} />
                 ) : batches.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-slate-500">
+                    <TableCell colSpan={8} className="text-center h-24 text-muted-foreground">
                       No BAV batches yet
                     </TableCell>
                   </TableRow>
@@ -627,8 +668,16 @@ export default function BavAutoPage() {
                 )}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
+          </div>
+          <Pagination
+            meta={meta}
+            links={links}
+            paginationLinks={paginationLinks}
+            onPageChange={handlePageClick}
+            onPreviousClick={handlePreviousPage}
+            onNextClick={handleNextPage}
+          />
+        </div>
       </div>
     </>
   )

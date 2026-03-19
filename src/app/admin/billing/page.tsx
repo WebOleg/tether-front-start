@@ -37,6 +37,19 @@ import {
 import { formatCurrency, formatDate, formatSimpleDate  } from '@/lib/utils'
 import { ModelBadge, StatusBadge } from '@/components/ui/badges'
 import { CleanUsersExport } from '@/components/clean-users-export'
+import { SkeletonTableRows } from '@/components/ui/skeleton-table'
+
+const skeletonColumns = [
+  ['h-4 w-32', 'h-3 w-40'],
+  'h-5 w-20 rounded-full',
+  ['h-4 w-36', 'h-3 w-24'],
+  'h-4 w-16',
+  'h-5 w-20 rounded-full',
+  'h-4 w-24',
+  'h-4 w-24',
+  'h-4 w-20',
+  { lines: ['h-3.5 w-3.5 rounded', 'h-4 w-20'], row: true },
+]
 
 function calculateCycle(dateString: string, model: string = 'legacy') {
   const start = new Date(dateString)
@@ -273,11 +286,7 @@ function BillingContent() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8">
-                        Loading...
-                      </TableCell>
-                    </TableRow>
+                    <SkeletonTableRows columns={skeletonColumns} rows={5} />
                 ) : attempts.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={9} className="text-center py-8">

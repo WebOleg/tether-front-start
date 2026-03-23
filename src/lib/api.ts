@@ -227,7 +227,7 @@ export type AnalyticsFilters = {
 }
 
 // Clean Users Export
-export type CleanUsersMode = 'broad' | 'strict'
+export type CleanUsersMode = 'broad' | 'strict' | 'strict3'
 
 export interface CleanUsersStats {
   count: number

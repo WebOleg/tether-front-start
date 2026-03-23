@@ -220,11 +220,22 @@ export function CleanUsersExport() {
                 >
                   Strict (2+ charges)
                 </Button>
+                <Button
+                  variant={mode === 'strict3' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setMode('strict3')}
+                  disabled={exporting}
+                  className="flex-1"
+                >
+                  Strict (3+ charges)
+                </Button>
               </div>
               <p className="text-xs text-slate-400">
                 {mode === 'broad'
                   ? 'All users with at least 1 approved charge, 0 lifetime chargebacks, not charged recently'
-                  : 'Users with 2+ approved charges, 0 lifetime chargebacks, not charged recently'}
+                  : mode === 'strict'
+                  ? 'Users with 2+ approved charges, 0 lifetime chargebacks, not charged recently'
+                  : 'Users with 3+ approved charges, 0 lifetime chargebacks, not charged recently'}
               </p>
             </div>
 

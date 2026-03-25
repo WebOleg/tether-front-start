@@ -148,6 +148,16 @@ export interface EmpRefreshStatusResponse {
   }
 }
 
+export interface EmpRefreshAccountStats {
+  inserted: number
+  updated: number
+  unchanged: number
+  errors: number
+  total: number
+  pages: number
+  duration_seconds: number
+}
+
 export interface EmpRefreshJobStatusResponse {
   data: {
     job_id: string
@@ -160,6 +170,11 @@ export interface EmpRefreshJobStatusResponse {
       processed_pages: number
       total_pages: number
     }
+    per_account: Record<string, EmpRefreshAccountStats> | null
+    duration_seconds: number | null
+    accounts_total: number
+    accounts_processed: number
+    current_account: string | null
     started_at: string
     completed_at: string | null
   }

@@ -66,6 +66,48 @@ export default function FileClearancePage() {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const dropZoneRef = useRef<HTMLDivElement>(null)
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+    const STORAGE_KEY = 'file_clearance_token'
+
+    // Restore active session on mount
+    useEffect(() => {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (!saved) return
+
+        try {
+            const { token: savedToken, originalFile } = JSON.parse(saved)
+            if (savedToken) {
+                setToken(savedToken)
+                setStatus('processing')
+                setProgress({
+                    status: 'processing',
+                    total_rows: 0,
+                    processed: 0,
+                    cleared_rows: 0,
+                    excluded_rows: 0,
+                    vop_resolved: 0,
+                    vop_failed: 0,
+                    progress: 0,
+                    error: null,
+                    headers: null,
+                    excluded_details: null,
+                    original_file: originalFile || null,
+                    completed_at: null,
+                })
+            }
+        } catch {
+            localStorage.removeItem(STORAGE_KEY)
+        }
+    }, [])
+
+    // Persist token when it changes
+    useEffect(() => {
+        if (token && status && status !== 'completed' && status !== 'failed') {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                token,
+                originalFile: progress?.original_file || null,
+            }))
+        }
+    }, [token, status, progress?.original_file])
 
     const reset = useCallback(() => {
         setFile(null)
@@ -76,6 +118,7 @@ export default function FileClearancePage() {
         setResult(null)
         setIsUploading(false)
         setIsDownloading(false)
+        localStorage.removeItem(STORAGE_KEY)
         if (pollRef.current) clearInterval(pollRef.current)
         if (fileInputRef.current) fileInputRef.current.value = ''
     }, [])
@@ -171,10 +214,12 @@ export default function FileClearancePage() {
 
                 if (d.status === 'completed') {
                     setResult(d)
+                    localStorage.removeItem(STORAGE_KEY)
                     toast.success(`Clearance complete — ${d.cleared_rows} rows cleared`)
                     if (pollRef.current) clearInterval(pollRef.current)
                 } else if (d.status === 'failed') {
                     setError(d.error || 'Processing failed.')
+                    localStorage.removeItem(STORAGE_KEY)
                     if (pollRef.current) clearInterval(pollRef.current)
                 }
             } catch {

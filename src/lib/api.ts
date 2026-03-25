@@ -259,6 +259,38 @@ export interface CleanUsersExportStatus {
   updated_at?: string
 }
 
+export interface FileClearanceUploadResponse {
+  data: {
+    token: string
+    status: string
+    original_file: string
+    total_rows: number
+    headers: string[]
+    message: string
+  }
+}
+
+export interface FileClearanceStatus {
+  status: 'queued' | 'processing' | 'completed' | 'failed'
+  total_rows: number
+  processed: number
+  cleared_rows: number
+  excluded_rows: number
+  vop_resolved: number
+  vop_failed: number
+  progress: number
+  error: string | null
+  headers: string[] | null
+  excluded_details: Array<{
+    row_index: number
+    iban: string | null
+    bic: string | null
+    reasons: string[]
+  }> | null
+  original_file: string | null
+  completed_at: string | null
+}
+
 export interface OrphanCountResponse {
   orphaned_count: number
 }
@@ -1352,6 +1384,78 @@ class ApiClient {
     const query = this.buildQuery(filters)
     const response = await this.request<{ data: ChargebackAllTimeResponse }>(`/admin/stats/chargeback-all-time${query}`)
     return response.data
+  }
+
+  async uploadFileClearance(file: File): Promise<FileClearanceUploadResponse> {
+    const token = this.getToken()
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const headers: HeadersInit = { 'Accept': 'application/json' }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    const response = await fetch(`${API_BASE_URL}/admin/file-clearance`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+
+    if (response.status === 401) {
+      this.clearToken()
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
+      throw new Error('Unauthorized')
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new ApiError(
+          error.message || `File clearance failed: ${response.status}`,
+          error.errors || [],
+          response.status
+      )
+    }
+
+    return response.json()
+  }
+
+  async getFileClearanceStatus(token: string): Promise<FileClearanceStatus> {
+    const response = await this.request<{ data: FileClearanceStatus }>(
+        `/admin/file-clearance/${token}/status`
+    )
+    return response.data
+  }
+
+  async downloadFileClearance(token: string): Promise<Blob> {
+    const authToken = this.getToken()
+    const headers: HeadersInit = {
+      'Accept': 'text/csv, application/octet-stream',
+    }
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`
+    }
+
+    const response = await fetch(
+        `${API_BASE_URL}/admin/file-clearance/${token}/download`,
+        { headers }
+    )
+
+    if (response.status === 401) {
+      this.clearToken()
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
+      throw new Error('Unauthorized')
+    }
+
+    if (!response.ok) {
+      throw new ApiError('Download failed', [], response.status)
+    }
+
+    return response.blob()
   }
 }
 

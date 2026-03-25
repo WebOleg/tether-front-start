@@ -42,6 +42,16 @@ import { formatCurrency, formatIsoDate, formatPercent, generateMonthOptions } fr
 import { ModelTabs } from '@/components/ui/model-tabs'
 import { SkeletonTableRows } from '@/components/ui/skeleton-table'
 
+interface EmpRefreshAccountStats {
+  inserted: number
+  updated: number
+  unchanged: number
+  errors: number
+  total: number
+  pages: number
+  duration_seconds: number
+}
+
 interface EmpRefreshStats {
   inserted: number
   updated: number
@@ -85,6 +95,8 @@ export default function AnalyticsPage() {
   const [empJobId, setEmpJobId] = useState<string | null>(null)
   const [empProgress, setEmpProgress] = useState(0)
   const [empStats, setEmpStats] = useState<EmpRefreshStats | null>(null)
+  const [empPerAccount, setEmpPerAccount] = useState<Record<string, EmpRefreshAccountStats> | null>(null)
+  const [empDuration, setEmpDuration] = useState<number | null>(null)
   const [empResult, setEmpResult] = useState<{ message: string; success: boolean } | null>(null)
   const [empFromDate, setEmpFromDate] = useState(() => {
     const date = new Date()
@@ -182,6 +194,14 @@ export default function AnalyticsPage() {
         setEmpStats(stats)
       }
 
+      if (status.data.per_account && Object.keys(status.data.per_account).length > 0) {
+        setEmpPerAccount(status.data.per_account as Record<string, EmpRefreshAccountStats>)
+      }
+
+      if (status.data.duration_seconds) {
+        setEmpDuration(status.data.duration_seconds)
+      }
+
       if (status.data.status === 'completed') {
         setEmpRefreshing(false)
         setEmpJobId(null)
@@ -270,6 +290,8 @@ export default function AnalyticsPage() {
     setEmpResult(null)
     setEmpProgress(0)
     setEmpStats(null)
+    setEmpPerAccount(null)
+    setEmpDuration(null)
 
     try {
       const result = await api.triggerEmpRefresh(empFromDate, empToDate)
@@ -295,6 +317,13 @@ export default function AnalyticsPage() {
         success: false
       })
     }
+  }
+
+  const formatDuration = (seconds: number): string => {
+    if (seconds < 60) return `${seconds}s`
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return s > 0 ? `${m}m ${s}s` : `${m}m`
   }
 
   const hasAlert = cbStats?.countries?.some(c => c.alert) || false
@@ -381,6 +410,24 @@ export default function AnalyticsPage() {
                 <div className={`flex items-center gap-1 text-sm mt-1 ${empResult.success ? 'text-green-600' : 'text-amber-600'}`}>
                   {empResult.success ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
                   {empResult.message}
+                  {empDuration && <span className="text-slate-400 ml-1">· {formatDuration(empDuration)}</span>}
+                </div>
+              )}
+              {empPerAccount && !empRefreshing && Object.keys(empPerAccount).length > 0 && (
+                <div className="mt-2 border rounded-md divide-y text-xs">
+                  {Object.entries(empPerAccount).map(([name, s]) => (
+                    <div key={name} className="flex items-center justify-between px-3 py-1.5 bg-slate-50">
+                      <span className="font-medium text-slate-600 truncate max-w-[120px]">{name}</span>
+                      <div className="flex gap-2">
+                        <span className="text-green-600">+{s.inserted}</span>
+                        {s.updated > 0 && <span className="text-blue-600">↻{s.updated}</span>}
+                        <span className="text-slate-400">={s.unchanged}</span>
+                        {s.errors > 0 && <span className="text-red-500">✗{s.errors}</span>}
+                        <span className="text-slate-300">·</span>
+                        <span className="text-slate-400">{formatDuration(s.duration_seconds)}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>

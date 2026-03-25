@@ -74,26 +74,38 @@ export default function FileClearancePage() {
         if (!saved) return
 
         try {
-            const { token: savedToken, originalFile } = JSON.parse(saved)
-            if (savedToken) {
+            const parsed = JSON.parse(saved)
+            const { token: savedToken, originalFile, status: savedStatus, result: savedResult } = parsed
+
+            if (!savedToken) return
+
+            // Restore completed results directly
+            if (savedStatus === 'completed' && savedResult) {
                 setToken(savedToken)
-                setStatus('processing')
-                setProgress({
-                    status: 'processing',
-                    total_rows: 0,
-                    processed: 0,
-                    cleared_rows: 0,
-                    excluded_rows: 0,
-                    vop_resolved: 0,
-                    vop_failed: 0,
-                    progress: 0,
-                    error: null,
-                    headers: null,
-                    excluded_details: null,
-                    original_file: originalFile || null,
-                    completed_at: null,
-                })
+                setStatus('completed')
+                setProgress(savedResult)
+                setResult(savedResult)
+                return
             }
+
+            // Restore in-progress — polling will pick it up
+            setToken(savedToken)
+            setStatus('processing')
+            setProgress({
+                status: 'processing',
+                total_rows: 0,
+                processed: 0,
+                cleared_rows: 0,
+                excluded_rows: 0,
+                vop_resolved: 0,
+                vop_failed: 0,
+                progress: 0,
+                error: null,
+                headers: null,
+                excluded_details: null,
+                original_file: originalFile || null,
+                completed_at: null,
+            })
         } catch {
             localStorage.removeItem(STORAGE_KEY)
         }
@@ -214,7 +226,12 @@ export default function FileClearancePage() {
 
                 if (d.status === 'completed') {
                     setResult(d)
-                    localStorage.removeItem(STORAGE_KEY)
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                        token: token,
+                        originalFile: d.original_file,
+                        status: 'completed',
+                        result: d,
+                    }))
                     toast.success(`Clearance complete — ${d.cleared_rows} rows cleared`)
                     if (pollRef.current) clearInterval(pollRef.current)
                 } else if (d.status === 'failed') {

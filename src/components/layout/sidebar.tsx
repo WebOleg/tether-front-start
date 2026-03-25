@@ -25,6 +25,7 @@ import {
   ScanSearch,
   Globe,
   History,
+  FileCheck,
 } from 'lucide-react'
 import { api } from '@/lib/api'
 import {
@@ -60,6 +61,7 @@ const navigation = [
   { name: 'Upload CB Reasons', href: '/admin/uploads/cb-reasons', icon: ChargebackUploadIcon },
   { name: 'CB All-Time', href: '/admin/chargebacks/all-time', icon: History },
   { name: 'BAV Auto', href: '/admin/bav-auto', icon: ScanSearch },
+  { name: 'File Clearance', href: '/admin/file-clearance', icon: FileCheck },
   { name: 'Debtors', href: '/admin/debtors', icon: Users },
   { name: 'Chargebacks', href: '/admin/chargebacks', icon: ChargebackIcon },
   { name: 'VOP Logs', href: '/admin/vop-logs', icon: ShieldCheck },

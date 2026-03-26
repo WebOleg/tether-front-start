@@ -280,11 +280,9 @@ export default function UploadDetailPage() {
   const handleCooldownToggle = async (checked: boolean) => {
     setCooldownUpdating(true)
     try {
-      // Use PATCH response directly — it has the freshest can_resync / is_30d_cool values
       const result = await api.setUploadCooldown(uploadId, checked)
       setUpload(result.data)
       toast.success(`30-day cooldown ${checked ? 'enabled' : 'disabled'} successfully`)
-      // Also refresh stats so ready_for_sync is current, and re-fetch upload for latest can_resync
       await Promise.all([fetchValidationStats(), fetchBillingStats(), fetchUpload()])
     } catch (error) {
       toast.error('Failed to update 30-day cooldown')
@@ -293,7 +291,6 @@ export default function UploadDetailPage() {
     }
   }
 
-  // Manual validation trigger
   const handleValidate = async () => {
     setValidating(true)
     try {
@@ -331,7 +328,6 @@ export default function UploadDetailPage() {
         const billingData = await api.getBillingStats(uploadId)
         setBillingStats(billingData)
 
-        // Fetch billing cycles
         try {
           const cyclesData = await api.getBillingCycles(uploadId)
           setBillingCycles(cyclesData)
@@ -379,8 +375,6 @@ export default function UploadDetailPage() {
       if (data && !data.is_processing && !data.is_resync_processing) {
         clearInterval(interval)
         toast.success('Billing processing completed!')
-
-        // Refresh upload (can_resync) so the Resync button reflects the correct post-sync state
         await fetchUpload()
         fetchBillingCycles()
       }
@@ -389,7 +383,6 @@ export default function UploadDetailPage() {
     return () => clearInterval(interval)
   }, [billingStats?.is_processing, billingStats?.is_resync_processing, fetchBillingStats, fetchUpload, fetchValidationStats, fetchBillingCycles])
 
-  // Polling effect for VOP verification progress
   useEffect(() => {
     if (!VerifyVopInProgress) return
 
@@ -586,10 +579,14 @@ export default function UploadDetailPage() {
   }
 
   const handleReassignOpen = async () => {
+    if ((billingStats?.total_attempts ?? 0) > 0) {
+      toast.error('Cannot reassign: this upload already has billing attempts.')
+      return
+    }
     setReassignOpen(true)
     try {
       const accounts = await api.getEmpAccounts()
-      setEmpAccounts(accounts.filter(a => a.is_active))
+      setEmpAccounts(accounts)
     } catch (error) {
       toast.error('Failed to load EMP accounts')
     }
@@ -693,7 +690,6 @@ export default function UploadDetailPage() {
   const isResync = upload?.can_resync === true && hasEverSynced
   const resyncLimitReached = (upload?.resync_count ?? 0) >= (upload?.max_resync ?? 3)
   const isVoidedOrCancelled = ['void', 'voiding', 'cancelled', 'cancelling'].includes(upload?.status ?? '')
-  // Only show resync stat cards when a sync has fully completed (not mid-run) and limit not reached
   const showResyncStats = hasEverSynced && (!billingStats?.is_processing || billingStats?.is_resync_processing) && !resyncLimitReached
 
   const vopPassed = (vopStats?.by_result?.verified || 0) + (vopStats?.by_result?.likely_verified || 0)
@@ -724,6 +720,8 @@ export default function UploadDetailPage() {
     setCurrentPage(page)
   }
 
+  const hasBillingAttempts = (billingStats?.total_attempts ?? 0) > 0
+
   return (
       <>
         <Header
@@ -737,16 +735,18 @@ export default function UploadDetailPage() {
                       <span className="ml-3 inline-flex items-center gap-1">
                       <span className="text-slate-400">•</span>
                       <button
-                          onClick={handleReassignOpen}
-                          className="text-emerald-600 font-medium hover:text-emerald-700 hover:underline cursor-pointer transition-colors"
-                          title="Click to change account"
+                          onClick={hasBillingAttempts ? undefined : handleReassignOpen}
+                          className={`font-medium transition-colors ${hasBillingAttempts ? 'text-emerald-600 cursor-not-allowed opacity-60' : 'text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer'}`}
+                          title={hasBillingAttempts ? 'Cannot reassign: upload has billing attempts' : 'Click to change account'}
                       >
                         {upload.emp_account.name}
                       </button>
-                      <RefreshCw className="h-3 w-3 text-slate-400 cursor-pointer hover:text-emerald-600" onClick={handleReassignOpen} />
+                      {!hasBillingAttempts && (
+                        <RefreshCw className="h-3 w-3 text-slate-400 cursor-pointer hover:text-emerald-600" onClick={handleReassignOpen} />
+                      )}
                     </span>
                   )}
-                  {!upload.emp_account && (
+                  {!upload.emp_account && !hasBillingAttempts && (
                       <button
                           onClick={handleReassignOpen}
                           className="ml-3 text-sm text-amber-600 hover:text-amber-700 hover:underline cursor-pointer"
@@ -1054,7 +1054,6 @@ export default function UploadDetailPage() {
 
           {stats && (
               <div className="px-6 py-3 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-                {/* Row 1: 8 cards */}
                 <Card className="py-0">
                   <CardContent className="p-3">
                     <div className="flex items-center gap-1.5 mb-1">
@@ -1134,7 +1133,6 @@ export default function UploadDetailPage() {
                     <p className="text-lg font-bold leading-tight">{vopFailed}</p>
                   </CardContent>
                 </Card>
-                {/* Row 2: 4 cards */}
                 <Card className="py-0">
                   <CardContent className="p-3">
                     <div className="flex items-center gap-1.5 mb-1">
@@ -1180,7 +1178,6 @@ export default function UploadDetailPage() {
                     <p className="text-base font-bold leading-tight truncate">{formatCurrency(showResyncStats && !isVoidedOrCancelled ? (upload.ready_for_sync_amount ?? 0) : 0, 'EUR')}</p>
                   </CardContent>
                 </Card>
-
               </div>
           )}
 
@@ -1305,7 +1302,6 @@ export default function UploadDetailPage() {
             </div>
           )}
 
-          {/* Billing Cycles & Cap Section */}
           {(hasBillingActivity || billingCycles?.data?.max_billing_amount !== null) && (
               <div className="px-6 pb-4 mt-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
@@ -1732,7 +1728,6 @@ export default function UploadDetailPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Reassign Account Dialog */}
         <Dialog open={reassignOpen} onOpenChange={setReassignOpen}>
           <DialogContent>
             <DialogHeader>
@@ -1781,6 +1776,9 @@ export default function UploadDetailPage() {
                               />
                               <span className="font-medium text-sm">{account.name}</span>
                               <span className="text-xs text-slate-400">{account.slug}</span>
+                              {!account.is_active && (
+                                <span className="text-xs text-amber-600 ml-auto">(inactive)</span>
+                              )}
                             </label>
                         ))
                 )}
